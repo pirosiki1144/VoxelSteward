@@ -1,57 +1,56 @@
-# Architecture Decisions
+# アーキテクチャ上の意思決定
 
 ## ADR-001: Node.js 24, TypeScript, and npm
 
-- Status: Accepted
-- Decision: Use Node.js 24 LTS, strict TypeScript, and npm lockfiles.
-- Rationale: The candidate Minecraft library is in the Node.js ecosystem, and a
-  lockfile gives repeatable CI and deployments.
+- ステータス: 承認済み
+- 決定: Node.js 24 LTS、厳格なTypeScript設定、npmのロックファイルを使用します。
+- 理由: 候補となるMinecraftライブラリはNode.jsエコシステムに属しており、ロック
+  ファイルによってCIとデプロイの再現性を確保できるためです。
 
-## ADR-002: Ports and adapters
+## ADR-002: ポートとアダプター
 
-- Status: Accepted
-- Decision: Domain and application code depend on interfaces for Minecraft,
-  repositories, checkpoints, and instance locking.
-- Rationale: This keeps safety logic testable and permits infrastructure changes
-  without rewriting task behavior.
+- ステータス: 承認済み
+- 決定: ドメインコードとアプリケーションコードは、Minecraft、リポジトリ、
+  チェックポイント、インスタンスロックのインターフェースに依存します。
+- 理由: 安全ロジックをテスト可能な状態に保ち、タスクの動作を書き換えずに
+  インフラストラクチャを変更できるためです。
 
-## ADR-003: PostgreSQL as the initial persistence candidate
+## ADR-003: 初期の永続化候補としてPostgreSQLを採用
 
-- Status: Accepted
-- Decision: Provide PostgreSQL through Compose. Add the application driver only
-  when persistence code is implemented.
-- Rationale: PostgreSQL supports transactions, migrations, durable checkpoints,
-  and database-backed leases, and is portable across local, VPS, and AWS
-  environments.
+- ステータス: 承認済み
+- 決定: ComposeでPostgreSQLを提供します。アプリケーション用ドライバーは、
+  永続化コードを実装する段階で追加します。
+- 理由: PostgreSQLはトランザクション、マイグレーション、永続的なチェックポイント、
+  データベースを利用したリースに対応しており、ローカル、VPS、AWSの各環境へ移行
+  できるためです。
 
-## ADR-004: bedrock-protocol deferred
+## ADR-004: bedrock-protocolの導入延期
 
-- Status: Accepted
-- Decision: Treat `bedrock-protocol` as the leading adapter candidate but do not
-  install it during the foundation milestone.
-- Rationale: No Minecraft connection is in scope yet, and deferring it reduces
-  dependency and credential exposure.
+- ステータス: 承認済み
+- 決定: `bedrock-protocol`を有力なアダプター候補としますが、基盤構築の
+  マイルストーンではインストールしません。
+- 理由: 現時点ではMinecraftへの接続が対象範囲外であり、導入を延期することで
+  依存関係と認証情報の露出を減らせるためです。
 
-## ADR-005: Safety policy is non-configurable
+## ADR-005: 安全ポリシーを設定で変更できない設計
 
-- Status: Accepted
-- Decision: Player detection, combat avoidance, test-first rollout, and safety
-  shutdown have no bypass configuration.
-- Rationale: A runtime bypass would turn an invariant into an operational
-  preference and create unacceptable production risk.
+- ステータス: 承認済み
+- 決定: プレイヤー検知、戦闘回避、テスト優先のロールアウト、安全な終了処理には、
+  迂回用の設定を設けません。
+- 理由: 実行時に迂回できると、不変条件が単なる運用上の選択肢となり、本番環境で
+  許容できないリスクが生じるためです。
 
-## ADR-006: JSON stdout logs and HTTP health
+## ADR-006: stdoutへのJSONログ出力とHTTPヘルスチェック
 
-- Status: Accepted
-- Decision: Emit newline-delimited JSON to stdout and expose an HTTP health
-  endpoint.
-- Rationale: Both work locally and integrate cleanly with Docker, systemd, and
-  AWS log and health systems.
+- ステータス: 承認済み
+- 決定: 改行区切りのJSONをstdoutへ出力し、HTTPヘルスチェックエンドポイントを
+  公開します。
+- 理由: どちらもローカル環境で動作し、Docker、systemd、AWSのログおよび
+  ヘルスチェックシステムと容易に統合できるためです。
 
-## ADR-007: Versioned migrations and Repository-only DB access
+## ADR-007: バージョン管理されたマイグレーションとRepository限定のDBアクセス
 
-- Status: Accepted
-- Decision: All schema changes use migrations, and application/domain code
-  accesses data only through Repository interfaces.
-- Rationale: This makes schema state reproducible and isolates persistence
-  details.
+- ステータス: 承認済み
+- 決定: すべてのスキーマ変更にマイグレーションを使用し、アプリケーションコードと
+  ドメインコードは`Repository`インターフェースを介してのみデータへアクセスします。
+- 理由: スキーマの状態を再現可能にし、永続化の詳細を分離できるためです。

@@ -1,12 +1,12 @@
-# Architecture
+# アーキテクチャ
 
-## 1. Design goals
+## 1. 設計目標
 
-The architecture uses ports and adapters so Minecraft, persistence, and hosting
-choices do not leak into task logic. Safety policy sits in the application
-boundary and cannot be bypassed by an adapter.
+このアーキテクチャでは、Minecraft、永続化、ホスティングに関する選択がタスクロジックへ
+影響しないように、ポートとアダプターを使用します。安全ポリシーはアプリケーション境界に
+配置し、アダプターから迂回できないようにします。
 
-## 2. Target component model
+## 2. 目標とするコンポーネントモデル
 
 ```text
 Entrypoint / lifecycle
@@ -21,7 +21,7 @@ Application coordinator ---- Safety policy
         +---- Instance lock ----- DB lease/advisory lock (future)
 ```
 
-Suggested future source layout:
+将来推奨されるソース構成は次のとおりです。
 
 ```text
 src/
@@ -34,53 +34,54 @@ src/
   infrastructure/ configuration, logging, health, signals
 ```
 
-The initial source remains deliberately small. Directories are introduced only
-when their code exists.
+初期段階のソースは意図的に小さく保ちます。ディレクトリは、そこに配置するコードが
+存在するようになった時点で導入します。
 
-## 3. Lifecycle and safety state
+## 3. ライフサイクルと安全状態
 
-The future coordinator has an explicit state machine:
+将来実装するコーディネーターは、次の明示的な状態機械を持ちます。
 
 ```text
 STARTING -> READY -> WORKING -> STOPPING -> STOPPED
                          \-> SAFETY_STOP -/
 ```
 
-`SAFETY_STOP` is entered on player detection, unsafe world state, lost lock, or
-an unrecoverable adapter error. It cancels work, records a checkpoint when safe,
-logs out, and terminates. No transition returns from `SAFETY_STOP` to
-`WORKING`.
+プレイヤーの検知、安全でないワールド状態、ロックの喪失、または回復不能なアダプター
+エラーが発生した場合は、`SAFETY_STOP`へ移行します。この状態では作業をキャンセルし、
+安全に実行できる場合はチェックポイントを記録してからログアウトし、終了します。
+`SAFETY_STOP`から`WORKING`へ戻る遷移はありません。
 
-SIGTERM follows the same stop pipeline with a bounded shutdown timeout.
+SIGTERMを受けた場合も、上限時間が設定された同じ停止処理を実行します。
 
-## 4. Persistence
+## 4. 永続化
 
-Application code depends on Repository interfaces rather than SQL clients.
-Transactions and SQL remain inside persistence adapters. Schema changes are
-ordered migration files applied as a deployment step. Checkpoints include a
-task identifier, version, safe resume position, state payload, and timestamp.
+アプリケーションコードはSQLクライアントではなく、`Repository`インターフェースに
+依存します。トランザクションとSQLは永続化アダプター内に留めます。スキーマ変更は、
+順序付けされたマイグレーションファイルとして管理し、デプロイ手順の一環として適用
+します。チェックポイントには、タスク識別子、バージョン、安全に再開できる位置、
+状態ペイロード、タイムスタンプを含めます。
 
-A database-backed renewable lease is preferred for distributed deployments.
-The lease key is the bot identity; failure to acquire or renew it prevents
-work and causes a safe disconnect.
+分散デプロイでは、データベースを利用した更新可能なリースを推奨します。リースキーには
+BOTの識別情報を使用します。リースの取得または更新に失敗した場合は作業を実行せず、
+安全に切断します。
 
-## 5. Authentication data
+## 5. 認証データ
 
-The future Minecraft adapter receives an authentication-cache path from
-configuration. Locally it is a bind mount or named volume outside the
-repository. In AWS it should be backed by an encrypted secret or persistent
-storage appropriate to the library. Cache contents must not enter logs.
+将来実装するMinecraftアダプターは、設定から認証キャッシュのパスを受け取ります。
+ローカル環境では、リポジトリ外のバインドマウントまたは名前付きボリュームを使用します。
+AWSでは、暗号化されたシークレット、またはライブラリに適した永続ストレージで管理する
+必要があります。キャッシュの内容をログへ出力してはいけません。
 
-## 6. Observability
+## 6. 可観測性
 
-The program emits JSON logs to stdout for collection by Docker or a cloud log
-driver. `/health` currently reports process liveness. Readiness will later
-include configuration, instance lease, database, and Minecraft session state
-without exposing secrets.
+プログラムは、Dockerまたはクラウドのログドライバーで収集できるように、JSONログを
+stdoutへ出力します。現在、`/health`はプロセスの生存状態を返します。将来の準備状態には、
+秘密情報を公開することなく、設定、インスタンスリース、データベース、Minecraftセッション
+の状態を含めます。
 
-## 7. Deployment portability
+## 7. デプロイの可搬性
 
-The application is stateless except for repositories and the external
-authentication cache. It accepts configuration through environment variables,
-logs to stdout, handles SIGTERM, and exposes HTTP health, allowing the same
-artifact to run with Compose, systemd, ECS, or another Linux container runtime.
+アプリケーションは、リポジトリと外部の認証キャッシュを除いてステートレスです。環境変数
+から設定を受け取り、stdoutへログを出力し、SIGTERMを処理し、HTTPヘルスチェックを公開
+します。これにより、同じ成果物をCompose、systemd、ECS、またはその他のLinuxコンテナ
+ランタイムで実行できます。

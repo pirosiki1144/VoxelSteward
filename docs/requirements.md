@@ -1,69 +1,68 @@
-# Requirements
+# 要件
 
-## 1. Purpose and current scope
+## 1. 目的と現在の対象範囲
 
-VoxelSteward will eventually connect to a Minecraft Bedrock Dedicated Server
-and perform controlled work. This initial milestone provides only the
-TypeScript development foundation, operational documentation, a health
-endpoint, and a database service definition.
+VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接続し、
+制御された作業を実行します。この初期マイルストーンで提供するのは、TypeScriptの
+開発基盤、運用ドキュメント、ヘルスチェックエンドポイント、データベースサービスの
+定義だけです。
 
-Out of scope for this milestone:
+このマイルストーンの対象範囲外となる項目は次のとおりです。
 
-- Minecraft server or account connections
-- `bedrock-protocol` installation or use
-- autonomous decisions or in-game actions
-- production deployment and production credentials
-- application database queries
+- Minecraftサーバーまたはアカウントへの接続
+- `bedrock-protocol`のインストールまたは使用
+- 自律的な判断またはゲーム内での行動
+- 本番環境へのデプロイおよび本番環境の認証情報
+- アプリケーションからのデータベースクエリ
 
-## 2. Platform
+## 2. プラットフォーム
 
 - Node.js 24 LTS
-- TypeScript and npm
-- Docker Engine and Docker Compose on Ubuntu under WSL2 for local services
-- A design portable to a Linux VPS or AWS container runtime
-- PostgreSQL as the initial Compose-managed database candidate
+- TypeScriptおよびnpm
+- ローカルサービス用として、WSL2上のUbuntuで動作するDocker Engineおよび
+  Docker Compose
+- Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
+- Composeで管理する初期データベース候補としてPostgreSQL
 
-## 3. Safety requirements
+## 3. 安全要件
 
-The following requirements are invariants, not optional features:
+以下の要件は不変条件であり、任意機能ではありません。
 
-1. New behavior must be verified on an isolated test server before production.
-2. Detection of any other player must immediately stop the current task and
-   initiate logout.
-3. Safety controls must not have bypasses or disable switches.
-4. The bot must avoid combat by default and retreat or disconnect rather than
-   engage.
-5. SIGTERM must initiate an orderly shutdown: stop accepting work, persist a
-   checkpoint, disconnect, release the instance lock, and exit.
-6. A lease or lock must prevent two processes from controlling one bot
-   identity.
-7. Long-running work must be resumable from durable checkpoints.
-8. Authentication caches must live in a mounted runtime-data location separate
-   from source and must never be committed.
+1. 新しい動作は、本番環境へ導入する前に、隔離されたテストサーバーで検証しなければ
+   なりません。
+2. 他のプレイヤーを検知した場合は、現在のタスクを直ちに中断し、ログアウトを開始
+   しなければなりません。
+3. 安全制御には、迂回手段や無効化スイッチを設けてはいけません。
+4. BOTは原則として戦闘を回避し、交戦する代わりに退避または切断しなければなりません。
+5. SIGTERMを受けた場合は、作業受付の停止、チェックポイントの永続化、切断、
+   インスタンスロックの解放、終了の順に、安全な終了処理を開始しなければなりません。
+6. リースまたはロックを使用し、2つのプロセスが同じBOT識別情報を操作することを
+   防止しなければなりません。
+7. 長時間実行する作業は、永続的なチェックポイントから再開できなければなりません。
+8. 認証キャッシュは、ソースとは別のマウントされた実行時データ領域に保存し、
+   commitしてはいけません。
 
-Production activation requires an explicit deployment configuration distinct
-from test configuration and evidence that the relevant behavior passed on the
-test server.
+本番環境を有効化するには、テスト用設定とは明確に分離されたデプロイ設定と、該当する
+動作がテストサーバーでの検証に合格した証拠が必要です。
 
-## 4. Engineering requirements
+## 4. エンジニアリング要件
 
-- Logs are newline-delimited JSON with timestamp, level, event, and contextual
-  fields. Secrets and account data must be redacted.
-- The process exposes a health endpoint. Liveness and readiness may be split
-  once external dependencies exist.
-- Database access is hidden behind Repository interfaces.
-- Database schema changes are versioned migrations.
-- Configuration is supplied through environment variables and validated at
-  startup.
-- Credentials, `.env` files, authentication caches, logs, and runtime data are
-  excluded from Git.
-- Core behavior is unit-testable without Minecraft or a database.
+- ログは改行区切りのJSONとし、timestamp、level、event、コンテキスト情報のフィールドを
+  含めます。秘密情報とアカウント情報はマスキングしなければなりません。
+- プロセスはヘルスチェックエンドポイントを公開します。外部依存関係を導入した後は、
+  生存状態と準備状態を分離しても構いません。
+- データベースアクセスは`Repository`インターフェースの背後に隠蔽します。
+- データベースのスキーマ変更は、バージョン管理されたマイグレーションで管理します。
+- 設定は環境変数から受け取り、起動時に検証します。
+- 認証情報、`.env`ファイル、認証キャッシュ、ログ、実行時データはGitの管理対象外と
+  します。
+- 中核となる動作は、Minecraftやデータベースがなくても単体テストできるようにします。
 
-## 5. Initial acceptance criteria
+## 5. 初期受け入れ基準
 
-- The documented project structure exists.
-- `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
-- Starting the built program serves `GET /health` and emits structured logs.
-- SIGTERM closes the health server cleanly.
-- Docker Compose can define a persistent PostgreSQL service with a health
-  check, without embedding production secrets.
+- ドキュメントに記載されたプロジェクト構成が存在すること。
+- `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`が成功すること。
+- build済みのプログラムを起動すると、`GET /health`を提供し、構造化ログを出力すること。
+- SIGTERMによってヘルスチェックサーバーが正常に終了すること。
+- 本番環境の秘密情報を埋め込まずに、Docker Composeで永続化されたPostgreSQLサービスと
+  ヘルスチェックを定義できること。

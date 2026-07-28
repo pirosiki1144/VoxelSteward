@@ -1,18 +1,18 @@
 # VoxelSteward
 
-VoxelSteward is the foundation for a safety-first Minecraft Bedrock automation
-client. This milestone contains the TypeScript toolchain, documentation,
-structured startup/shutdown logs, an HTTP health endpoint, and a local
-PostgreSQL Compose service. It does **not** connect to Minecraft or perform
-autonomous actions.
+VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（BDS）向け
+自動化クライアントの基盤です。このマイルストーンには、TypeScriptツールチェーン、
+ドキュメント、起動・終了時の構造化ログ、HTTPヘルスチェックエンドポイント、
+ローカル環境用のPostgreSQL Composeサービスが含まれます。現時点ではMinecraftへの
+接続や自律動作は**行いません**。
 
-## Prerequisites
+## 前提環境
 
 - Node.js 24 LTS
-- npm 11 or newer
-- Docker Engine and Docker Compose on Ubuntu/WSL2 (for the database)
+- npm 11以降
+- Ubuntu/WSL2上のDocker EngineおよびDocker Compose（データベース用）
 
-## Setup
+## セットアップ
 
 ```bash
 npm install
@@ -23,40 +23,41 @@ npm test
 npm run build
 ```
 
-Run the minimal service:
+最小構成のサービスを起動します。
 
 ```bash
 npm start
 curl http://127.0.0.1:3000/health
 ```
 
-Run the future development database:
+将来の開発で使用するデータベースを起動します。
 
 ```bash
 docker compose up -d db
 ```
 
-The current application does not connect to this database. It is present to
-establish the local infrastructure shape.
+現在のアプリケーションは、このデータベースには接続しません。このサービス定義は、
+ローカルインフラストラクチャの基本構成をあらかじめ整えるために用意しています。
 
-## Scripts
+## スクリプト
 
-- `npm run build` — compile TypeScript into `dist/`
-- `npm run typecheck` — check types without emitting files
-- `npm run lint` — run ESLint
-- `npm test` — run Vitest once
-- `npm run format` — format supported files with Prettier
-- `npm run format:check` — verify formatting
+- `npm run build` — TypeScriptをコンパイルし、`dist/`へ出力します
+- `npm run typecheck` — ファイルを出力せずに型を検査します
+- `npm run lint` — ESLintを実行します
+- `npm test` — Vitestを1回実行します
+- `npm run format` — Prettierで対応ファイルを整形します
+- `npm run format:check` — ファイルが整形済みか確認します
 
-## Safety
+## 安全性
 
-Production use is not ready. Future behavior must first pass on a dedicated
-test server. The bot must stop and log out when another player is detected,
-avoid combat, preserve checkpoints, prevent concurrent control, and shut down
-safely on SIGTERM. These controls must never be bypassed.
+本番環境で使用できる段階には達していません。将来実装する動作は、専用のテストサーバー
+で事前に検証する必要があります。BOTは、他のプレイヤーを検知した場合に作業を中断して
+ログアウトし、戦闘を回避し、チェックポイントを保存し、同時に複数のプロセスから操作
+されることを防止し、SIGTERMを受けた場合に安全に終了しなければなりません。これらの
+安全制御を迂回してはいけません。
 
-Do not commit `.env`, credentials, Minecraft account data, authentication
-caches, runtime data, or logs.
+`.env`、認証情報、Minecraftアカウント情報、認証キャッシュ、実行時データ、ログは
+commitしないでください。
 
-See [requirements](docs/requirements.md), [architecture](docs/architecture.md),
-[operations](docs/operations.md), and [decisions](docs/decisions.md).
+詳しくは、[要件](docs/requirements.md)、[アーキテクチャ](docs/architecture.md)、
+[運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)を参照してください。

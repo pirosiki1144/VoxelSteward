@@ -1,12 +1,12 @@
-# Operations
+# 運用
 
-## Local prerequisites
+## ローカル環境の前提条件
 
-- Ubuntu on WSL2
-- Node.js 24 LTS and npm
-- Docker Engine with the Compose plugin
+- WSL2上のUbuntu
+- Node.js 24 LTSおよびnpm
+- Composeプラグインを導入したDocker Engine
 
-## Development
+## 開発
 
 ```bash
 cp .env.example .env
@@ -18,62 +18,64 @@ npm run build
 npm start
 ```
 
-The default health endpoint is `http://127.0.0.1:3000/health`.
+デフォルトのヘルスチェックエンドポイントは`http://127.0.0.1:3000/health`です。
 
-Start only the development database:
+開発用データベースだけを起動するには、次のコマンドを実行します。
 
 ```bash
 docker compose up -d db
 docker compose ps
 ```
 
-Stop it without deleting its persistent volume:
+永続ボリュームを削除せずに停止するには、次のコマンドを実行します。
 
 ```bash
 docker compose down
 ```
 
-## Configuration and secrets
+## 設定と秘密情報
 
-`.env.example` documents names and non-secret local defaults. `.env` is local
-and ignored. Never place production passwords, Minecraft account details,
-tokens, or authentication caches in source control. Store the authentication
-cache outside this repository and mount it read-write only into the future
-application container.
+`.env.example`には、設定名と秘密情報を含まないローカル環境用のデフォルト値を記載
+します。`.env`はローカル専用であり、Gitの管理対象外です。本番環境のパスワード、
+Minecraftアカウント情報、トークン、認証キャッシュをソース管理に含めてはいけません。
+認証キャッシュはこのリポジトリの外部に保存し、将来実装するアプリケーションコンテナ
+だけに読み書き可能な状態でマウントします。
 
-Use a secret manager or deployment-injected secret files in AWS/VPS
-environments. Rotate any credential that is accidentally logged or committed.
+AWS/VPS環境では、シークレットマネージャー、またはデプロイ時に注入される秘密情報
+ファイルを使用します。誤ってログへ出力またはcommitした認証情報は、必ず無効化して
+更新してください。
 
-## Safe rollout
+## 安全なロールアウト
 
-1. Build and run all automated checks.
-2. Apply migrations to the test database.
-3. Deploy with the dedicated test-server configuration.
-4. Verify player detection, safety stop, checkpoint recovery, lease loss,
-   combat avoidance, and SIGTERM behavior.
-5. Review structured logs for secret leakage and shutdown completion.
-6. Only then promote the same tested artifact to production using separate
-   credentials and configuration.
+1. buildを実行し、すべての自動チェックを実行します。
+2. テスト用データベースへマイグレーションを適用します。
+3. 専用のテストサーバー設定を使用してデプロイします。
+4. プレイヤー検知、安全停止、チェックポイントからの復旧、リース喪失、戦闘回避、
+   SIGTERM受信時の動作を検証します。
+5. 構造化ログを確認し、秘密情報の漏えいがなく、終了処理が完了していることを確認します。
+6. 以上を完了した後に限り、個別の認証情報と設定を使用して、同じ検証済み成果物を
+   本番環境へ昇格させます。
 
-Safety controls must not be disabled to complete a rollout. A failed safety
-test blocks promotion.
+ロールアウトを完了するために、安全制御を無効化してはいけません。安全性テストに
+失敗した場合は、本番環境への昇格を中止します。
 
-## Shutdown
+## 終了処理
 
-Send SIGTERM and allow the configured grace period. The future connected
-process must stop new work, checkpoint, disconnect, and release its lease
-before exiting. SIGKILL is a last resort because it prevents this sequence.
+SIGTERMを送信し、設定された猶予期間を確保します。将来接続機能を実装したプロセスは、
+新しい作業の受付停止、チェックポイントの保存、切断、リースの解放を行ってから終了
+しなければなりません。SIGKILLではこの一連の処理を実行できないため、最後の手段として
+のみ使用します。
 
-## Backup and migration
+## バックアップとマイグレーション
 
-Back up the database before destructive migrations. Migrations must be
-forward-versioned and reproducible in a fresh database. Periodically test
-checkpoint and database restoration. Persistent Docker volumes are convenient
-local storage, not a backup.
+破壊的なマイグレーションを実行する前に、データベースをバックアップします。
+マイグレーションは前方へバージョン管理され、新しいデータベースでも再現可能でなければ
+なりません。チェックポイントとデータベースの復元を定期的にテストします。Dockerの
+永続ボリュームは便利なローカルストレージですが、バックアップではありません。
 
-## Incident response
+## インシデント対応
 
-If unexpected behavior or another player is observed, stop the process, retain
-logs and checkpoints, and do not restart against production. Reproduce and
-validate the correction on the test server first. If credentials might be
-exposed, revoke and rotate them before further testing.
+予期しない動作や他のプレイヤーを確認した場合は、プロセスを停止してログとチェック
+ポイントを保全し、本番環境では再起動しないでください。まずテストサーバーで問題を
+再現し、修正内容を検証します。認証情報が露出した可能性がある場合は、追加のテストを
+行う前に無効化して更新してください。
