@@ -1,4 +1,12 @@
-import type { SmokeConfig } from "./types.js";
+import type { BotMode, SmokeConfig } from "./types.js";
+
+export const parseBotMode = (raw: string | undefined): BotMode => {
+  const mode = raw ?? "normal";
+  if (mode !== "normal" && mode !== "debug") {
+    throw new Error("BOT_MODE must be normal or debug");
+  }
+  return mode;
+};
 
 const parseInteger = (
   name: string,
@@ -37,10 +45,7 @@ const parseVersion = (
 export const loadSmokeConfig = (
   environment: NodeJS.ProcessEnv = process.env,
 ): SmokeConfig => {
-  const mode = environment.BOT_MODE ?? "normal";
-  if (mode !== "normal" && mode !== "debug") {
-    throw new Error("BOT_MODE must be normal or debug");
-  }
+  const mode = parseBotMode(environment.BOT_MODE);
 
   const logLevel = environment.LOG_LEVEL ?? "info";
   if (!["debug", "info", "warn", "error"].includes(logLevel)) {

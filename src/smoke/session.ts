@@ -1,4 +1,5 @@
 import type { Logger } from "../infrastructure/logger.js";
+import { PlayerDetectionPolicy } from "../domain/player-detection-policy.js";
 import type {
   BotState,
   PlayerEvent,
@@ -12,9 +13,12 @@ export class SmokeSession {
   readonly #connection: ReadonlyMinecraftConnection;
   readonly #config: SmokeConfig;
   readonly #logger: Logger;
+  readonly #playerPolicy: PlayerDetectionPolicy;
   readonly #state: BotState = {};
-  readonly #players = new Map<string, string | undefined>();
-  #timer?: NodeJS.Timeout;
+  readonly #players = new Map<string, PlayerEvent>();
+  readonly #removeListeners: (() => void)[] = [];
+  #timer: NodeJS.Timeout | undefined;
+  #spawned = false;
   #stopping = false;
   #resolve?: (result: SmokeResult) => void;
 
@@ -26,6 +30,7 @@ export class SmokeSession {
     this.#connection = connection;
     this.#config = config;
     this.#logger = logger;
+    this.#playerPolicy = new PlayerDetectionPolicy(config.mode);
   }
 
   run(): Promise<SmokeResult> {
@@ -48,7 +53,11 @@ export class SmokeSession {
   requestStop(reason: StopReason, error?: Error): void {
     if (this.#stopping) return;
     this.#stopping = true;
-    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    if (this.#timer !== undefined) {
+      clearTimeout(this.#timer);
+      this.#timer = undefined;
+    }
+    this.#unbindEvents();
 
     const exitCode = reason === "connection_error" ? 1 : 0;
     this.#logger.log(exitCode === 0 ? "info" : "error", {
@@ -79,63 +88,90 @@ export class SmokeSession {
   }
 
   #bindEvents(): void {
-    this.#connection.on("authenticated", (playerName) => {
+    this.#bind("authenticated", (playerName) => {
       this.#state.playerName = playerName;
       this.#logger.log("info", {
         event: "minecraft.authenticated",
         playerName,
       });
     });
-    this.#connection.on("join", () => {
+    this.#bind("join", () => {
       this.#logger.log("info", { event: "minecraft.login_completed" });
     });
-    this.#connection.on("spawn", () => {
+    this.#bind("spawn", () => {
+      this.#spawned = true;
       this.#logger.log("info", {
         event: "minecraft.spawn_completed",
         state: this.#printableState(),
-        otherPlayers: [...this.#players.values()].filter(
-          (name) => name !== this.#state.playerName,
-        ),
+        otherPlayers: [...this.#players.values()]
+          .map((player) => player.name)
+          .filter((name) => name !== this.#state.playerName),
       });
+      for (const player of this.#players.values()) {
+        this.#handleOtherPlayer(player);
+        if (this.#stopping) break;
+      }
     });
-    this.#connection.on("state", (state) => {
+    this.#bind("state", (state) => {
       Object.assign(this.#state, state);
       this.#logger.log("info", {
         event: "minecraft.state_received",
         state: this.#printableState(),
       });
     });
-    this.#connection.on("playerJoined", (player) => {
-      this.#players.set(player.id, player.name);
-      if (this.#isSelf(player)) return;
-
-      this.#logger.log(this.#config.mode === "debug" ? "debug" : "warn", {
-        event: "minecraft.other_player_joined",
-        playerName: player.name ?? "取得不可",
-        detectedAt: player.detectedAt,
-      });
-      this.requestStop("other_player_detected");
+    this.#bind("playerJoined", (player) => {
+      if (this.#players.has(player.id)) return;
+      this.#players.set(player.id, player);
+      if (this.#spawned) this.#handleOtherPlayer(player);
     });
-    this.#connection.on("playerLeft", (player) => {
-      const name = player.name ?? this.#players.get(player.id);
+    this.#bind("playerLeft", (player) => {
+      const name = player.name ?? this.#players.get(player.id)?.name;
       this.#players.delete(player.id);
       if (name === this.#state.playerName) return;
       this.#logger.log("info", {
-        event: "minecraft.player_left",
+        event: "minecraft.other_player_left",
         playerName: name ?? "取得不可",
         detectedAt: player.detectedAt,
       });
     });
-    this.#connection.on("error", (error) => {
+    this.#bind("connectionError", (error) => {
       this.requestStop("connection_error", error);
     });
-    this.#connection.on("close", () => {
+    this.#bind("close", () => {
       this.requestStop("connection_closed");
     });
   }
 
-  #isSelf(player: PlayerEvent): boolean {
-    return player.name !== undefined && player.name === this.#state.playerName;
+  #bind<EventName extends keyof import("./types.js").ConnectionEvents>(
+    event: EventName,
+    listener: import("./types.js").ConnectionEvents[EventName],
+  ): void {
+    this.#connection.on(event, listener);
+    this.#removeListeners.push(() => this.#connection.off(event, listener));
+  }
+
+  #unbindEvents(): void {
+    for (const remove of this.#removeListeners.splice(0)) remove();
+  }
+
+  #handleOtherPlayer(player: PlayerEvent): void {
+    const decision = this.#playerPolicy.decide(player, this.#state.playerName);
+    if (decision === "ignore_self") return;
+
+    this.#logger.log(decision === "stop" ? "warn" : "info", {
+      event: "minecraft.other_player_joined",
+      playerName: player.name ?? "取得不可",
+      detectedAt: player.detectedAt,
+    });
+    if (decision === "continue") {
+      this.#logger.log("info", {
+        event: "minecraft.other_player_allowed",
+        playerName: player.name ?? "取得不可",
+        action: "connection_continued",
+      });
+      return;
+    }
+    this.requestStop("other_player_detected");
   }
 
   #printableState(): Record<string, unknown> {

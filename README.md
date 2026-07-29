@@ -81,9 +81,11 @@ docker compose run --rm --name voxel-steward-smoke-run smoke
 docker compose run --rm --name voxel-steward-smoke-run -e BOT_MODE=debug -e LOG_LEVEL=debug smoke
 ```
 
-`debug`ではプレイヤーの参加・退出を詳しく記録します。ただし、安全制御は
-無効化できないため、他プレイヤーを検知した場合は`normal`と同様に切断します。
-`debug`はコマンドで明示した1回だけ有効になり、認証volumeには保存されません。
+`debug`ではプレイヤーの参加・退出を詳しく記録し、読み取り専用接続を維持します。
+他プレイヤーを検知した場合は`minecraft.other_player_allowed`と
+`action: "connection_continued"`を記録します。タイムアウト、シグナル、接続エラー時の
+安全な切断は引き続き有効です。`debug`はコマンドで明示した1回だけ有効になり、
+認証volumeには保存されません。
 
 ### 初回Microsoft認証
 
@@ -134,10 +136,10 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 ## 安全性
 
 本番環境で使用できる段階には達していません。スモークテストは接続許可を得た専用の
-テストサーバーでのみ実行してください。BOTは、他のプレイヤーを検知した場合に作業を
-中断してログアウトし、戦闘を回避し、同時に複数のプロセスから操作されることを防止し、
-SIGINTまたはSIGTERMを受けた場合に安全に終了します。これらの安全制御を迂回しては
-いけません。
+テストサーバーでのみ実行してください。`normal`のBOTは、他のプレイヤーを検知した
+場合に作業を中断してログアウトします。`debug`は読み取り専用の観測試験に限って接続を
+維持します。どちらのモードもゲーム内操作を行わず、同時に複数のプロセスから操作される
+ことを防止し、SIGINTまたはSIGTERMを受けた場合に安全に終了します。
 
 `.env`、認証情報、Minecraftアカウント情報、認証キャッシュ、実行時データ、ログは
 commitしないでください。

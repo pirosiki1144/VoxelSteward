@@ -11,7 +11,11 @@ owner explicitly changes the phase without weakening the safety invariants below
 ## Mandatory safety invariants
 
 - Validate every behavior on a dedicated test server before production.
-- Stop work and disconnect immediately when another player is detected.
+- In `normal` mode, stop work and disconnect immediately when another player
+  is detected.
+- In the explicitly selected read-only `debug` smoke-test mode, log other
+  players joining and leaving while keeping the connection open. Do not add
+  game actions to this observation-only exception.
 - Never implement a switch, environment variable, or code path that disables
   safety controls.
 - Avoid combat by default.

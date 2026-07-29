@@ -35,12 +35,16 @@ export interface ConnectionEvents {
   state: (state: Partial<BotState>) => void;
   playerJoined: (player: PlayerEvent) => void;
   playerLeft: (player: PlayerEvent) => void;
-  error: (error: Error) => void;
+  connectionError: (error: Error) => void;
   close: () => void;
 }
 
 export interface ReadonlyMinecraftConnection {
   on<EventName extends keyof ConnectionEvents>(
+    event: EventName,
+    listener: ConnectionEvents[EventName],
+  ): this;
+  off<EventName extends keyof ConnectionEvents>(
     event: EventName,
     listener: ConnectionEvents[EventName],
   ): this;

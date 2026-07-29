@@ -38,6 +38,10 @@ docker compose run --rm --name voxel-steward-smoke-run smoke
 docker compose run --rm --name voxel-steward-smoke-run -e BOT_MODE=debug -e LOG_LEVEL=debug smoke
 ```
 
+`debug`では他プレイヤーの参加・退出を記録し、読み取り専用接続を維持します。
+`minecraft.other_player_allowed`の`action`が`connection_continued`であることを確認して
+ください。指定時間後は`reason: "timeout"`、`exitCode: 0`で安全に切断します。
+
 ## 設定と秘密情報
 
 `.env.example`には、設定名と秘密情報を含まないローカル環境用のデフォルト値を記載

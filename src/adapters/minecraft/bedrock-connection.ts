@@ -139,6 +139,13 @@ export class BedrockReadonlyConnection
     return super.on(event, listener);
   }
 
+  override off<EventName extends keyof ConnectionEvents>(
+    event: EventName,
+    listener: ConnectionEvents[EventName],
+  ): this {
+    return super.off(event, listener);
+  }
+
   disconnect(reason: string): void {
     if (this.#closed) return;
     this.#closed = true;
@@ -203,7 +210,7 @@ export class BedrockReadonlyConnection
     });
     this.#client.on("error", (error: unknown) => {
       this.emit(
-        "error",
+        "connectionError",
         error instanceof Error
           ? error
           : new Error("Minecraft connection error"),
