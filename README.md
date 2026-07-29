@@ -1,16 +1,17 @@
 # VoxelSteward
 
 VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（BDS）向け
-自動化クライアントの基盤です。このマイルストーンには、TypeScriptツールチェーン、
-ドキュメント、起動・終了時の構造化ログ、HTTPヘルスチェックエンドポイント、
-ローカル環境用のPostgreSQL Composeサービスが含まれます。現時点ではMinecraftへの
-接続や自律動作は**行いません**。
+自動化クライアントの基盤です。現在は、TypeScriptツールチェーン、ドキュメント、
+構造化ログ、HTTPヘルスチェックエンドポイント、およびDockerから実行する読み取り専用の
+スモークテスト（最小接続テスト）を提供します。自律動作やゲーム内操作は**行いません**。
 
 ## 前提環境
 
 - Node.js 24 LTS
 - npm 11以降
-- Ubuntu/WSL2上のDocker EngineおよびDocker Compose（データベース用）
+- Ubuntu/WSL2上のDocker EngineおよびDocker Compose
+- 管理者から接続許可を得たテスト用BDS
+- BOT専用のMicrosoftアカウント
 
 ## セットアップ
 
@@ -23,21 +24,102 @@ npm test
 npm run build
 ```
 
-最小構成のサービスを起動します。
+HTTPヘルスチェックを備えた最小構成のサービスを起動します。
 
 ```bash
 npm start
 curl http://127.0.0.1:3000/health
 ```
 
-将来の開発で使用するデータベースを起動します。
+## スモークテスト
+
+スモークテストは、BOTアカウント1体でテスト用BDSへ接続し、ログインとスポーンを
+確認して、サーバーから受信できたBOT名、ディメンション、座標、体力、空腹度、
+プレイヤー一覧を記録します。移動、視点変更、採掘、設置、攻撃、チャット、コマンド
+など、ゲーム内の状態を変更する操作は実装していません。
+
+### `.env`の設定
+
+既存の`.env`がなければ、例をコピーします。
 
 ```bash
-docker compose up -d db
+cp .env.example .env
 ```
 
-現在のアプリケーションは、このデータベースには接続しません。このサービス定義は、
-ローカルインフラストラクチャの基本構成をあらかじめ整えるために用意しています。
+`.env`で次の項目を設定してください。値をGitへcommitしたり、チャットへ貼り付けたり
+しないでください。
+
+- `MINECRAFT_HOST` — 接続許可を得たテスト用BDS
+- `MINECRAFT_PORT` — 通常は`19132`
+- `MINECRAFT_VERSION` — 通常は空欄。サーバー広告から自動判定
+- `BOT_ACCOUNT_ID` — 認証キャッシュを区別するローカル識別子
+- `BOT_MODE` — 通常は`normal`
+- `SMOKE_TIMEOUT_SECONDS` — `5`～`300`秒、既定値は`60`
+- `AUTH_PROFILES_FOLDER` — Composeでは`/auth/profiles`のまま使用
+- `LOG_LEVEL` — `debug`、`info`、`warn`、`error`
+
+`BOT_ACCOUNT_ID`にはメールアドレスやGamertagではなく、`smoke-bot`のような
+秘密情報ではないローカル識別子を使用してください。
+
+### Dockerイメージのビルド
+
+```bash
+docker compose build smoke
+```
+
+### normalモードでの実行
+
+```bash
+docker compose run --rm --name voxel-steward-smoke-run smoke
+```
+
+`normal`では、自分以外のプレイヤーを検知すると理由を記録し、安全に切断します。
+
+### debugモードでの実行
+
+```bash
+docker compose run --rm --name voxel-steward-smoke-run -e BOT_MODE=debug -e LOG_LEVEL=debug smoke
+```
+
+`debug`ではプレイヤーの参加・退出を詳しく記録します。ただし、安全制御は
+無効化できないため、他プレイヤーを検知した場合は`normal`と同様に切断します。
+`debug`はコマンドで明示した1回だけ有効になり、認証volumeには保存されません。
+
+### 初回Microsoft認証
+
+初回起動時は、ログに示されたMicrosoftの認証用URLをブラウザーで開き、標準エラー出力に
+一時表示されるdevice codeをMicrosoftの画面へ入力してください。画面の
+`Continue`（続行）などの案内に従い、BOT用アカウントで認証を完了します。パスワード、
+トークン、認証オブジェクトはアプリケーションログへ出力しません。
+
+認証キャッシュは、`BOT_ACCOUNT_ID`単位の名前付きDocker volume
+`voxel-steward-auth-<BOT_ACCOUNT_ID>`へ保存されます。通常停止、`--rm`による
+コンテナ削除、`docker compose down`の後も残り、次回の認証に再利用されます。
+volumeを削除すると認証情報が失われるため、`docker compose down -v`や
+`docker volume rm`は実行しないでください。
+
+### 手動停止と成功判定
+
+前面実行中にCtrl+Cを押すとSIGINT、`docker stop`ではSIGTERMが送信され、
+安全な切断処理を実行します。次のイベントを確認できれば接続試験は成功です。
+
+- `minecraft.authenticated`
+- `minecraft.login_completed`
+- `minecraft.spawn_completed`
+- `minecraft.state_received`
+- `smoke.finished`の`outcome`が`normal`、`exitCode`が`0`
+
+プロトコルからまだ受信していない状態は`取得待ち`と表示され、推測値では補完しません。
+
+### よくある失敗
+
+- `MINECRAFT_HOST is required` — `.env`の`MINECRAFT_HOST`を確認します。
+- ping timeout — BDSが起動していること、UDPポート、WSL2／ホスト側Firewallを確認します。
+- unsupported version — `MINECRAFT_VERSION`を空欄に戻して自動判定を使用します。
+- Microsoft認証に失敗する — BOT用アカウントのMinecraft所有状況、マルチプレイ設定、
+  BDSのallowlistを確認します。
+- another smoke test instance is active — 同じ`BOT_ACCOUNT_ID`のコンテナが実行中でないか
+  確認します。無制限の自動再接続は行いません。
 
 ## スクリプト
 
@@ -45,16 +127,17 @@ docker compose up -d db
 - `npm run typecheck` — ファイルを出力せずに型を検査します
 - `npm run lint` — ESLintを実行します
 - `npm test` — Vitestを1回実行します
+- `npm run smoke` — build済みの読み取り専用スモークテストを実行します
 - `npm run format` — Prettierで対応ファイルを整形します
 - `npm run format:check` — ファイルが整形済みか確認します
 
 ## 安全性
 
-本番環境で使用できる段階には達していません。将来実装する動作は、専用のテストサーバー
-で事前に検証する必要があります。BOTは、他のプレイヤーを検知した場合に作業を中断して
-ログアウトし、戦闘を回避し、チェックポイントを保存し、同時に複数のプロセスから操作
-されることを防止し、SIGTERMを受けた場合に安全に終了しなければなりません。これらの
-安全制御を迂回してはいけません。
+本番環境で使用できる段階には達していません。スモークテストは接続許可を得た専用の
+テストサーバーでのみ実行してください。BOTは、他のプレイヤーを検知した場合に作業を
+中断してログアウトし、戦闘を回避し、同時に複数のプロセスから操作されることを防止し、
+SIGINTまたはSIGTERMを受けた場合に安全に終了します。これらの安全制御を迂回しては
+いけません。
 
 `.env`、認証情報、Minecraftアカウント情報、認証キャッシュ、実行時データ、ログは
 commitしないでください。

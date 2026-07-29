@@ -18,3 +18,4 @@ checkpoints/
 .idea/
 .vscode/
 *.tsbuildinfo
+*.lock

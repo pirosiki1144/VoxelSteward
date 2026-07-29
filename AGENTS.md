@@ -3,9 +3,10 @@
 ## Scope
 
 VoxelSteward is intended to become a safety-first automation client for Minecraft
-Bedrock Dedicated Server. The current phase is limited to the TypeScript
-development foundation and documentation. Do not add server connection or
-autonomous behavior unless the project owner explicitly changes the phase.
+Bedrock Dedicated Server. The current phase permits only a read-only smoke-test
+connection in addition to the TypeScript development foundation and
+documentation. Do not add game actions or autonomous behavior unless the project
+owner explicitly changes the phase without weakening the safety invariants below.
 
 ## Mandatory safety invariants
 

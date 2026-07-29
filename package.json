@@ -14,8 +14,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "smoke": "node dist/src/smoke.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "bedrock-protocol": "3.57.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

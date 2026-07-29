@@ -20,17 +20,22 @@ npm start
 
 デフォルトのヘルスチェックエンドポイントは`http://127.0.0.1:3000/health`です。
 
-開発用データベースだけを起動するには、次のコマンドを実行します。
+読み取り専用スモークテスト用のDockerイメージをビルドします。
 
 ```bash
-docker compose up -d db
-docker compose ps
+docker compose build smoke
 ```
 
-永続ボリュームを削除せずに停止するには、次のコマンドを実行します。
+`.env`へ接続許可を得たテスト用BDSの設定を記入した後、normalモードで実行します。
 
 ```bash
-docker compose down
+docker compose run --rm --name voxel-steward-smoke-run smoke
+```
+
+詳細ログが必要な場合は、1回の実行に限ってdebugを明示します。
+
+```bash
+docker compose run --rm --name voxel-steward-smoke-run -e BOT_MODE=debug -e LOG_LEVEL=debug smoke
 ```
 
 ## 設定と秘密情報
@@ -44,6 +49,10 @@ Minecraftアカウント情報、トークン、認証キャッシュをソー�
 AWS/VPS環境では、シークレットマネージャー、またはデプロイ時に注入される秘密情報
 ファイルを使用します。誤ってログへ出力またはcommitした認証情報は、必ず無効化して
 更新してください。
+
+Microsoft認証キャッシュは`BOT_ACCOUNT_ID`単位の名前付きDocker volumeへ保存します。
+通常のコンテナ削除では失われません。volumeを削除すると再認証が必要になるため、
+`docker compose down -v`と`docker volume rm`は実行しないでください。
 
 ## 安全なロールアウト
 

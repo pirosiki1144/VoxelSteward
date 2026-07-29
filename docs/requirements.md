@@ -3,17 +3,16 @@
 ## 1. 目的と現在の対象範囲
 
 VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接続し、
-制御された作業を実行します。この初期マイルストーンで提供するのは、TypeScriptの
-開発基盤、運用ドキュメント、ヘルスチェックエンドポイント、データベースサービスの
-定義だけです。
+制御された作業を実行します。現在のマイルストーンでは、TypeScriptの開発基盤、
+運用ドキュメント、ヘルスチェックエンドポイント、およびテスト用BDSへ接続する
+読み取り専用のスモークテストだけを提供します。
 
 このマイルストーンの対象範囲外となる項目は次のとおりです。
 
-- Minecraftサーバーまたはアカウントへの接続
-- `bedrock-protocol`のインストールまたは使用
 - 自律的な判断またはゲーム内での行動
 - 本番環境へのデプロイおよび本番環境の認証情報
 - アプリケーションからのデータベースクエリ
+- PostgreSQL、Discord連携、作業キュー
 
 ## 2. プラットフォーム
 
@@ -22,7 +21,7 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 - ローカルサービス用として、WSL2上のUbuntuで動作するDocker Engineおよび
   Docker Compose
 - Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
-- Composeで管理する初期データベース候補としてPostgreSQL
+- 将来のデータベース候補としてPostgreSQL（現在は未導入）
 
 ## 3. 安全要件
 
@@ -57,6 +56,9 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 - 認証情報、`.env`ファイル、認証キャッシュ、ログ、実行時データはGitの管理対象外と
   します。
 - 中核となる動作は、Minecraftやデータベースがなくても単体テストできるようにします。
+- スモークテストでは、プロトコル維持と切断に必要な応答以外の送信パケットを
+  実装しません。
+- 接続は1回だけ試行し、自動再接続しません。
 
 ## 5. 初期受け入れ基準
 
@@ -64,5 +66,16 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 - `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`が成功すること。
 - build済みのプログラムを起動すると、`GET /health`を提供し、構造化ログを出力すること。
 - SIGTERMによってヘルスチェックサーバーが正常に終了すること。
-- 本番環境の秘密情報を埋め込まずに、Docker Composeで永続化されたPostgreSQLサービスと
-  ヘルスチェックを定義できること。
+- 本番環境の秘密情報を埋め込まずに、Docker Composeでスモークテストと永続的な
+  認証volumeを定義できること。
+
+## 6. スモークテストの受け入れ基準
+
+- bedrock-protocolがサーバー広告から対応バージョンを自動判定できること。
+- Microsoftのdevice code認証キャッシュをBOTアカウント単位の名前付きDocker volumeへ
+  保存できること。
+- ログイン完了とスポーン完了を区別して検知できること。
+- BOT名、ディメンション、座標、体力、空腹度、プレイヤー一覧について、受信済みの値
+  だけを記録すること。
+- 他プレイヤーを検知した場合は、実行モードにかかわらず安全に切断すること。
+- タイムアウト、SIGINT、SIGTERM、エラーで切断処理が一度だけ実行されること。

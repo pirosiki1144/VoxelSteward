@@ -15,7 +15,7 @@ Application coordinator ---- Safety policy
         |                         |
         +---- Domain tasks -------+
         |
-        +---- Minecraft port ---- bedrock-protocol adapter (future)
+        +---- Minecraft port ---- bedrock-protocol adapter (read-only smoke)
         +---- Repository ports -- PostgreSQL repositories (future)
         +---- Checkpoint port --- durable checkpoint repository (future)
         +---- Instance lock ----- DB lease/advisory lock (future)
@@ -29,7 +29,7 @@ src/
   domain/        task state and rules without infrastructure imports
   ports/         Minecraft and Repository interfaces
   adapters/
-    minecraft/   bedrock-protocol integration
+    minecraft/   bedrock-protocol read-only integration
     persistence/ PostgreSQL repositories and migrations
   infrastructure/ configuration, logging, health, signals
 ```
@@ -67,7 +67,7 @@ BOTの識別情報を使用します。リースの取得または更新に失�
 
 ## 5. 認証データ
 
-将来実装するMinecraftアダプターは、設定から認証キャッシュのパスを受け取ります。
+Minecraftアダプターは、設定から認証キャッシュのパスを受け取ります。
 ローカル環境では、リポジトリ外のバインドマウントまたは名前付きボリュームを使用します。
 AWSでは、暗号化されたシークレット、またはライブラリに適した永続ストレージで管理する
 必要があります。キャッシュの内容をログへ出力してはいけません。
@@ -85,3 +85,14 @@ stdoutへ出力します。現在、`/health`はプロセスの生存状態を�
 から設定を受け取り、stdoutへログを出力し、SIGTERMを処理し、HTTPヘルスチェックを公開
 します。これにより、同じ成果物をCompose、systemd、ECS、またはその他のLinuxコンテナ
 ランタイムで実行できます。
+
+## 8. 読み取り専用スモークテスト
+
+スモークテストのアプリケーション層は`ReadonlyMinecraftConnection`だけに依存します。
+bedrock-protocolアダプターは受信パケットを型付きイベントへ変換し、ゲーム内行動を
+送信するメソッドを公開しません。ライブラリが接続維持に必要として送信する応答と、
+明示的な切断だけを許可します。
+
+認証キャッシュとインスタンスロックは、BOTアカウント識別子ごとの名前付きDocker
+volumeへ保存します。実行コンテナは非rootかつread-onlyとし、認証volumeと一時的な
+`/tmp`だけを書き込み可能にします。
