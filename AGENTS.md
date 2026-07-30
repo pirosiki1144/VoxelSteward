@@ -4,8 +4,9 @@
 
 VoxelSteward is a safety-first automation client for Minecraft Bedrock Dedicated
 Server. The current implementation is a read-only normal runtime and smoke-test
-connection. The approved next phase is state and progress management only. Do not
-add external integrations or game actions without explicit approval.
+connection with in-process state management and an external-service-neutral
+notification foundation. Real Discord delivery, database integrations, and game
+actions require explicit approval.
 
 The authoritative product requirements, current status, roadmap, and operating
 authority are in:

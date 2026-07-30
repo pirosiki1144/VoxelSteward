@@ -1,6 +1,10 @@
 import { pathToFileURL } from "node:url";
 
 import { BedrockReadonlyConnection } from "./adapters/minecraft/bedrock-connection.js";
+import {
+  NoopNotificationPort,
+  NotificationSubscriber,
+} from "./application/notifications/index.js";
 import { createStateStore } from "./domain/state/index.js";
 import { InstanceLock } from "./infrastructure/instance-lock.js";
 import { createLogger } from "./infrastructure/logger.js";
@@ -9,6 +13,7 @@ import { RuntimeSupervisor } from "./runtime/supervisor.js";
 
 const main = async (): Promise<void> => {
   let lock: InstanceLock | undefined;
+  let notifications: NotificationSubscriber | undefined;
   let removeSignals = (): void => undefined;
   try {
     const config = loadRuntimeConfig();
@@ -21,6 +26,21 @@ const main = async (): Promise<void> => {
         logger.log("error", { event: "runtime.state_subscriber_failed" });
       },
     });
+    notifications = new NotificationSubscriber(new NoopNotificationPort(), {
+      onNotificationError: (_error, message) => {
+        logger.log("error", {
+          event: "notification.delivery_failed",
+          ...(message === undefined
+            ? {}
+            : {
+                notificationId: message.notificationId,
+                sourceRevision: message.sourceRevision,
+                notificationType: message.type,
+              }),
+        });
+      },
+    });
+    notifications.subscribe(stateStore);
     const supervisor = new RuntimeSupervisor(
       config,
       () => new BedrockReadonlyConnection(config, logger),
@@ -62,6 +82,7 @@ const main = async (): Promise<void> => {
     });
     process.exitCode = 1;
   } finally {
+    notifications?.close();
     removeSignals();
     await lock?.release();
   }

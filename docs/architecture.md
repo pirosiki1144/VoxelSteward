@@ -125,3 +125,15 @@ MySQL Repositoryは同じイベントを購読し、subscriber障害は安全切
 UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
 観測可能なエラー報告へ隔離します。詳細は[状態・進捗管理](state-management.md)を
 参照してください。
+
+## 11. 通知基盤
+
+通知は`StateChangeEvent`だけを起点とし、MinecraftアダプターやRuntimeSupervisorから
+送信ポートを直接呼びません。application層のmapperが変更前後の状態を固定テンプレートの
+`NotificationMessage`へ変換し、`NotificationSubscriber`がrevision順に
+`NotificationPort`へ直列配送します。
+
+通常runtimeは外部通信を行わない`NoopNotificationPort`を共有StateStoreへ接続します。
+Fake portはテストからだけ注入します。送信例外とPromise rejectionは通知エラーcallbackへ
+隔離し、安全切断や状態dispatchを待たせません。Discordアダプター、認証、レート制限、
+再試行、永続outboxは未実装です。詳細は[通知基盤](notifications.md)を参照してください。

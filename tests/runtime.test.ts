@@ -3,6 +3,7 @@ import { Writable } from "node:stream";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { NotificationSubscriber } from "../src/application/notifications/index.js";
 import {
   createStateStore,
   type StateStore,
@@ -15,6 +16,7 @@ import type {
   ConnectionEvents,
   ReadonlyMinecraftConnection,
 } from "../src/smoke/types.js";
+import { FakeNotificationPort } from "./fakes/fake-notification-port.js";
 
 class FakeConnection
   extends EventEmitter
@@ -109,6 +111,38 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("login、spawn、signal停止をStateStore経由で順序通知する", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const port = new FakeNotificationPort();
+    const notifications = new NotificationSubscriber(port);
+    notifications.subscribe(stateStore);
+    const { supervisor, run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    supervisor.requestStop("signal_sigterm");
+
+    await expect(run).resolves.toEqual({
+      reason: "signal_sigterm",
+      exitCode: 0,
+    });
+    await notifications.flush();
+    expect(port.messages.map(({ type }) => type)).toEqual([
+      "minecraft_connecting",
+      "minecraft_connected",
+      "minecraft_spawned",
+      "stop_requested",
+      "runtime_stopped",
+    ]);
+    notifications.close();
+  });
+
   it("login、spawn、telemetryと正常停止を状態へ反映する", async () => {
     const connection = new FakeConnection();
     const { supervisor, run, stateStore } = setup([connection]);
@@ -386,6 +420,136 @@ describe("RuntimeSupervisor", () => {
       exitCode: 1,
     });
     expect(factoryCalls()).toBe(1);
+  });
+
+  it("一時切断、再接続、上限到達をStateStore経由で通知する", async () => {
+    const first = new FakeConnection();
+    const second = new FakeConnection();
+    const stateStore = createStateStore();
+    const port = new FakeNotificationPort();
+    const notifications = new NotificationSubscriber(port);
+    notifications.subscribe(stateStore);
+    const { run, factoryCalls } = setup(
+      [first, second],
+      { maxRetries: 1 },
+      () => Promise.resolve(),
+      stateStore,
+    );
+    first.emit("close");
+    await waitForCalls(factoryCalls, 2);
+    second.emit("close");
+
+    await expect(run).resolves.toEqual({
+      reason: "reconnect_exhausted",
+      exitCode: 1,
+    });
+    await notifications.flush();
+    expect(port.messages.map(({ type }) => type)).toEqual([
+      "minecraft_connecting",
+      "minecraft_disconnected",
+      "reconnect_started",
+      "minecraft_connecting",
+      "minecraft_disconnected",
+      "reconnect_exhausted",
+    ]);
+    notifications.close();
+  });
+
+  it("回復不能な接続エラーをStateStore経由で通知する", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const port = new FakeNotificationPort();
+    const notifications = new NotificationSubscriber(port);
+    notifications.subscribe(stateStore);
+    const { run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("connectionError", {
+      error: new Error("adapter detail must not be notified"),
+      retryable: false,
+    });
+
+    await expect(run).resolves.toMatchObject({
+      reason: "connection_error",
+      exitCode: 1,
+    });
+    await notifications.flush();
+    expect(port.messages.map(({ type }) => type)).toEqual([
+      "minecraft_connecting",
+      "minecraft_disconnected",
+      "runtime_failed",
+    ]);
+    expect(JSON.stringify(port.messages)).not.toContain(
+      "adapter detail must not be notified",
+    );
+    notifications.close();
+  });
+
+  it("他プレイヤー検知を緊急通知し通常停止通知を重複させない", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const port = new FakeNotificationPort();
+    const notifications = new NotificationSubscriber(port);
+    notifications.subscribe(stateStore);
+    const { run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("playerJoined", player);
+
+    await expect(run).resolves.toEqual({
+      reason: "other_player_detected",
+      exitCode: 0,
+    });
+    await notifications.flush();
+    expect(
+      port.messages.filter(({ type }) => type === "other_player_safety_stop"),
+    ).toHaveLength(1);
+    expect(port.messages.some(({ type }) => type === "runtime_stopped")).toBe(
+      false,
+    );
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    notifications.close();
+  });
+
+  it("通知失敗時も他プレイヤー検知の安全切断を完了する", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const errors: unknown[] = [];
+    const port = new FakeNotificationPort(() =>
+      Promise.reject(new Error("notification unavailable")),
+    );
+    const notifications = new NotificationSubscriber(port, {
+      onNotificationError: (error) => errors.push(error),
+    });
+    notifications.subscribe(stateStore);
+    const { run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("playerJoined", player);
+
+    await expect(run).resolves.toEqual({
+      reason: "other_player_detected",
+      exitCode: 0,
+    });
+    await notifications.flush();
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(errors.length).toBeGreaterThan(0);
+    notifications.close();
   });
 
   it("状態dispatchが失敗しても他プレイヤー検知で安全切断する", async () => {

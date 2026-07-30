@@ -6,6 +6,11 @@ VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（B
 通常運転ランタイム、およびスモークテストを提供します。自律動作やゲーム内操作は
 **行いません**。
 
+通常運転の状態変化から安全な通知メッセージを生成するプロセス内通知基盤もあります。
+現在は外部通信を行わないNo-op実装だけを接続しており、Discord SDK、Webhook送信、
+トークンやチャンネル設定は実装していません。設計の詳細は
+[通知基盤](docs/notifications.md)を参照してください。
+
 ## 前提環境
 
 - Node.js 24 LTS
@@ -171,4 +176,5 @@ commitしないでください。
 
 詳しくは、[要件](docs/requirements.md)、[アーキテクチャ](docs/architecture.md)、
 [運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)、
+[状態管理](docs/state-management.md)、[通知基盤](docs/notifications.md)、
 [現在の状況](docs/project/status.md)、[ロードマップ](docs/project/roadmap.md)を参照してください。

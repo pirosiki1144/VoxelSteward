@@ -101,3 +101,21 @@
   継続します。
 - 理由: 不正遷移を防ぎ、MinecraftをDiscordやMySQLへ直結せず、同じ状態変化を複数の
   adapterが安全に利用できるようにするためです。
+
+## ADR-013: 状態イベント起点の通知ポート
+
+- ステータス: 承認済み（実Discord配送は未実装）
+- 決定: 通知は`StateChangeEvent`だけを起点とし、変更前後の実値を固定テンプレートの
+  `NotificationMessage`へ変換します。外部配送は`NotificationPort`へ分離し、
+  runtime標準は外部通信しないNo-op、テストは明示注入するFakeを使用します。
+- 順序と重複防止: revisionが単調増加するイベントだけを直列配送し、決定論的な
+  `notificationId`を既定256件の有界履歴で重複排除します。古いrevisionは送信しません。
+- 障害境界: 状態dispatchは配送を待たず、同期例外とPromise rejectionは
+  `onNotificationError`へ隔離します。通知失敗はruntimeやMinecraftの安全切断を妨げません。
+- 未実装: プロセス再起動後の重複防止と永続配送、Discord実アダプター、認証、
+  定時報告は実装しません。
+- 将来方針: 429の`Retry-After`、一時的な5xx・通信失敗だけの上限付き指数バックオフと
+  jitter、認証・不正リクエストの再試行禁止を実アダプターで実装します。永続保証が
+  必要になった時点でMySQL等のoutboxを検討します。
+- 理由: Minecraftと外部通知を結合せず、通知障害から安全停止を隔離し、将来の配送先を
+  差し替え可能にするためです。

@@ -298,6 +298,10 @@ RuntimeSupervisorは固定文言だけを渡します。将来の呼出側も外
 Minecraft接続ポート、PlayerDetectionPolicy、再接続判断、smokeの振る舞いは変更しません。
 公開する状態はプロセス内APIだけで、HTTP、Discord、MySQLへの出力は追加していません。
 
+状態イベントを利用する通知application層は追加されていますが、状態domainは通知型や
+外部送信ポートへ依存しません。通知対象、重複防止、障害隔離は
+[通知基盤](notifications.md)を参照してください。
+
 ## 将来工程の未決定事項
 
 - 永続化工程で追加する`lastError`コード
