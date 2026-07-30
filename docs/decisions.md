@@ -119,3 +119,25 @@
   必要になった時点でMySQL等のoutboxを検討します。
 - 理由: Minecraftと外部通知を結合せず、通知障害から安全停止を隔離し、将来の配送先を
   差し替え可能にするためです。
+
+## ADR-014: Discord Incoming Webhook通知アダプター
+
+- ステータス: 承認済み（実Discord送信試験は未実施）
+- 決定: 専用チャンネルへの一方向通知にはIncoming Webhookを使用し、Node.js 24の標準
+  `fetch`で`NotificationPort`を実装します。Discord SDK、Botユーザー、Gateway接続、
+  embed、添付は導入せず、`allowed_mentions.parse`を空にした2,000文字以内の
+  プレーンテキストだけを`wait=true`で送信します。
+- 設定境界: 通知は既定で無効です。有効化フラグとWebhook URLは起動時に一度だけ読み、
+  有効時の不正URLはInstanceLock取得やMinecraft接続より前に固定メッセージで拒否します。
+  URLは秘密情報として状態、通知、ログ、例外へ含めません。
+- 配送境界: 1試行5秒、初回を含む最大3試行、レート制限待機とバックオフを含む総15秒を
+  上限とします。429はDiscordの待機指定、一時的な500・502・503・504、通信失敗、
+  timeoutだけを再試行し、認証・不正要求とその他の応答は再試行しません。Discordの
+  limit値は固定せず、レスポンスヘッダーを使用します。
+- 終了と障害隔離: runtime bindingの`close()`で進行中HTTP、レート制限待機、バックオフを
+  Abortし、配送完了を待ちません。配送失敗は許可済み分類、status、attemptsだけをログへ
+  投影し、StateStoreへ再投入しません。Minecraftの安全停止は配送に依存しません。
+- 未実装: 実Webhook URLの設定、実Discord送信試験、Bot API、双方向操作、定時報告、
+  再起動後の重複防止、永続outbox。
+- 理由: 現在は一方向通知だけが必要であり、既存ポートへ小さなHTTPアダプターとして接続し、
+  Discord障害を安全制御から分離できるためです。

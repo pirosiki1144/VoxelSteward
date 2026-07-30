@@ -6,9 +6,9 @@ VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（B
 通常運転ランタイム、およびスモークテストを提供します。自律動作やゲーム内操作は
 **行いません**。
 
-通常運転の状態変化から安全な通知メッセージを生成するプロセス内通知基盤もあります。
-現在は外部通信を行わないNo-op実装だけを接続しており、Discord SDK、Webhook送信、
-トークンやチャンネル設定は実装していません。設計の詳細は
+通常運転の状態変化から安全な通知メッセージを生成し、任意でDiscord Incoming Webhookへ
+配送する通知基盤もあります。既定は外部通信を行わないNo-opで、Discord SDKやBot APIは
+使用しません。Webhook URLの設定と実送信には別途運用承認が必要です。設計の詳細は
 [通知基盤](docs/notifications.md)を参照してください。
 
 ## 前提環境
@@ -89,6 +89,17 @@ docker compose logs -f runtime
 `RUNTIME_CONNECTION_TIMEOUT_MS`は接続開始からスポーンまでの上限です。認証・設定などの
 回復不能エラー、他プレイヤー検知、SIGINT、SIGTERMでは再接続しません。
 `reconnect.exhausted`と`runtime.finished`の`exitCode: 1`は再接続上限到達を示します。
+
+### Discord通知
+
+既定の`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを検証・使用せず、
+外部通信しません。承認済み環境で通知を有効にする場合だけ、秘密情報として管理された
+Incoming Webhook URLを`DISCORD_WEBHOOK_URL`へ設定し、有効化フラグを厳密に`true`と
+します。不正な設定はMinecraft接続前に終了します。URLをログやGitへ記録しないでください。
+
+Webhook配送は1試行5秒、最大3試行、待機を含む総15秒を上限とします。429ではDiscordの
+待機指定、一時的な500・502・503・504と通信失敗では上限付き再試行を行います。通知障害は
+Minecraftの安全切断を妨げません。プロセス終了時は未完了配送を中断し、完了を待ちません。
 
 ### Dockerイメージのビルド
 

@@ -55,6 +55,20 @@ docker compose stop runtime
 `runtime.finished`を記録します。設定・認証・未知の接続エラー、他プレイヤー検知、
 SIGINT、SIGTERMでは再接続しません。
 
+### Discord Incoming Webhook通知
+
+通知は既定で無効です。`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを
+検証・使用せず、外部通信しません。専用チャンネルと秘密情報管理が承認された環境だけで、
+Webhook URLを秘密値として注入し、フラグを厳密に`true`とします。URLやtokenをログ、
+チャット、Gitへ記録してはいけません。不正なフラグまたは有効時の不正URLはMinecraft接続
+より前に`INVALID_DISCORD_WEBHOOK_CONFIG`として終了します。
+
+配送失敗時の`notification.delivery_failed`は、安全な`code`、`classification`、
+`status`（存在時）、`attempts`と通知IDだけを記録します。応答本文や生Errorは記録しません。
+1試行5秒、最大3試行、レート制限待機を含む総15秒が上限です。runtime停止時は未完了の
+配送と待機を中断し、Minecraftの安全切断を待たせません。実Discord送信試験は別途承認を
+得て実施します。
+
 接続状態を外部へ正確に示すreadinessエンドポイントはまだないため、`runtime`には
 形だけのhealthcheckを設定していません。
 

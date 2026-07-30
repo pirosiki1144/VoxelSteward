@@ -133,7 +133,13 @@ UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と�
 `NotificationMessage`へ変換し、`NotificationSubscriber`がrevision順に
 `NotificationPort`へ直列配送します。
 
-通常runtimeは外部通信を行わない`NoopNotificationPort`を共有StateStoreへ接続します。
-Fake portはテストからだけ注入します。送信例外とPromise rejectionは通知エラーcallbackへ
-隔離し、安全切断や状態dispatchを待たせません。Discordアダプター、認証、レート制限、
-再試行、永続outboxは未実装です。詳細は[通知基盤](notifications.md)を参照してください。
+通常runtimeは起動時に通知設定を一度だけ検証し、無効時は`NoopNotificationPort`、
+有効時はNode標準`fetch`を用いる`DiscordWebhookNotificationPort`を共有StateStoreへ
+接続します。Discord固有処理はadapter層に限定し、HTTP transport、単調時計、待機、jitterを
+テストから差し替えられます。送信例外とPromise rejectionは安全な分類へ変換して通知エラー
+callbackへ隔離し、安全切断や状態dispatchを待たせません。
+
+runtime終了時はsubscriberの新規受付を止めた後、別のruntime bindingが進行中HTTPと
+レート制限・再試行待機をAbortします。`NotificationPort`の既存契約には終了責務を
+追加しません。Webhook URLは状態、通知本文、ログへ渡しません。Discord Bot API、
+定時報告、永続outboxは未実装です。詳細は[通知基盤](notifications.md)を参照してください。

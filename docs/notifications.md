@@ -3,9 +3,10 @@
 ## 現在のスコープ
 
 状態イベントから安全な通知内容を生成し、外部送信を抽象化するプロセス内基盤です。
-Discordへの実送信、SDK、Webhookクライアント、認証・チャンネル設定、定時報告、
-永続outboxは未実装です。通常runtimeは`NoopNotificationPort`を使用するため、
-ネットワーク通信を行いません。テストだけが`FakeNotificationPort`を明示注入します。
+通常runtimeは既定で`NoopNotificationPort`を使用します。明示的に有効化し、起動時の
+厳格なURL検証を通過した場合だけ、Discord Incoming Webhookアダプターを使用します。
+Discord SDK、Bot API、認証・チャンネル作成、定時報告、永続outbox、実送信試験は
+含みません。テストは注入したFake HTTP transportだけを使用します。
 
 ## コンポーネント
 
@@ -19,9 +20,9 @@ NotificationSubscriber
    |
    v
 NotificationPort
-   +-- NoopNotificationPort（現在のruntime標準）
+   +-- NoopNotificationPort（通知無効時）
+   +-- DiscordWebhookNotificationPort（明示的な有効時）
    +-- FakeNotificationPort（テスト専用）
-   +-- Discord adapter（未実装）
 ```
 
 - mapperは`StateChangeEvent.before`と`after`の実値を比較します。
@@ -98,21 +99,31 @@ channel ID、Cookie、認証キャッシュ、生のError、stackは含めませ
 状態dispatchや通知を再帰的に発生させません。通知失敗はruntimeを停止させず、
 他プレイヤー検知時のMinecraft切断を待たせません。
 
-現在のruntimeで使うNo-op portは外部I/Oを行いません。将来の実アダプターを接続する場合も、
-runtime停止時に外部送信完了を無期限に待つことは禁止します。
+No-op portは外部I/Oを行いません。Webhook portの同期例外とrejectionも同じ境界で隔離し、
+既知の配送エラーはcode、classification、任意のstatus、attemptsだけをログへ投影します。
+未知エラーも固定分類へ変換し、生Error、stack、cause、URL、応答本文を記録しません。
 
-## 将来のDiscordアダプター
+## Discord Incoming Webhookアダプター
 
-実アダプター工程では次を満たす必要があります。
+- `DISCORD_NOTIFICATIONS_ENABLED`は未設定または厳密な`false`で無効、厳密な`true`で有効です。
+- 無効時はURLを検証せずNo-opを選びます。
+- 有効時はHTTPS、厳密な`discord.com`、標準Webhook path、資格情報・port・query・hashなしを
+  Minecraft接続前に検証します。
+- `wait=true`のPOSTで、`content`と`allowed_mentions: { parse: [] }`だけをJSON送信します。
+- contentは固定済みNotificationMessageフィールドだけから生成し、JavaScript文字列長
+  2,000を超えた場合は切り詰めず通信前に拒否します。
+- 1試行5秒、最大3試行、HTTP時間と全待機を含む総15秒を上限にします。
+- 429は数値検証した`Retry-After`、次に16KiB以下のJSON `retry_after`を秒として使用します。
+- 500、502、503、504、通信失敗、試行timeoutだけを上限付きで再試行します。
+- 通常バックオフは250ms、500msを基礎とし、小さなjitterを加えます。
+- 成功応答のRemainingが0ならReset-Afterを次通知の事前待機へ使用します。
+- Discordのlimit値はハードコードしません。
+- HTTP transport、単調時計、Abort可能wait、jitterはFakeへ差し替え可能です。
 
-- HTTP 429は`Retry-After`を尊重する
-- 一時的な5xxまたは通信失敗だけを上限付き再試行する
-- 認証失敗と不正リクエストは自動再試行しない
-- 指数バックオフとjitterを使用する
-- 再試行回数と総待機時間に上限を設ける
-- 再試行中の重複送信防止に`notificationId`を使用する
-- 緊急停止通知でもMinecraft切断を待たせない
-- 永続配送が必要になった時点でMySQL等のoutboxを導入する
+runtimeはsubscriberを閉じて新規受付を停止した後、通知bindingを閉じます。bindingは
+進行中fetch、レート制限待機、再試行バックオフをAbortし、配送完了を待ちません。
+`NotificationPort`の公開契約にはcloseを追加していません。
 
-Webhook URL、token、channel IDは設定境界で管理し、状態、通知本文、ログ、テストfixture、
-Gitへ保存しません。実Discord送信と認証設定には別途承認が必要です。
+実Webhook URL、token、channel IDは設定境界で管理し、状態、通知本文、ログ、テストfixture、
+Gitへ保存しません。プロセス再起動後の重複防止・永続配送には、将来MySQL等のoutboxが
+必要です。実Webhook URL設定と実Discord送信には別途承認が必要です。

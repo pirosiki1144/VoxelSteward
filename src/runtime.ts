@@ -1,23 +1,29 @@
 import { pathToFileURL } from "node:url";
 
 import { BedrockReadonlyConnection } from "./adapters/minecraft/bedrock-connection.js";
-import {
-  NoopNotificationPort,
-  NotificationSubscriber,
-} from "./application/notifications/index.js";
+import { NotificationSubscriber } from "./application/notifications/index.js";
+import { toSafeNotificationDeliveryFailure } from "./adapters/notifications/discord-webhook-notification-port.js";
 import { createStateStore } from "./domain/state/index.js";
 import { InstanceLock } from "./infrastructure/instance-lock.js";
 import { createLogger } from "./infrastructure/logger.js";
 import { loadRuntimeConfig } from "./runtime/config.js";
+import { loadNotificationConfig } from "./runtime/notification-config.js";
+import {
+  createRuntimeNotificationBinding,
+  type RuntimeNotificationBinding,
+} from "./runtime/notification-port-factory.js";
 import { RuntimeSupervisor } from "./runtime/supervisor.js";
 
 const main = async (): Promise<void> => {
   let lock: InstanceLock | undefined;
   let notifications: NotificationSubscriber | undefined;
+  let notificationBinding: RuntimeNotificationBinding | undefined;
   let removeSignals = (): void => undefined;
   try {
+    const notificationConfig = loadNotificationConfig();
     const config = loadRuntimeConfig();
     const logger = createLogger(config.mode, config.logLevel);
+    notificationBinding = createRuntimeNotificationBinding(notificationConfig);
     lock = new InstanceLock(config.authProfilesFolder, config.accountId);
     await lock.acquire();
 
@@ -26,10 +32,15 @@ const main = async (): Promise<void> => {
         logger.log("error", { event: "runtime.state_subscriber_failed" });
       },
     });
-    notifications = new NotificationSubscriber(new NoopNotificationPort(), {
-      onNotificationError: (_error, message) => {
+    notifications = new NotificationSubscriber(notificationBinding.port, {
+      onNotificationError: (error, message) => {
+        const failure = toSafeNotificationDeliveryFailure(error);
         logger.log("error", {
           event: "notification.delivery_failed",
+          code: failure.code,
+          classification: failure.classification,
+          attempts: failure.attempts,
+          ...(failure.status === undefined ? {} : { status: failure.status }),
           ...(message === undefined
             ? {}
             : {
@@ -83,6 +94,7 @@ const main = async (): Promise<void> => {
     process.exitCode = 1;
   } finally {
     notifications?.close();
+    notificationBinding?.close();
     removeSignals();
     await lock?.release();
   }
