@@ -8,7 +8,7 @@ coverage/
 
 *.log
 logs/
-runtime/
+/runtime/
 data/
 auth/
 auth-cache/

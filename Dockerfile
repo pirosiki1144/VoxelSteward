@@ -35,4 +35,4 @@ RUN mkdir -p /auth/profiles && chown -R node:node /auth
 
 USER node
 
-CMD ["node", "dist/src/smoke.js"]
+CMD ["node", "dist/src/runtime.js"]

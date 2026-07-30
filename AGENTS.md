@@ -2,9 +2,9 @@
 
 ## Scope
 
-VoxelSteward is intended to become a safety-first automation client for Minecraft
-Bedrock Dedicated Server. The current phase permits only a read-only smoke-test
-connection in addition to the TypeScript development foundation and
+VoxelSteward is a safety-first automation client for Minecraft Bedrock Dedicated
+Server. The current phase permits a read-only normal runtime and a read-only
+smoke-test connection in addition to the TypeScript development foundation and
 documentation. Do not add game actions or autonomous behavior unless the project
 owner explicitly changes the phase without weakening the safety invariants below.
 
@@ -22,6 +22,8 @@ owner explicitly changes the phase without weakening the safety invariants below
 - Handle SIGTERM by stopping work, persisting a checkpoint when applicable,
   disconnecting, and then exiting.
 - Prevent concurrent instances from controlling the same bot identity.
+- Keep reconnect attempts bounded and never reconnect after a player safety stop
+  or an operator-requested stop.
 - Keep authentication caches, credentials, and account data outside source and
   outside Git.
 

@@ -20,6 +20,44 @@ npm start
 
 デフォルトのヘルスチェックエンドポイントは`http://127.0.0.1:3000/health`です。
 
+## 通常運転
+
+通常運転イメージをビルドし、`normal`固定の`runtime`サービスを起動します。
+
+```bash
+docker compose build runtime
+docker compose up -d runtime
+docker compose logs -f runtime
+```
+
+他プレイヤーをスポーン時または接続後に検知すると
+`minecraft.other_player_detected`を記録し、`reason: "other_player_detected"`、
+`exitCode: 0`で安全に切断します。`restart: "no"`のため、安全停止後に自動起動しません。
+
+安全な停止にはSIGTERMを使います。
+
+```bash
+docker compose stop runtime
+```
+
+`signal.received`、`runtime.stopping`、`minecraft.disconnecting`、
+`runtime.finished`の順に確認します。認証volumeは削除しないでください。
+
+再接続設定は次のとおりです。
+
+- `RUNTIME_MAX_RETRIES` — 初回接続を除く最大再試行回数、既定値3
+- `RUNTIME_RECONNECT_INITIAL_DELAY_MS` — 初回待機、既定値1000ミリ秒
+- `RUNTIME_RECONNECT_MAX_DELAY_MS` — 待機上限、既定値30000ミリ秒
+- `RUNTIME_CONNECTION_TIMEOUT_MS` — スポーンまでの上限、既定値15000ミリ秒
+
+`reconnect.scheduled`で次の試行番号と待機時間を確認できます。上限到達時は
+`reconnect.exhausted`と、`reason: "reconnect_exhausted"`、`exitCode: 1`の
+`runtime.finished`を記録します。設定・認証・未知の接続エラー、他プレイヤー検知、
+SIGINT、SIGTERMでは再接続しません。
+
+接続状態を外部へ正確に示すreadinessエンドポイントはまだないため、`runtime`には
+形だけのhealthcheckを設定していません。
+
 読み取り専用スモークテスト用のDockerイメージをビルドします。
 
 ```bash
@@ -41,6 +79,8 @@ docker compose run --rm --name voxel-steward-smoke-run -e BOT_MODE=debug -e LOG_
 `debug`では他プレイヤーの参加・退出を記録し、読み取り専用接続を維持します。
 `minecraft.other_player_allowed`の`action`が`connection_continued`であることを確認して
 ください。指定時間後は`reason: "timeout"`、`exitCode: 0`で安全に切断します。
+smokeは単発検証であり、自動再接続しません。通常運転は`normal`固定でタイムアウト終了せず、
+上限付き再接続を行う点が異なります。
 
 ## 設定と秘密情報
 

@@ -134,8 +134,8 @@ export class SmokeSession {
         detectedAt: player.detectedAt,
       });
     });
-    this.#bind("connectionError", (error) => {
-      this.requestStop("connection_error", error);
+    this.#bind("connectionError", (failure) => {
+      this.requestStop("connection_error", failure.error);
     });
     this.#bind("close", () => {
       this.requestStop("connection_closed");

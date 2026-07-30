@@ -10,10 +10,10 @@ import type { Logger } from "../../infrastructure/logger.js";
 import type {
   BotState,
   ConnectionEvents,
+  MinecraftConnectionConfig,
   PlayerEvent,
   Position,
   ReadonlyMinecraftConnection,
-  SmokeConfig,
 } from "../../smoke/types.js";
 
 interface SessionProfile {
@@ -58,6 +58,18 @@ interface PlayerListPacket {
   };
 }
 
+const transientErrorCodes = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+]);
+
+const isRetryableConnectionError = (error: Error): boolean => {
+  if (!("code" in error) || typeof error.code !== "string") return false;
+  return transientErrorCodes.has(error.code);
+};
+
 const positionFrom = (value: unknown): Position | undefined => {
   if (value === null || typeof value !== "object") return undefined;
   const item = value as Record<string, unknown>;
@@ -96,7 +108,7 @@ export class BedrockReadonlyConnection
   #ownRuntimeId?: string;
   #closed = false;
 
-  constructor(config: SmokeConfig, logger: Logger) {
+  constructor(config: MinecraftConnectionConfig, logger: Logger) {
     super();
     this.#logger = logger;
     const options: ClientOptions = {
@@ -105,7 +117,7 @@ export class BedrockReadonlyConnection
       username: config.accountId,
       profilesFolder: config.authProfilesFolder,
       offline: false,
-      connectTimeout: 15_000,
+      connectTimeout: config.connectionTimeoutMs,
       conLog: null,
       raknetBackend: "raknet-native",
       onMsaCode: (data) => {
@@ -209,15 +221,18 @@ export class BedrockReadonlyConnection
       this.#logger.log("warn", { event: "minecraft.kicked" });
     });
     this.#client.on("error", (error: unknown) => {
-      this.emit(
-        "connectionError",
+      const normalized =
         error instanceof Error
           ? error
-          : new Error("Minecraft connection error"),
-      );
+          : new Error("Minecraft connection error");
+      this.emit("connectionError", {
+        error: normalized,
+        retryable: isRetryableConnectionError(normalized),
+      });
     });
     this.#client.on("close", () => {
       this.#closed = true;
+      this.#logger.log("info", { event: "minecraft.disconnected" });
       this.emit("close");
     });
   }

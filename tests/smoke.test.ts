@@ -41,6 +41,7 @@ const config = (mode: "normal" | "debug" = "normal"): SmokeConfig => ({
   timeoutSeconds: 60,
   authProfilesFolder: "/tmp/test-auth",
   logLevel: "debug",
+  connectionTimeoutMs: 15_000,
 });
 
 const setup = (mode: "normal" | "debug" = "normal") => {
@@ -206,8 +207,14 @@ describe("SmokeSession", () => {
 
   it("複数のエラーでも終了処理は一度だけ実行する", async () => {
     const { connection, result } = setup();
-    connection.emit("connectionError", new Error("first"));
-    connection.emit("connectionError", new Error("second"));
+    connection.emit("connectionError", {
+      error: new Error("first"),
+      retryable: false,
+    });
+    connection.emit("connectionError", {
+      error: new Error("second"),
+      retryable: false,
+    });
 
     await expect(result).resolves.toMatchObject({
       reason: "connection_error",
@@ -218,7 +225,10 @@ describe("SmokeSession", () => {
 
   it("接続失敗時に再試行せず異常終了する", async () => {
     const { connection, result } = setup();
-    connection.emit("connectionError", new Error("connect failed"));
+    connection.emit("connectionError", {
+      error: new Error("connect failed"),
+      retryable: false,
+    });
 
     await expect(result).resolves.toEqual({
       reason: "connection_error",

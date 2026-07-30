@@ -1,9 +1,40 @@
 services:
+  runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward:local
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MINECRAFT_HOST: ${MINECRAFT_HOST:-}
+      MINECRAFT_PORT: ${MINECRAFT_PORT:-19132}
+      MINECRAFT_VERSION: ${MINECRAFT_VERSION:-}
+      BOT_ACCOUNT_ID: ${BOT_ACCOUNT_ID:-}
+      BOT_MODE: normal
+      AUTH_PROFILES_FOLDER: /auth/profiles
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUNTIME_MAX_RETRIES: ${RUNTIME_MAX_RETRIES:-3}
+      RUNTIME_RECONNECT_INITIAL_DELAY_MS: ${RUNTIME_RECONNECT_INITIAL_DELAY_MS:-1000}
+      RUNTIME_RECONNECT_MAX_DELAY_MS: ${RUNTIME_RECONNECT_MAX_DELAY_MS:-30000}
+      RUNTIME_CONNECTION_TIMEOUT_MS: ${RUNTIME_CONNECTION_TIMEOUT_MS:-15000}
+    volumes:
+      - auth-profiles:/auth/profiles
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
+
   smoke:
     build:
       context: .
       dockerfile: Dockerfile
     image: voxel-steward-smoke:local
+    command: ["node", "dist/src/smoke.js"]
     init: true
     restart: "no"
     read_only: true

@@ -14,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "runtime": "node dist/src/runtime.js",
     "smoke": "node dist/src/smoke.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

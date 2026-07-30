@@ -28,6 +28,11 @@ export interface PlayerEvent {
   detectedAt: string;
 }
 
+export interface ConnectionFailure {
+  error: Error;
+  retryable: boolean;
+}
+
 export interface ConnectionEvents {
   authenticated: (playerName: string) => void;
   join: () => void;
@@ -35,7 +40,7 @@ export interface ConnectionEvents {
   state: (state: Partial<BotState>) => void;
   playerJoined: (player: PlayerEvent) => void;
   playerLeft: (player: PlayerEvent) => void;
-  connectionError: (error: Error) => void;
+  connectionError: (failure: ConnectionFailure) => void;
   close: () => void;
 }
 
@@ -60,7 +65,18 @@ export interface SmokeConfig {
   timeoutSeconds: number;
   authProfilesFolder: string;
   logLevel: "debug" | "info" | "warn" | "error";
+  connectionTimeoutMs: number;
 }
+
+export type MinecraftConnectionConfig = Pick<
+  SmokeConfig,
+  | "host"
+  | "port"
+  | "version"
+  | "accountId"
+  | "authProfilesFolder"
+  | "connectionTimeoutMs"
+>;
 
 export interface SmokeResult {
   reason: StopReason;

@@ -2,8 +2,9 @@
 
 VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（BDS）向け
 自動化クライアントの基盤です。現在は、TypeScriptツールチェーン、ドキュメント、
-構造化ログ、HTTPヘルスチェックエンドポイント、およびDockerから実行する読み取り専用の
-スモークテスト（最小接続テスト）を提供します。自律動作やゲーム内操作は**行いません**。
+構造化ログ、HTTPヘルスチェックエンドポイント、Dockerから常駐する読み取り専用の
+通常運転ランタイム、およびスモークテストを提供します。自律動作やゲーム内操作は
+**行いません**。
 
 ## 前提環境
 
@@ -60,6 +61,29 @@ cp .env.example .env
 
 `BOT_ACCOUNT_ID`にはメールアドレスやGamertagではなく、`smoke-bot`のような
 秘密情報ではないローカル識別子を使用してください。
+
+## 通常運転ランタイム
+
+通常運転は`normal`固定で接続を維持し、他プレイヤーを検知すると安全制御として終了します。
+
+```bash
+docker compose build runtime
+docker compose up runtime
+```
+
+停止は前面実行中のCtrl+C、または別端末から次を実行します。
+
+```bash
+docker compose stop runtime
+docker compose logs -f runtime
+```
+
+一時切断は`RUNTIME_MAX_RETRIES`回まで再試行します。待機は
+`RUNTIME_RECONNECT_INITIAL_DELAY_MS`から指数的に増加し、
+`RUNTIME_RECONNECT_MAX_DELAY_MS`を上限とします。
+`RUNTIME_CONNECTION_TIMEOUT_MS`は接続開始からスポーンまでの上限です。認証・設定などの
+回復不能エラー、他プレイヤー検知、SIGINT、SIGTERMでは再接続しません。
+`reconnect.exhausted`と`runtime.finished`の`exitCode: 1`は再接続上限到達を示します。
 
 ### Dockerイメージのビルド
 
@@ -130,6 +154,7 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 - `npm run lint` — ESLintを実行します
 - `npm test` — Vitestを1回実行します
 - `npm run smoke` — build済みの読み取り専用スモークテストを実行します
+- `npm run runtime` — build済みの通常運転ランタイムを実行します
 - `npm run format` — Prettierで対応ファイルを整形します
 - `npm run format:check` — ファイルが整形済みか確認します
 
