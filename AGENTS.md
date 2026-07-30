@@ -3,10 +3,17 @@
 ## Scope
 
 VoxelSteward is a safety-first automation client for Minecraft Bedrock Dedicated
-Server. The current phase permits a read-only normal runtime and a read-only
-smoke-test connection in addition to the TypeScript development foundation and
-documentation. Do not add game actions or autonomous behavior unless the project
-owner explicitly changes the phase without weakening the safety invariants below.
+Server. The current implementation is a read-only normal runtime and smoke-test
+connection. The approved next phase is state and progress management only. Do not
+add external integrations or game actions without explicit approval.
+
+The authoritative product requirements, current status, roadmap, and operating
+authority are in:
+
+- `docs/requirements.md`
+- `docs/project/status.md`
+- `docs/project/roadmap.md`
+- `docs/project/governance.md`
 
 ## Mandatory safety invariants
 
@@ -26,6 +33,8 @@ owner explicitly changes the phase without weakening the safety invariants below
   or an operator-requested stop.
 - Keep authentication caches, credentials, and account data outside source and
   outside Git.
+- Never store player names, server endpoints, or authentication data in state,
+  progress records, tests, or documentation.
 
 ## Engineering rules
 
@@ -41,8 +50,20 @@ owner explicitly changes the phase without weakening the safety invariants below
   before handing off changes.
 - Do not commit generated output, local environment files, authentication
   caches, logs, coverage, or dependencies.
+- Keep state-domain code independent of Minecraft, Discord, databases, Docker,
+  and process signals.
 
 ## Documentation
 
 Architecture or safety changes must update the relevant file under `docs/`.
 Record durable technical choices in `docs/decisions.md`.
+Record non-secret real-server verification in `docs/verification/`.
+
+## Approval boundary
+
+Read-only investigation, approved-scope edits, local tests, builds, Compose
+configuration validation, and image builds without starting services are allowed.
+Follow `docs/project/governance.md` for the full boundary. Stop for approval
+before external connections, container/service startup, production dependency
+changes, authentication-volume changes, game actions, commits, pushes, merges,
+releases, or remote service mutations.

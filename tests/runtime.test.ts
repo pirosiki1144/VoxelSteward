@@ -3,6 +3,10 @@ import { Writable } from "node:stream";
 
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  createStateStore,
+  type StateStore,
+} from "../src/domain/state/index.js";
 import { createLogger } from "../src/infrastructure/logger.js";
 import { loadRuntimeConfig } from "../src/runtime/config.js";
 import { RuntimeSupervisor } from "../src/runtime/supervisor.js";
@@ -51,6 +55,7 @@ const setup = (
   connections: FakeConnection[],
   overrides: Partial<RuntimeConfig> = {},
   wait: Wait = () => Promise.resolve(),
+  stateStore: StateStore = createStateStore(),
 ) => {
   const output: string[] = [];
   const stream = new Writable({
@@ -70,11 +75,13 @@ const setup = (
     },
     createLogger("normal", "debug", stream),
     wait,
+    stateStore,
   );
   return {
     supervisor,
     run: supervisor.run(),
     output,
+    stateStore,
     factoryCalls: () => factoryCalls,
   };
 };
@@ -102,6 +109,46 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("login、spawn、telemetryと正常停止を状態へ反映する", async () => {
+    const connection = new FakeConnection();
+    const { supervisor, run, stateStore } = setup([connection]);
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("state", {
+      position: { x: 10, y: 71, z: -4 },
+      health: 20,
+      hunger: 18,
+      playerName: "must not enter state",
+    });
+    connection.emit("spawn");
+
+    expect(supervisor.getStateSnapshot()).toMatchObject({
+      runtime: "ready",
+      minecraft: {
+        connection: "spawned",
+        spawnCompleted: true,
+        position: { x: 10, y: 71, z: -4 },
+        health: 20,
+        hunger: 18,
+        otherPlayerDetected: false,
+      },
+    });
+    expect(JSON.stringify(stateStore.getSnapshot())).not.toContain(
+      "playerName",
+    );
+
+    supervisor.requestStop("stop_requested");
+    await run;
+    expect(stateStore.getSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "stop_requested",
+      minecraft: {
+        connection: "disconnected",
+        spawnCompleted: false,
+      },
+    });
+  });
+
   it("接続とスポーン後に待機状態を維持する", async () => {
     const connection = new FakeConnection();
     const { supervisor, run, output } = setup([connection]);
@@ -122,8 +169,9 @@ describe("RuntimeSupervisor", () => {
 
   it("スポーン時に別プレイヤーがいると安全終了する", async () => {
     const connection = new FakeConnection();
-    const { run } = setup([connection]);
+    const { run, stateStore } = setup([connection]);
     connection.emit("authenticated", "VoxelStewardBOT");
+    connection.emit("join");
     connection.emit("playerJoined", player);
     connection.emit("spawn");
 
@@ -132,12 +180,21 @@ describe("RuntimeSupervisor", () => {
       exitCode: 0,
     });
     expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(stateStore.getSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "other_player_detected",
+      minecraft: {
+        otherPlayerDetected: true,
+        connection: "disconnected",
+      },
+    });
   });
 
   it("接続後の別プレイヤー参加で一度だけ安全終了する", async () => {
     const connection = new FakeConnection();
     const { run, output } = setup([connection]);
     connection.emit("authenticated", "VoxelStewardBOT");
+    connection.emit("join");
     connection.emit("spawn");
     connection.emit("playerJoined", player);
     connection.emit("playerJoined", player);
@@ -178,6 +235,40 @@ describe("RuntimeSupervisor", () => {
     second.emit("spawn");
     supervisor.requestStop("stop_requested");
     await run;
+  });
+
+  it("再接続開始と上限到達を状態へ反映する", async () => {
+    const first = new FakeConnection();
+    const second = new FakeConnection();
+    const stateStore = createStateStore();
+    const states: string[] = [];
+    stateStore.subscribe((event) => {
+      states.push(event.after.runtime);
+    });
+    const { run, factoryCalls } = setup(
+      [first, second],
+      { maxRetries: 1 },
+      () => Promise.resolve(),
+      stateStore,
+    );
+    first.emit("close");
+    await waitForCalls(factoryCalls, 2);
+    second.emit("close");
+
+    await expect(run).resolves.toEqual({
+      reason: "reconnect_exhausted",
+      exitCode: 1,
+    });
+    await flush();
+    expect(states).toContain("reconnecting");
+    expect(stateStore.getSnapshot()).toMatchObject({
+      runtime: "failed",
+      stopReason: "reconnect_exhausted",
+      lastError: {
+        code: "reconnect_exhausted",
+        message: "Reconnect attempts exhausted",
+      },
+    });
   });
 
   it("構造化された一時接続エラー後に再接続する", async () => {
@@ -265,7 +356,7 @@ describe("RuntimeSupervisor", () => {
   it("SIGTERMで切断しリスナーとタイマーを解放する", async () => {
     vi.useFakeTimers();
     const connection = new FakeConnection();
-    const { supervisor, run } = setup([connection]);
+    const { supervisor, run, stateStore } = setup([connection]);
     supervisor.requestStop("signal_sigterm");
 
     await expect(run).resolves.toEqual({
@@ -275,6 +366,10 @@ describe("RuntimeSupervisor", () => {
     expect(connection.disconnect).toHaveBeenCalledOnce();
     expect(connection.eventNames()).toHaveLength(0);
     expect(vi.getTimerCount()).toBe(0);
+    expect(stateStore.getSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "signal_sigterm",
+    });
     vi.useRealTimers();
   });
 
@@ -291,6 +386,35 @@ describe("RuntimeSupervisor", () => {
       exitCode: 1,
     });
     expect(factoryCalls()).toBe(1);
+  });
+
+  it("状態dispatchが失敗しても他プレイヤー検知で安全切断する", async () => {
+    const connection = new FakeConnection();
+    const fallback = createStateStore();
+    const failingStore: StateStore = {
+      getSnapshot: () => fallback.getSnapshot(),
+      dispatch: () => {
+        throw new Error("state dispatch failed");
+      },
+      subscribe: () => () => undefined,
+    };
+    const { run, output } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      failingStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("playerJoined", player);
+
+    await expect(run).resolves.toEqual({
+      reason: "other_player_detected",
+      exitCode: 0,
+    });
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(output.join("")).toContain("runtime.state_update_failed");
   });
 });
 

@@ -170,4 +170,5 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 commitしないでください。
 
 詳しくは、[要件](docs/requirements.md)、[アーキテクチャ](docs/architecture.md)、
-[運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)を参照してください。
+[運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)、
+[現在の状況](docs/project/status.md)、[ロードマップ](docs/project/roadmap.md)を参照してください。

@@ -16,7 +16,7 @@ Application coordinator ---- Safety policy
         +---- Domain tasks -------+
         |
         +---- Minecraft port ---- bedrock-protocol adapter (read-only smoke)
-        +---- Repository ports -- PostgreSQL repositories (future)
+        +---- Repository ports -- MySQL repositories (future)
         +---- Checkpoint port --- durable checkpoint repository (future)
         +---- Instance lock ----- DB lease/advisory lock (future)
 ```
@@ -30,7 +30,7 @@ src/
   ports/         Minecraft and Repository interfaces
   adapters/
     minecraft/   bedrock-protocol read-only integration
-    persistence/ PostgreSQL repositories and migrations
+    persistence/ MySQL repositories and migrations
   infrastructure/ configuration, logging, health, signals
 ```
 
@@ -61,7 +61,8 @@ SIGTERMを受けた場合も、上限時間が設定された同じ停止処理�
 します。チェックポイントには、タスク識別子、バージョン、安全に再開できる位置、
 状態ペイロード、タイムスタンプを含めます。
 
-分散デプロイでは、データベースを利用した更新可能なリースを推奨します。リースキーには
+将来の永続化先はMySQLとします。分散デプロイでは、データベースを利用した更新可能な
+リースを推奨します。リースキーには
 BOTの識別情報を使用します。リースの取得または更新に失敗した場合は作業を実行せず、
 安全に切断します。
 
@@ -113,3 +114,14 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 再試行対象は接続close、接続タイムアウト、およびエラーコードで明確に識別できる一時的な
 ネットワークエラーです。未知エラーは安全側で回復不能と扱います。通常運転とsmokeは同じ
 `InstanceLock`と認証volumeを使い、同じBOT識別子の同時使用を防ぎます。
+
+## 10. 状態・進捗管理
+
+状態管理はMinecraft、Discord、MySQLから独立したdomainモジュールとし、コマンドによる
+検証済み遷移、読み取り専用スナップショット、プロセス内の変更イベントを提供します。
+`RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。将来のDiscord通知と
+MySQL Repositoryは同じイベントを購読し、subscriber障害は安全切断経路から隔離します。
+スナップショットとイベントは実行時に再帰的にfreezeし、時刻は注入可能なClockから
+UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
+観測可能なエラー報告へ隔離します。詳細は[状態・進捗管理](state-management.md)を
+参照してください。

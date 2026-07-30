@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import { BedrockReadonlyConnection } from "./adapters/minecraft/bedrock-connection.js";
+import { createStateStore } from "./domain/state/index.js";
 import { InstanceLock } from "./infrastructure/instance-lock.js";
 import { createLogger } from "./infrastructure/logger.js";
 import { loadRuntimeConfig } from "./runtime/config.js";
@@ -15,10 +16,17 @@ const main = async (): Promise<void> => {
     lock = new InstanceLock(config.authProfilesFolder, config.accountId);
     await lock.acquire();
 
+    const stateStore = createStateStore({
+      onSubscriberError: () => {
+        logger.log("error", { event: "runtime.state_subscriber_failed" });
+      },
+    });
     const supervisor = new RuntimeSupervisor(
       config,
       () => new BedrockReadonlyConnection(config, logger),
       logger,
+      undefined,
+      stateStore,
     );
     const onSigint = () => {
       logger.log("info", { event: "signal.received", signal: "SIGINT" });

@@ -1,4 +1,11 @@
 import { PlayerDetectionPolicy } from "../domain/player-detection-policy.js";
+import {
+  createStateStore,
+  type SanitizedErrorCode,
+  type StateCommand,
+  type StateSnapshot,
+  type StateStore,
+} from "../domain/state/index.js";
 import type { Logger } from "../infrastructure/logger.js";
 import type {
   ConnectionEvents,
@@ -37,6 +44,7 @@ export class RuntimeSupervisor {
   readonly #createConnection: ConnectionFactory;
   readonly #logger: Logger;
   readonly #wait: Wait;
+  readonly #stateStore: StateStore;
   readonly #policy = new PlayerDetectionPolicy("normal");
   readonly #abortController = new AbortController();
   #connection: ReadonlyMinecraftConnection | undefined;
@@ -50,11 +58,17 @@ export class RuntimeSupervisor {
     createConnection: ConnectionFactory,
     logger: Logger,
     wait: Wait = defaultWait,
+    stateStore: StateStore = createStateStore(),
   ) {
     this.#config = config;
     this.#createConnection = createConnection;
     this.#logger = logger;
     this.#wait = wait;
+    this.#stateStore = stateStore;
+  }
+
+  getStateSnapshot(): StateSnapshot {
+    return this.#stateStore.getSnapshot();
   }
 
   async run(): Promise<RuntimeResult> {
@@ -79,8 +93,17 @@ export class RuntimeSupervisor {
             maxAttempts: this.#config.maxRetries + 1,
           });
         }
+        this.#dispatchState({
+          type: "runtime.transition",
+          to: "connecting",
+        });
+        this.#dispatchState({
+          type: "minecraft.connection.transition",
+          to: "connecting",
+        });
         const outcome = await this.#runAttempt();
         if (outcome.kind === "stopped") break;
+        this.#markMinecraftDisconnected();
         if (outcome.kind === "fatal") {
           this.#logger.log("error", {
             event: "runtime.error",
@@ -88,6 +111,10 @@ export class RuntimeSupervisor {
             error: outcome.error.message,
           });
           this.#stopReason = "connection_error";
+          this.#recordFailure(
+            "connection_error",
+            "Minecraft connection failed",
+          );
           break;
         }
         if (retry >= this.#config.maxRetries) {
@@ -97,6 +124,10 @@ export class RuntimeSupervisor {
             maxAttempts: this.#config.maxRetries + 1,
           });
           this.#stopReason = "reconnect_exhausted";
+          this.#recordFailure(
+            "reconnect_exhausted",
+            "Reconnect attempts exhausted",
+          );
           break;
         }
         const delayMs = Math.min(
@@ -110,6 +141,10 @@ export class RuntimeSupervisor {
           maxAttempts: this.#config.maxRetries + 1,
           delayMs,
         });
+        this.#dispatchState({
+          type: "runtime.transition",
+          to: "reconnecting",
+        });
         await this.#wait(delayMs, this.#abortController.signal);
       }
     } catch (error) {
@@ -119,9 +154,11 @@ export class RuntimeSupervisor {
         error: error instanceof Error ? error.message : "unknown runtime error",
       });
       this.#stopReason = "internal_error";
+      this.#recordFailure("internal_error", "Unexpected runtime error");
     } finally {
       this.#logStopping(this.#stopReason ?? "internal_error");
       this.#disconnect(this.#stopReason ?? "internal_error");
+      this.#markMinecraftDisconnected();
     }
 
     return this.#finish(this.#stopReason ?? "internal_error");
@@ -135,6 +172,11 @@ export class RuntimeSupervisor {
   ): void {
     if (this.#stopReason !== undefined) return;
     this.#stopReason = reason;
+    this.#dispatchState({
+      type: "runtime.stop_reason.record",
+      reason,
+    });
+    this.#dispatchState({ type: "runtime.transition", to: "stopping" });
     this.#logStopping(reason);
     this.#abortController.abort();
     this.#stopCurrentAttempt?.();
@@ -197,6 +239,7 @@ export class RuntimeSupervisor {
           detectedAt: player.detectedAt,
         });
         this.#stopReason = "other_player_detected";
+        this.#dispatchState({ type: "safety.other_player_detected" });
         this.#logStopping(this.#stopReason);
         settle({ kind: "stopped" }, this.#stopReason);
       };
@@ -216,18 +259,44 @@ export class RuntimeSupervisor {
       });
       bind("join", () => {
         this.#logger.log("info", { event: "minecraft.connected" });
+        this.#dispatchState({
+          type: "minecraft.connection.transition",
+          to: "connected",
+        });
       });
       bind("spawn", () => {
         spawned = true;
         clearTimeout(connectTimer);
         this.#logger.log("info", { event: "minecraft.spawn_completed" });
+        this.#dispatchState({
+          type: "minecraft.spawn.update",
+          completed: true,
+        });
+        this.#dispatchState({ type: "runtime.transition", to: "ready" });
         this.#logger.log("info", { event: "runtime.started" });
         for (const player of players.values()) {
           detect(player);
           if (settled) break;
         }
       });
-      bind("state", () => undefined);
+      bind("state", (state) => {
+        const { position, health, hunger } = state;
+        if (
+          position === undefined &&
+          health === undefined &&
+          hunger === undefined
+        ) {
+          return;
+        }
+        this.#dispatchState({
+          type: "minecraft.telemetry.update",
+          telemetry: {
+            ...(position === undefined ? {} : { position }),
+            ...(health === undefined ? {} : { health }),
+            ...(hunger === undefined ? {} : { hunger }),
+          },
+        });
+      });
       bind("playerJoined", (player) => {
         if (players.has(player.id)) return;
         players.set(player.id, player);
@@ -266,6 +335,11 @@ export class RuntimeSupervisor {
     }
     this.#finished = true;
     const exitCode = this.#exitCode(reason);
+    if (exitCode === 0) {
+      this.#dispatchState({ type: "runtime.transition", to: "stopped" });
+    } else if (this.#stateStore.getSnapshot().runtime !== "failed") {
+      this.#dispatchState({ type: "runtime.transition", to: "failed" });
+    }
     this.#logger.log(exitCode === 0 ? "info" : "error", {
       event: "runtime.finished",
       reason,
@@ -288,5 +362,40 @@ export class RuntimeSupervisor {
       reason === "stop_requested"
       ? 0
       : 1;
+  }
+
+  #markMinecraftDisconnected(): void {
+    if (
+      this.#stateStore.getSnapshot().minecraft.connection === "disconnected"
+    ) {
+      return;
+    }
+    this.#dispatchState({
+      type: "minecraft.connection.transition",
+      to: "disconnected",
+    });
+  }
+
+  #recordFailure(code: SanitizedErrorCode, message: string): void {
+    this.#dispatchState({
+      type: "runtime.stop_reason.record",
+      reason: this.#stopReason ?? code,
+    });
+    this.#dispatchState({
+      type: "runtime.error.record",
+      error: { code, message },
+    });
+    this.#dispatchState({ type: "runtime.transition", to: "failed" });
+  }
+
+  #dispatchState(command: StateCommand): void {
+    try {
+      this.#stateStore.dispatch(command);
+    } catch {
+      this.#logger.log("error", {
+        event: "runtime.state_update_failed",
+        command: command.type,
+      });
+    }
   }
 }
