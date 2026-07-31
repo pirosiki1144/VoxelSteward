@@ -104,7 +104,7 @@
 
 ## ADR-013: 状態イベント起点の通知ポート
 
-- ステータス: 承認済み（実Discord配送は未実装）
+- ステータス: 承認済み（通知基盤の判断。DiscordアダプターはADR-014で追加済み）
 - 決定: 通知は`StateChangeEvent`だけを起点とし、変更前後の実値を固定テンプレートの
   `NotificationMessage`へ変換します。外部配送は`NotificationPort`へ分離し、
   runtime標準は外部通信しないNo-op、テストは明示注入するFakeを使用します。
@@ -112,8 +112,8 @@
   `notificationId`を既定256件の有界履歴で重複排除します。古いrevisionは送信しません。
 - 障害境界: 状態dispatchは配送を待たず、同期例外とPromise rejectionは
   `onNotificationError`へ隔離します。通知失敗はruntimeやMinecraftの安全切断を妨げません。
-- 未実装: プロセス再起動後の重複防止と永続配送、Discord実アダプター、認証、
-  定時報告は実装しません。
+- この段階での未実装範囲: プロセス再起動後の重複防止と永続配送、Discord実アダプター、
+  認証、定時報告。Discord実アダプターの後続判断と現在の実装状態はADR-014に記録します。
 - 将来方針: 429の`Retry-After`、一時的な5xx・通信失敗だけの上限付き指数バックオフと
   jitter、認証・不正リクエストの再試行禁止を実アダプターで実装します。永続保証が
   必要になった時点でMySQL等のoutboxを検討します。
@@ -122,7 +122,7 @@
 
 ## ADR-014: Discord Incoming Webhook通知アダプター
 
-- ステータス: 承認済み（実Discord送信試験は未実施）
+- ステータス: 承認済み（受入試験1～3完了）
 - 決定: 専用チャンネルへの一方向通知にはIncoming Webhookを使用し、Node.js 24の標準
   `fetch`で`NotificationPort`を実装します。Discord SDK、Botユーザー、Gateway接続、
   embed、添付は導入せず、`allowed_mentions.parse`を空にした2,000文字以内の
@@ -137,7 +137,10 @@
 - 終了と障害隔離: runtime bindingの`close()`で進行中HTTP、レート制限待機、バックオフを
   Abortし、配送完了を待ちません。配送失敗は許可済み分類、status、attemptsだけをログへ
   投影し、StateStoreへ再投入しません。Minecraftの安全停止は配送に依存しません。
-- 未実装: 実Webhook URLの設定、実Discord送信試験、Bot API、双方向操作、定時報告、
-  再起動後の重複防止、永続outbox。
+- 検証: 承認済みの専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。
+  非秘密な結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)に
+  記録します。
+- 未実装: Bot API、双方向操作、定時報告、再起動後の重複防止、永続outbox、永続的な
+  配送保証。
 - 理由: 現在は一方向通知だけが必要であり、既存ポートへ小さなHTTPアダプターとして接続し、
   Discord障害を安全制御から分離できるためです。

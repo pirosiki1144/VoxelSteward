@@ -119,8 +119,9 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 
 状態管理はMinecraft、Discord、MySQLから独立したdomainモジュールとし、コマンドによる
 検証済み遷移、読み取り専用スナップショット、プロセス内の変更イベントを提供します。
-`RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。将来のDiscord通知と
-MySQL Repositoryは同じイベントを購読し、subscriber障害は安全切断経路から隔離します。
+`RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。Discord通知は現在、
+同じイベントを購読しており、MySQL Repositoryは将来同じイベントへ接続する予定です。
+subscriber障害は安全切断経路から隔離します。
 スナップショットとイベントは実行時に再帰的にfreezeし、時刻は注入可能なClockから
 UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
 観測可能なエラー報告へ隔離します。詳細は[状態・進捗管理](state-management.md)を

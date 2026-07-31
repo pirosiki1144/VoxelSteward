@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `15314c54ef854504496526877ddb2e14da7fe042`
-- 完成マイルストーン: Discord Incoming Webhookアダプターのローカル実装
-- 現在の工程: 実Discord送信の受入準備（外部接続は未承認・未実施）
+- 基準コミット: `7bef89078fc6870971a324479ec4e3b2c21e5735`
+- 完成マイルストーン: Discord Incoming Webhookアダプターと実環境受入試験
+- 現在の工程: MySQLへの状態・履歴保存の設計準備
 
 ## 完成済み
 
@@ -30,26 +30,27 @@
 - 厳格なWebhook設定検証と秘密値を含めない配送エラー
 - 5秒／最大3試行／総15秒の上限付き配送、429・限定5xx・通信失敗の再試行
 - runtime終了時の進行中HTTP・待機中断
+- 専用DiscordチャンネルとMinecraftテストサーバーによるWebhook受入試験1～3
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
 Discord実送信の計画は
 [Discord Incoming Webhook受入計画](../verification/discord-webhook-plan.md)を参照してください。
+非秘密な試験結果は
+[Discord Incoming Webhook受入結果](../verification/discord-webhook.md)を参照してください。
 
 ## 現在の制約
 
 - Minecraft内の操作機能はない
-- Discord実送信試験、MySQL、作業キュー、スケジュール制御はない
+- MySQL、作業キュー、スケジュール制御はない
 - 状態イベントはプロセス内だけで、再起動後の永続化や配送再試行はない
 - Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
 - runtime用のreadinessエンドポイントはない
 
 ## 次の完了条件
 
-別途承認された専用Discordチャンネルと専用Minecraftテストサーバーで、秘密値を記録せず
-Webhook配送、mention抑止、通知障害時の安全停止非依存を確認します。実送信前にはWebhook
-URL設定、Discord送信、Minecraft接続、Dockerサービス起動の個別承認が必要です。試験結果を
-非秘密な検証記録へ残した後、MySQL状態・履歴保存の設計工程へ進みます。
+MySQL状態・履歴保存について、Repository境界、スキーマとmigration、状態履歴、配送outbox、
+障害隔離を設計します。外部DBへの接続、書き込み、migration適用は別途承認が必要です。
 
 ## 未決定事項
 

@@ -5,8 +5,9 @@
 状態イベントから安全な通知内容を生成し、外部送信を抽象化するプロセス内基盤です。
 通常runtimeは既定で`NoopNotificationPort`を使用します。明示的に有効化し、起動時の
 厳格なURL検証を通過した場合だけ、Discord Incoming Webhookアダプターを使用します。
-Discord SDK、Bot API、認証・チャンネル作成、定時報告、永続outbox、実送信試験は
-含みません。テストは注入したFake HTTP transportだけを使用します。
+Discord SDK、Bot API、認証・チャンネル作成、定時報告、永続outboxは含みません。
+自動テストは注入したFake HTTP transportだけを使用し、実送信は承認済みの受入試験に
+限定します。
 
 ## コンポーネント
 
@@ -126,4 +127,6 @@ runtimeはsubscriberを閉じて新規受付を停止した後、通知binding�
 
 実Webhook URL、token、channel IDは設定境界で管理し、状態、通知本文、ログ、テストfixture、
 Gitへ保存しません。プロセス再起動後の重複防止・永続配送には、将来MySQL等のoutboxが
-必要です。実Webhook URL設定と実Discord送信には別途承認が必要です。
+必要です。専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。非秘密な
+結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)を参照してください。
+今後もWebhook設定の変更や外部への実送信には、その都度承認が必要です。
