@@ -259,3 +259,20 @@
   採掘、設置、攻撃、item、chat、command。
 - 理由: game protocolの誤った推測による暴走を避け、安全制御を迂回できない中断・状態整合の境界を
   外部接続なしで先に検証するためです。
+
+## ADR-020: 1.26系移動はPlayerAuthInputを候補とし座標だけの送信を禁止する
+
+- ステータス: 設計確認済み、実adapterは保留
+- 根拠: 固定依存の1.26系schemaでは`player_auth_input`がserver-authoritative movement用の
+  server-bound packetで、positionに加えてtick、入力vector、rotation、input flags、delta、camera
+  orientationを毎tick整合させる必要があります。serverは`correct_player_move_prediction`でtick単位の
+  補正を返します。
+- 決定: `move_player`または`player_auth_input.position`へstep目標だけを設定する実装を禁止します。
+  version別frame生成、単調tick、neutral input、補正処理、serializer testを確立するまで実adapterを
+  追加せず、通常runtimeを読み取り専用に維持します。
+- 観測: own entityのserver観測位置と補正packetを正本とし、送信した申告位置だけで到達成功にしません。
+  correction、timeout、dimension変化、tick異常では後続入力を止め、retryしません。
+- 安全停止: cancel後は新規movement inputを生成せず、安全停止時はneutral input完了より既存の切断を
+  優先します。jump、sprint、sneak、item、block、attack、chat等のflag・packetは対象外です。
+- 理由: Bedrockのserver-authoritative movementを単純な位置teleportとして扱うと、server reject、
+  巻戻し、継続移動、誤到達判定を起こし、安全policyを満たせないためです。

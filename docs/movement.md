@@ -48,3 +48,7 @@ operator確認で回収します。
 
 実adapterと実ゲーム内移動は、packet仕様と専用サーバー試験計画をレビューし、ユーザー承認を
 得るまで追加・実行しません。
+
+protocol調査の結果、1.26系では`player_auth_input`が第一候補ですが、tick、input vector、rotation、
+server補正を整合させる根拠が不足しています。座標だけを送るadapterは採用せず、実装前条件と
+段階的受入案を[Bedrock移動プロトコル設計確認](verification/movement-protocol-design.md)に記録します。

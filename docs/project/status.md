@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `665e329c97eb50ad3378fe84ea0f6bad1f7a36ab`
+- 基準コミット: `f4c57d1d34dff3903c005facdf44e31064e9b665`
 - 完成マイルストーン: 移動機能のFake検証可能な最小基盤
-- 現在の工程: 実移動adapter導入前の専用サーバー試験設計
+- 現在の工程: 実移動adapterのversion別frame・serializer設計
 
 ## 完成済み
 
@@ -47,6 +47,7 @@
 - Minecraft非依存の`MovementPort`とテスト専用Fake
 - 各step前後の共通安全policy再評価、cancel、timeout、後続step抑止
 - StateStoreと永続queueを一度だけ終端化する`MovementCoordinator`
+- 1.26系movement packet候補、禁止方式、serializer要件、段階的受入試験の設計確認
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -69,8 +70,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-実Bedrock移動adapterのpacket根拠、速度、server側位置確定、落下・障害物のfail-closed条件と、
-専用テストサーバーでの段階的な受入手順を設計します。実Minecraft接続とgame操作は承認が必要です。
+1.26系`player_auth_input`のversion別frame生成、単調tick、neutral input、server補正をnetwork非依存の
+serializer testで確立します。実Minecraft接続とgame操作は承認が必要です。
 
 ## 未決定事項
 

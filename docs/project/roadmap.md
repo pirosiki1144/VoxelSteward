@@ -25,6 +25,7 @@
    - 有限step plan、座標・dimension・上限検証、MovementPort、Fake（完了）
    - step前後の共通安全再評価、cancel、timeout、状態・queue終端化（完了）
    - 実Bedrock adapter、障害物検知、専用サーバー受入試験（後続・承認必須）
+   - 1.26系packet候補、禁止方式、serializer要件、段階的受入案（設計確認完了）
 7. 簡単なMinecraft内作業
 8. 道路作成、探索、整地などの個別作業
 9. 運用スケジュール制御
