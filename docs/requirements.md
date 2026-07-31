@@ -206,7 +206,15 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - block、entity、inventory、視点、jump、chatを変更する指示を型で表現しないこと。
 - runtime consumer、外部指示API、実Minecraft操作は別工程とし、自動開始しないこと。
 
-## 14. 開発エージェントの実行権限要件
+## 14. 最初のblock操作要件
+
+- 最初のblock変更は、airと観測した1座標へのdirt 1個配置だけを型付きで表現すること。
+- target、直下support、同一dimension、整数座標、最大3 blockのreach、有限timeoutを検証すること。
+- 配置要求は1回だけとし、timeout、disconnect、Abort、結果不明時に自動再試行しないこと。
+- server観測した同一座標のdirtだけを成功とし、client申告値やinventory変化だけで完了しないこと。
+- 実adapter未対応時はfail-closedとし、runtimeの既定をdisabledに保つこと。
+
+## 15. 開発エージェントの実行権限要件
 
 - [開発権限と承認ゲート](project/governance.md)を運用権限の正式な情報源とすること。
 - ロードマップまたは依頼範囲内の編集、固定version依存追加、ローカル検証、隔離Docker

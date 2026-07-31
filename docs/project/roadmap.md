@@ -30,8 +30,12 @@
 7. 簡単なMinecraft内作業（domain/application最小境界完了）
    - navigate、到達確認、位置記録の型・検証・Fake境界（完了）
    - runtime consumer、queue終端化統合、実移動による受入（後続・承認必須）
-8. 道路作成、探索、整地などの個別作業
-9. 運用スケジュール制御
+8. 最初のブロック操作（offline安全境界完了）
+   - 単一dirt配置の型、port、Fake、安全coordinator、既定unsupported binding（完了）
+   - inventory・block runtime ID観測、実adapter、専用server受入（後続・承認必須）
+   - 単一block採掘、自動rollback、複数block操作（未実装）
+9. 道路作成、探索、整地などの個別作業
+10. 運用スケジュール制御
 
 各段階は、外部接続を伴わない自動テスト、専用テストサーバーでの承認済み検証、
 非秘密な検証記録の順に昇格させます。

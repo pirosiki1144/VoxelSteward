@@ -194,6 +194,10 @@ disabledで、実frame providerもありません。通常runtimeへmovement exe
 採掘、設置、攻撃、item、chat、commandを移動試験へ混在させません。
 段階、packet上限、中止条件は[実移動受入計画](verification/movement-acceptance-plan.md)に従います。
 
+block操作は現在offline Fake検証だけで、通常runtimeから有効化できません。将来の単一dirt配置試験は
+[受入計画](verification/block-placement-acceptance-plan.md)に従い、専用区域と個別承認を必要とします。
+timeoutや結果不明時は再送せず、自動採掘によるrollbackも行いません。
+
 1. buildを実行し、すべての自動チェックを実行します。
 2. テスト用データベースへマイグレーションを適用します。
 3. 専用のテストサーバー設定を使用してデプロイします。

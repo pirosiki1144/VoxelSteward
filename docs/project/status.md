@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `f4c57d1d34dff3903c005facdf44e31064e9b665`
-- 完成マイルストーン: 移動機能のFake検証可能な最小基盤
-- 現在の工程: 実移動adapterのversion別frame・serializer設計
+- 基準コミット: `570463dde6b4b62323e030bdf41b4b054dd53de6`
+- 完成マイルストーン: 実接続前の移動adapter準備と簡単な作業domain
+- 現在の工程: 最初のblock操作のoffline安全境界
 
 ## 完成済み
 
@@ -52,6 +52,8 @@
 - server観測・補正・単調tick・Abort・listener cleanupのnetwork非依存検証
 - runtimeの既定disabled movement bindingと終了cleanup境界
 - block変更を伴わないnavigate／到達確認／位置記録の型付きsimple-work domain
+- 単一dirt配置の厳格なinstruction、観測port、Fake、安全coordinator
+- 配置前後のserver観測契約、最大1回送信、retryなし、既定unsupported runtime binding
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -65,6 +67,7 @@ MySQLの非秘密なローカル検証結果は
 ## 現在の制約
 
 - 実移動frame providerと有効化設定はなく、通常runtimeのmovement bindingはdisabledで読み取り専用
+- 実block packet adapter、inventory・runtime ID追跡、queue consumerはなくblock bindingもdisabled
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
@@ -74,8 +77,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-専用サーバー受入計画を段階ごとにレビューし、まずneutral frameとserver観測の実機整合を確認します。
-各段階の実Minecraft接続とgame操作は個別承認が必要です。runtime consumerは受入完了まで追加しません。
+単一dirt配置のinventory・runtime ID・server block observationを推測せず取得できる設計を確認します。
+専用サーバーの各段階とgame操作は個別承認が必要で、runtime consumerは受入完了まで追加しません。
 
 ## 未決定事項
 

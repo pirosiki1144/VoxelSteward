@@ -140,6 +140,13 @@ frame／serializer／Bedrock transport境界は準備済みですが、実frame 
 block変更を伴わないnavigate・到達確認・位置記録のdomainもruntime未接続です。詳細は
 [移動基盤](docs/movement.md)を参照してください。
 
+### 最初のブロック操作基盤
+
+空気と確認された隣接1座標へdirtを1個だけ配置する、厳格なdomain、port、Fake、安全coordinatorを
+実装しています。実Bedrock packet adapterはinventory・runtime ID・server観測の根拠が不足するため
+`unsupported`で、通常runtimeのbindingも既定無効です。実Minecraftへの配置、採掘、queue consumerは
+ありません。詳細は[最初のブロック操作](docs/block-operations.md)を参照してください。
+
 ### Dockerイメージのビルド
 
 ```bash

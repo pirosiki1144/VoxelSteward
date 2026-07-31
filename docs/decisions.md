@@ -303,3 +303,19 @@
 - 境界: runtime consumer、外部指示API、queue終端化統合、実Minecraft操作は未実装です。
 - 理由: 世界を変更しない作業からdomain契約と観測結果の扱いを検証し、採掘・設置等を安全境界確立前に
   混入させないためです。
+
+## ADR-023: 最初のblock変更を単一dirt配置のoffline境界に限定する
+
+- ステータス: 承認済み（Fakeによるoffline安全境界、実adapter未実装）
+- 比較: 採掘は既存block消失、drop、tool、複数tickのserver-authoritative breakingを伴い、結果不明時の
+  rollbackが困難です。配置もinventory slot、stack ID、block runtime ID、support faceが必要ですが、
+  airとsupportを事前観測し、server観測したdirtだけを成功にする限定契約を先に検証できます。
+- 決定: 1 commandを`place_single_dirt`の1座標、target air、直下solid support、up face、最大3 block reach、
+  有限timeoutへ固定します。任意block、payload、range、wildcard、複数操作、採掘は表現しません。
+- 安全性: 共通安全policy、claimed task、normal ready、spawn・telemetry、同一dimensionを要求し、事前観測後の
+  操作直前にも再評価します。配置要求は最大1回で、timeout、disconnect、cancel、結果不明を再試行しません。
+  serverの同一座標dirt観測だけを完了条件にします。
+- adapter: 1.26.30 schemaにはinventory/hotbar/stack ID、clicked block runtime ID等が必要ですが、現在の接続は
+  それらを追跡しません。値を推測せず、実adapterは`unsupported`、runtime bindingはdisabledに保ちます。
+- 理由: 不可逆な採掘よりrollback可能性をoperatorへ残し、実world変更を有効化せずに安全・観測・終端化の
+  application境界を先に確立するためです。

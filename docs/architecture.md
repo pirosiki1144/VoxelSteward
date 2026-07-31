@@ -188,3 +188,11 @@ Repository障害時はStateStoreをterminalへ保ったまま`finalization_error
 MovementCoordinator境界へ渡し、確認・記録は注入されたserver観測位置を読みます。runtime、queue
 consumer、Minecraft connectionには未接続です。詳細は[簡単なMinecraft内作業](simple-work.md)を
 参照してください。
+
+## 15. 最初のブロック操作
+
+`domain/block-operation`は単一dirt配置の座標・block・事前事後条件を厳格に定義し、
+`BlockOperationPort`はserver block観測と1回の配置要求をMinecraft adapterから分離します。
+application coordinatorはqueue claim、StateStore、共通安全policy、reach、support、TOCTOU再評価、
+server事後観測を統合します。実packet adapterはなく、runtime bindingは`unsupported`かつdisabledです。
+詳細は[最初のブロック操作](block-operations.md)を参照してください。
