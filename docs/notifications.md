@@ -5,7 +5,7 @@
 状態イベントから安全な通知内容を生成し、外部送信を抽象化するプロセス内基盤です。
 通常runtimeは既定で`NoopNotificationPort`を使用します。明示的に有効化し、起動時の
 厳格なURL検証を通過した場合だけ、Discord Incoming Webhookアダプターを使用します。
-Discord SDK、Bot API、認証・チャンネル作成、定時報告、永続outboxは含みません。
+Discord SDK、Bot API、認証・チャンネル作成、定時報告、outbox配送workerは含みません。
 自動テストは注入したFake HTTP transportだけを使用します。設定済みWebhookと既存の固定
 templateを使う回数限定の開発・テスト・受入送信は、[開発権限と承認ゲート](project/governance.md)
 の条件を満たす場合に自律実行できます。
@@ -91,8 +91,9 @@ channel ID、Cookie、認証キャッシュ、生のError、stackは含めませ
 - `flush()`で受理済み配送の完了をテストでき、`unsubscribe()`または`close()`で新規受付を
   停止できます。
 
-この保証は同一プロセス内だけです。再起動後の重複防止と永続配送は保証しません。
-将来MySQL等へ配送済みnotificationIdとoutboxを保存し、revision順の再開を設計します。
+この保証は同一プロセス内だけです。MySQLへ通知outboxを状態イベントと同じtransactionで
+保存しますが、現在のDiscord配送はoutboxをconsumeしません。配送済み状態の更新、
+再起動後の再送、永続的な重複防止は未実装です。
 
 ## 障害隔離
 
@@ -127,8 +128,9 @@ runtimeはsubscriberを閉じて新規受付を停止した後、通知binding�
 `NotificationPort`の公開契約にはcloseを追加していません。
 
 実Webhook URL、token、channel IDは設定境界で管理し、状態、通知本文、ログ、テストfixture、
-Gitへ保存しません。プロセス再起動後の重複防止・永続配送には、将来MySQL等のoutboxが
-必要です。専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。非秘密な
+Gitへ保存しません。MySQL outboxは記録済みですが、プロセス再起動後の重複防止・永続配送には
+outbox dispatcherと配送結果更新が別途必要です。専用テスト環境で実Discord送信を含む
+受入試験1～3が完了しています。非秘密な
 結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)を参照してください。
 
 実送信は既存templateだけを使用し、mentionを無効化し、送信回数、timeout、retryを有限に

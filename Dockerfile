@@ -12,6 +12,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
+RUN cp -R src/adapters/persistence/migrations dist/src/adapters/persistence/
 RUN npm prune --omit=dev \
     && rm -rf \
       node_modules/axios \

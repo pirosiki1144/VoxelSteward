@@ -140,8 +140,8 @@
 - 検証: 承認済みの専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。
   非秘密な結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)に
   記録します。
-- 未実装: Bot API、双方向操作、定時報告、再起動後の重複防止、永続outbox、永続的な
-  配送保証。
+- 未実装: Bot API、双方向操作、定時報告、outbox dispatcher、再起動後の重複防止、永続的な
+  配送保証。outbox記録はADR-016で追加します。
 - 理由: 現在は一方向通知だけが必要であり、既存ポートへ小さなHTTPアダプターとして接続し、
   Discord障害を安全制御から分離できるためです。
 
@@ -172,3 +172,26 @@
 - 効果とrisk: 安全な日常開発を連続実行できる一方、local service、network、dependency、commitの
   影響範囲が広がります。固定version、有限回数、隔離環境、task-owned差分、全検証、秘密情報
   allow-listを条件としてriskを制限します。
+
+## ADR-016: 状態イベントをMySQLへtransaction保存する
+
+- ステータス: 承認済み（隔離MySQL検証完了）
+- 決定: `StateChangeEvent`を唯一の永続化起点とし、application層の直列subscriberから
+  `StatePersistenceRepository`を呼びます。domain、RuntimeSupervisor、Minecraft adapterは
+  MySQL、SQL、transactionへ依存しません。
+- スキーマ: runtime起動ごとのUUIDを`run_id`とし、最新snapshot、revision履歴、作業checkpoint、
+  通知outboxを保存します。`(run_id, revision)`と`(run_id, notification_id)`で冪等化し、
+  snapshotとcheckpointを古いrevisionで後退させません。
+- transaction: 1状態eventのhistory、snapshot、checkpoint、outboxを単一transactionで更新し、
+  途中失敗時はrollbackします。schemaは連番up/down migrationと`schema_migrations`で管理します。
+- 障害境界: 一時的な接続喪失、timeout、deadlock、lock timeoutだけを最大3試行で再試行し、
+  恒久障害は安全なcodeへ変換します。失敗をStateStoreへ再投入せず、Minecraft安全停止を
+  待たせません。終了時flushは安全切断後の最大1秒です。
+- 依存関係: ORMやmigration frameworkを追加せず、MIT licenseでNode.js 24と互換性がある
+  `mysql2` 3.23.2を固定使用します。
+- 秘密境界: snapshot、history、checkpoint、outbox、fixtureへplayer名、BOT情報、server endpoint、
+  credentialを含めません。DB errorや接続設定をログへ渡しません。
+- 未実装: outbox dispatcher、配送済み更新、再起動後のDiscord再送、外部・共有・本番DBへの
+  migration、永続dataのbackup/restore運用。
+- 理由: 状態変更と通知候補を原子的かつ再現可能に保存しながら、DB障害をMinecraftの安全制御から
+  隔離するためです。

@@ -16,8 +16,8 @@ Application coordinator ---- Safety policy
         +---- Domain tasks -------+
         |
         +---- Minecraft port ---- bedrock-protocol adapter (read-only smoke)
-        +---- Repository ports -- MySQL repositories (future)
-        +---- Checkpoint port --- durable checkpoint repository (future)
+        +---- Repository ports -- MySQL state persistence repository
+        +---- Checkpoint records - current MySQL repository; resume API (future)
         +---- Instance lock ----- DB lease/advisory lock (future)
 ```
 
@@ -61,10 +61,9 @@ SIGTERMを受けた場合も、上限時間が設定された同じ停止処理�
 します。チェックポイントには、タスク識別子、バージョン、安全に再開できる位置、
 状態ペイロード、タイムスタンプを含めます。
 
-将来の永続化先はMySQLとします。分散デプロイでは、データベースを利用した更新可能な
-リースを推奨します。リースキーには
-BOTの識別情報を使用します。リースの取得または更新に失敗した場合は作業を実行せず、
-安全に切断します。
+永続化先はMySQLです。現在はruntime run、状態、作業checkpoint、通知outboxを保存します。
+分散デプロイ用のDB leaseは未実装です。将来追加する場合も識別情報自体を保存せず、安全な
+内部IDをlease keyに使用し、lease取得・更新失敗時は作業を実行せず安全に切断します。
 
 ## 5. 認証データ
 
@@ -120,7 +119,9 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 状態管理はMinecraft、Discord、MySQLから独立したdomainモジュールとし、コマンドによる
 検証済み遷移、読み取り専用スナップショット、プロセス内の変更イベントを提供します。
 `RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。Discord通知は現在、
-同じイベントを購読しており、MySQL Repositoryは将来同じイベントへ接続する予定です。
+同じイベントを購読しており、MySQL Repositoryも同じイベントを直列購読します。
+各runtime runをUUIDで分離し、history、最新snapshot、作業checkpoint、通知outboxを
+単一transactionで保存します。Minecraft adapterとRuntimeSupervisorはSQLを知りません。
 subscriber障害は安全切断経路から隔離します。
 スナップショットとイベントは実行時に再帰的にfreezeし、時刻は注入可能なClockから
 UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
@@ -143,4 +144,5 @@ callbackへ隔離し、安全切断や状態dispatchを待たせません。
 runtime終了時はsubscriberの新規受付を止めた後、別のruntime bindingが進行中HTTPと
 レート制限・再試行待機をAbortします。`NotificationPort`の既存契約には終了責務を
 追加しません。Webhook URLは状態、通知本文、ログへ渡しません。Discord Bot API、
-定時報告、永続outboxは未実装です。詳細は[通知基盤](notifications.md)を参照してください。
+通知outboxへの書込みは実装済みですが、outbox配送worker、定時報告、配送済み状態の更新、
+再起動後の配送保証は未実装です。詳細は[通知基盤](notifications.md)を参照してください。

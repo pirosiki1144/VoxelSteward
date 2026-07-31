@@ -106,6 +106,17 @@ Webhook配送は1試行5秒、最大3試行、待機を含む総15秒を上限�
 待機指定、一時的な500・502・503・504と通信失敗では上限付き再試行を行います。通知障害は
 Minecraftの安全切断を妨げません。プロセス終了時は未完了配送を中断し、完了を待ちません。
 
+### MySQL状態・履歴保存
+
+`MYSQL_PERSISTENCE_ENABLED=false`（既定）ではDB接続を行いません。有効時はruntime起動時に
+MySQL設定を検証し、version管理されたmigrationを適用してから、StateStoreの変更イベントを
+revision順に保存します。保存対象はruntime run、最新snapshot、変更履歴、作業checkpoint、
+通知outboxです。プレイヤー名、BOT情報、接続先、認証情報は保存しません。
+
+設定値と隔離テスト方法は[運用手順](docs/operations.md)、スキーマと障害境界は
+[状態管理](docs/state-management.md)を参照してください。outbox配送workerと再起動後の
+Discord配送保証は未実装です。
+
 ### Dockerイメージのビルド
 
 ```bash

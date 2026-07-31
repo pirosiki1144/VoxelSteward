@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `7bef89078fc6870971a324479ec4e3b2c21e5735`
-- 完成マイルストーン: Discord Incoming Webhookアダプターと実環境受入試験
-- 現在の工程: MySQLへの状態・履歴保存の設計準備
+- 基準コミット: `deae5a6cfb5606885300ae65e46ea548c6a90b0c`
+- 完成マイルストーン: MySQLへの状態・履歴保存の最小実装
+- 現在の工程: 作業指示と作業キューの設計準備
 
 ## 完成済み
 
@@ -31,6 +31,10 @@
 - 5秒／最大3試行／総15秒の上限付き配送、429・限定5xx・通信失敗の再試行
 - runtime終了時の進行中HTTP・待機中断
 - 専用DiscordチャンネルとMinecraftテストサーバーによるWebhook受入試験1～3
+- MySQL Repository portと状態イベント起点の直列永続化subscriber
+- run ID・revisionによるsnapshot、履歴、作業checkpoint、通知outboxの冪等保存
+- version管理されたMySQL migrationとtransaction rollback
+- 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験5件
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -38,23 +42,25 @@ Discord実送信の計画は
 [Discord Incoming Webhook受入計画](../verification/discord-webhook-plan.md)を参照してください。
 非秘密な試験結果は
 [Discord Incoming Webhook受入結果](../verification/discord-webhook.md)を参照してください。
+MySQLの非秘密なローカル検証結果は
+[MySQL状態・履歴保存のローカル検証](../verification/mysql-persistence.md)を参照してください。
 
 ## 現在の制約
 
 - Minecraft内の操作機能はない
-- MySQL、作業キュー、スケジュール制御はない
-- 状態イベントはプロセス内だけで、再起動後の永続化や配送再試行はない
+- 作業キューとスケジュール制御はない
+- MySQL無効時は状態イベントを永続化しない
 - Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
+- 通知outbox dispatcherと配送済み状態の更新はなく、Discordはoutboxをまだconsumeしない
 - runtime用のreadinessエンドポイントはない
 
 ## 次の完了条件
 
-MySQL状態・履歴保存について、Repository境界、スキーマとmigration、状態履歴、配送outbox、
-障害隔離を設計します。外部DBへの接続、書き込み、migration適用は別途承認が必要です。
+作業指示と作業キューについて、domain command、優先順位、停止・再開、Repository境界、
+受入条件を設計します。外部・共有DBへの接続やmigration適用は承認が必要です。
 
 ## 未決定事項
 
-- 永続化開始時のMySQLスキーマとマイグレーション方式
 - 停止直前通知をbest effortのまま扱う期間と、将来outboxで永続保証を開始する時点
 - Webhook URLの本番secret管理方式
 - 作業IDの生成責務と外部指示の形式

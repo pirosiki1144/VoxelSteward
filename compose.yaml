@@ -25,6 +25,13 @@ services:
       RUNTIME_CONNECTION_TIMEOUT_MS: ${RUNTIME_CONNECTION_TIMEOUT_MS:-15000}
       DISCORD_NOTIFICATIONS_ENABLED: ${DISCORD_NOTIFICATIONS_ENABLED:-false}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      MYSQL_PERSISTENCE_ENABLED: ${MYSQL_PERSISTENCE_ENABLED:-false}
+      MYSQL_HOST: ${MYSQL_HOST:-}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-}
+      MYSQL_USER: ${MYSQL_USER:-}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      MYSQL_CONNECTION_TIMEOUT_MS: ${MYSQL_CONNECTION_TIMEOUT_MS:-5000}
     volumes:
       - auth-profiles:/auth/profiles
     tmpfs:
@@ -58,6 +65,30 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
     stop_grace_period: 20s
+
+  mysql-test:
+    image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+    profiles: ["test"]
+    restart: "no"
+    environment:
+      MYSQL_DATABASE: voxel_steward_test
+      MYSQL_USER: voxel_test
+      MYSQL_PASSWORD: voxel_test_password
+      MYSQL_ROOT_PASSWORD: voxel_root_test_password
+    tmpfs:
+      - /var/lib/mysql:size=256m
+    ports:
+      - "127.0.0.1:33060:3306"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 10s
 
 volumes:
   auth-profiles:

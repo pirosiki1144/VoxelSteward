@@ -6,15 +6,15 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 制御された作業を実行します。現在のマイルストーンでは、TypeScriptの開発基盤、
 運用ドキュメント、ヘルスチェックエンドポイント、およびテスト用BDSへ接続する
 読み取り専用の通常運転ランタイムとスモークテスト、プロセス内の状態・進捗管理、
-状態イベントを起点とするIncoming Webhook通知を提供します。Webhook通知は専用テスト環境で
-承認済みの受入試験を完了しています。
+状態イベントを起点とするIncoming Webhook通知、および任意有効化のMySQL状態・履歴保存を
+提供します。Webhook通知は専用テスト環境、MySQL adapterは隔離ローカルDBで受入試験を
+完了しています。
 
 このマイルストーンの対象範囲外となる項目は次のとおりです。
 
 - 自律的な判断またはゲーム内での行動
 - 本番環境へのデプロイおよび本番環境の認証情報
-- アプリケーションからのデータベースクエリ
-- MySQL、作業キュー
+- 作業キュー
 - Discordの定時報告、永続配送、再起動をまたぐ重複防止、Bot APIによる双方向操作
 
 ## 1.1 長期的な製品範囲
@@ -31,7 +31,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - ローカルサービス用として、WSL2上のUbuntuで動作するDocker Engineおよび
   Docker Compose
 - Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
-- 将来のデータベースとしてMySQL（現在は未導入）
+- 状態snapshot、変更履歴、作業checkpoint、通知outboxを保存するMySQL adapter
 
 ## 3. 安全要件
 
@@ -116,7 +116,11 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - 内部時刻をUTCで保持し、表示側でJSTへ変換できること。
 - subscriberの障害がruntimeの安全停止や他subscriberを妨げないこと。
 - プレイヤー名、サーバー接続情報、認証情報を状態へ保存しないこと。
-- DiscordとMySQLはMinecraft接続へ直結せず、同じ状態イベントを将来購読すること。
+- DiscordとMySQLはMinecraft接続へ直結せず、同じ状態イベントだけを購読すること。
+- MySQL保存はrun IDとrevisionで順序・冪等性を確保し、同一transactionでsnapshot、履歴、
+  checkpoint、outboxを更新すること。
+- DB障害は安全停止を妨げず、StateStoreへ再帰dispatchしないこと。
+- DB無効時は接続せず、有効時の不正設定はMinecraft接続前に拒否すること。
 - スナップショットと変更イベントはネストした値を含め外部から変更できないこと。
 - 他プレイヤー検知、停止理由、停止遷移を単一の状態変更として通知すること。
 - subscriberは非同期に呼び出し、その例外やrejectionを観測可能な形で隔離すること。

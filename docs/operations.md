@@ -39,6 +39,25 @@ build、`docker compose config`、Docker image buildを継続して実行でき�
 server情報、account情報、credentialは使用しません。外部・共有・staging・本番DBへの接続、
 migration、実data変更、破壊的migrationは承認が必要です。
 
+MySQL Repository統合テストは、runtimeとsmokeを起動せず、tmpfsだけを使う`mysql-test`
+serviceで実行します。`.env`を補間に使わない場合は空のenv fileを明示します。
+
+```bash
+docker compose --env-file /dev/null --profile test up -d --no-deps mysql-test
+MYSQL_INTEGRATION_TEST=true npm test -- --run tests/mysql-persistence.integration.test.ts
+docker compose --env-file /dev/null --profile test stop mysql-test
+docker compose --env-file /dev/null --profile test rm -f mysql-test
+```
+
+統合testはmigrationの再適用、transaction rollback、revision冪等性を検証し、最後にdown
+migrationでschemaを除去します。`docker compose down`や`--remove-orphans`は同じprojectの
+runtimeへ影響し得るため、この局所cleanupには使用しません。
+
+通常runtimeで永続化する場合は`MYSQL_PERSISTENCE_ENABLED`を厳密に`true`とし、host、port、
+database、user、passwordを秘密管理された環境から注入します。既定の`false`では他のMySQL
+設定を検証せずDB接続もしません。`persistence.write_failed`はcode、retryable、revision、
+attemptsだけを記録し、生のDB errorや接続情報を出力しません。
+
 ## 通常運転
 
 通常運転イメージをビルドし、`normal`固定の`runtime`サービスを起動します。

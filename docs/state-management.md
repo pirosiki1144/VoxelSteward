@@ -2,9 +2,9 @@
 
 ## 目的とスコープ
 
-通常運転、将来のDiscord通知、MySQL保存、作業実行が同じ状態変化を利用できる、
-インフラストラクチャ非依存の状態ストアを追加します。この段階では外部送信、DB接続、
-Minecraft内操作、スケジュール制御を実装しません。
+通常運転、Discord通知、MySQL保存、将来の作業実行が同じ状態変化を利用できる、
+インフラストラクチャ非依存の状態ストアです。Minecraft内操作とスケジュール制御は
+実装していません。
 
 ## 実装モジュール
 
@@ -19,7 +19,7 @@ src/domain/state/
 ```
 
 `RuntimeSupervisor`はコマンドをdispatchするだけとし、DiscordやMySQLを知りません。
-将来の通知・永続化アダプターは`subscribe()`で同じイベントを受け取ります。
+通知と永続化のsubscriberは`subscribe()`で同じイベントを受け取ります。
 
 ## 状態モデル
 
@@ -179,7 +179,29 @@ type StateCommand =
 
 イベントは`revision`、`occurredAt`、`cause`、変更前後のスナップショット、
 変更フィールドを持ちます。dispatch順でdeliveryを開始しますが、非同期subscriberの完了順と
-永続配送は保証しません。MySQL工程では順序付きキューと再試行を別途設計します。
+domain subscriber自体は永続配送を保証しません。MySQL persistence subscriberがrevision順の
+Promise chainと最大3試行の100ms、200ms backoffを追加し、古い・重複revisionを抑制します。
+
+## MySQL永続化
+
+`StatePersistenceRepository`は`initialize(runId, startedAt)`、`persist(runId, event,
+notification)`、`close()`だけを公開します。MySQL adapterは各イベントを1 transactionで
+次へ保存します。
+
+- `runtime_runs`: runtime起動単位のUUIDとUTC開始時刻
+- `state_snapshots`: runごとの最新revisionとsnapshot JSON
+- `state_history`: `(run_id, revision)`を主キーとするbefore/after履歴
+- `task_checkpoints`: run・taskごとの最新作業状態
+- `notification_outbox`: 同じ状態eventから生成された固定通知messageと配送状態field
+
+snapshotとcheckpointは古いrevisionで後退せず、historyとoutboxは重複keyをno-op更新します。
+migrationは`schema_migrations`でversion管理し、up/down SQLを持ちます。MySQL固有型、SQL、
+transactionはadapter内だけに置き、StateStoreとRuntimeSupervisorへ持ち込みません。
+
+DB障害は`PERSISTENCE_TRANSIENT`または`PERSISTENCE_FATAL`へ分類し、生errorをログへ渡しません。
+永続化subscriberの失敗はStateStoreへ再dispatchせず、後続eventとMinecraftの安全停止を
+妨げません。終了時は安全切断完了後に最大1秒だけ既受付writeのflushを試み、新規受付を閉じます。
+outbox dispatcher、配送済み更新、再起動後のDiscord再送は未実装です。
 
 初期状態はruntime `starting`、Minecraft `disconnected`、`spawnCompleted: false`、
 作業`idle`、`revision: 0`とします。Storeは内部に可変なスナップショットを保持せず、
@@ -275,15 +297,14 @@ Fake接続とFake Clockを使用し、実時間sleepや外部接続は行いま�
 - runtimeの接続、spawn、telemetry、停止、エラーが反映される
 - 他プレイヤー検知後に再接続状態へ遷移できない
 - 状態にプレイヤー名、接続先、認証情報を格納しない
-- 既存回帰を含む全84自動テストが成功する
+- 既存回帰を含む全自動テストが成功する
 - format、typecheck、lint、build、Compose検証、Dockerイメージビルドが成功する
 
 ## subscriberの配送保証
 
-dispatch順にmicrotaskを登録し、各subscriberの呼び出し開始順を維持します。ただし、
-async subscriberの完了順、再試行、永続配送は保証しません。将来のMySQL永続化では、
-revision順に処理する単一の順序付きキュー、失敗時の再試行、停止時のflush期限を
-アダプター側で設計する必要があります。
+dispatch順にmicrotaskを登録し、各subscriberの呼び出し開始順を維持します。domainの
+一般subscriberはasync完了順や再試行を保証しません。MySQL persistence subscriberは
+単一Promise chain、上限付き再試行、終了時の1秒flush期限をapplication層で追加します。
 
 ## エラー情報の境界
 
@@ -294,9 +315,10 @@ RuntimeSupervisorは固定文言だけを渡します。将来の呼出側も外
 
 ## 本番コードへの影響
 
-新規domainモジュールとRuntimeSupervisorへの状態コマンド追加が中心です。
+状態domainとRuntimeSupervisorへの状態コマンドは変更せず、Repository portとapplication
+subscriberを追加しました。
 Minecraft接続ポート、PlayerDetectionPolicy、再接続判断、smokeの振る舞いは変更しません。
-公開する状態はプロセス内APIだけで、HTTP、Discord、MySQLへの出力は追加していません。
+公開する状態APIはプロセス内のまま、任意有効化のMySQL adapterへイベントを保存できます。
 
 状態イベントを利用する通知application層は追加されていますが、状態domainは通知型や
 外部送信ポートへ依存しません。通知対象、重複防止、障害隔離は

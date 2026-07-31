@@ -9,8 +9,11 @@
      （ローカル実装・Fake検証完了）
    - 実Webhook資格情報設定と専用チャンネル送信試験
      （受入試験1～3完了）
-3. MySQLへの状態・履歴保存（次工程）
-4. 作業指示と作業キュー
+3. MySQLへの状態・履歴保存（最小実装完了）
+   - Repository port、状態snapshot・履歴・checkpoint・通知outbox（完了）
+   - version管理migration、transaction、revision冪等性、隔離MySQL検証（完了）
+   - outbox dispatcherと永続配送保証（後続工程）
+4. 作業指示と作業キュー（次工程）
 5. 共通の安全制御
 6. 移動機能
 7. 簡単なMinecraft内作業

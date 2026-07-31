@@ -46,5 +46,5 @@ Webhook URL、チャンネルID、DiscordメッセージID、Minecraft接続先�
 Incoming Webhookによる接続ライフサイクル通知、mention抑止、重複抑止、および通知配送と
 Minecraft安全停止の分離を専用テスト環境で確認しました。試験1～3はすべて合格です。
 
-停止直前通知は永続outboxを持たない現行実装ではbest effortです。停止通知の永続配送、
-プロセス再起動後の重複防止、配送履歴の保持は、MySQL状態・履歴保存工程で設計します。
+試験時点では永続outboxがなく、停止直前通知はbest effortでした。現在はMySQL outboxへの
+記録を追加済みですが、配送worker、配送済み更新、再起動後の重複防止は未実装です。

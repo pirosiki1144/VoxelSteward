@@ -4,6 +4,7 @@ import { Writable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotificationSubscriber } from "../src/application/notifications/index.js";
+import { StatePersistenceSubscriber } from "../src/application/persistence/index.js";
 import {
   createStateStore,
   type StateStore,
@@ -17,6 +18,8 @@ import type {
   ReadonlyMinecraftConnection,
 } from "../src/smoke/types.js";
 import { FakeNotificationPort } from "./fakes/fake-notification-port.js";
+import { FakeStatePersistenceRepository } from "./fakes/fake-state-persistence-repository.js";
+import { PersistenceError } from "../src/ports/state-persistence-repository.js";
 
 class FakeConnection
   extends EventEmitter
@@ -111,6 +114,42 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("永続化障害時も他プレイヤー安全切断を完了する", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const repository = new FakeStatePersistenceRepository();
+    repository.handler = () =>
+      Promise.reject(new PersistenceError("PERSISTENCE_FATAL", false));
+    const onError = vi.fn();
+    const persistence = new StatePersistenceSubscriber(repository, "run", {
+      onError,
+    });
+    persistence.subscribe(stateStore);
+    const { run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("playerJoined", player);
+
+    await expect(run).resolves.toEqual({
+      reason: "other_player_detected",
+      exitCode: 0,
+    });
+    await persistence.flush();
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalled();
+    expect(stateStore.getSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "other_player_detected",
+    });
+    persistence.close();
+  });
+
   it("login、spawn、signal停止をStateStore経由で順序通知する", async () => {
     const connection = new FakeConnection();
     const stateStore = createStateStore();
