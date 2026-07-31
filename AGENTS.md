@@ -60,6 +60,19 @@ Architecture or safety changes must update the relevant file under `docs/`.
 Record durable technical choices in `docs/decisions.md`.
 Record non-secret real-server verification in `docs/verification/`.
 
+### Language policy
+
+- Write frequently human-read project and operations documentation in Japanese.
+  This includes `README.md` and the product, architecture, operations, status,
+  roadmap, decision, and verification documents under `docs/`.
+- Write frequently agent-read instructions and agent configuration in English.
+  This includes `AGENTS.md`, `CLAUDE.md`, `.codex/config.toml`, and
+  `.codex/agents/*.toml`.
+- Keep this policy centralized in `AGENTS.md`; do not duplicate it in each
+  individual agent definition.
+- When editing an existing file not covered above, preserve its established
+  language unless the project owner explicitly requests a migration.
+
 ## Approval boundary
 
 Read-only investigation, approved-scope edits, local tests, builds, Compose
