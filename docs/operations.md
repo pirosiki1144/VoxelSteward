@@ -196,6 +196,10 @@ disabledで、実frame providerもありません。通常runtimeへmovement exe
 
 block操作は現在offline Fake検証だけで、通常runtimeから有効化できません。将来の単一dirt配置試験は
 [受入計画](verification/block-placement-acceptance-plan.md)に従い、専用区域と個別承認を必要とします。
+
+world・inventory観測bindingも通常runtimeでは既定disabledです。実観測試験では
+[観測受入計画](verification/world-observation-acceptance-plan.md)に従い、接続とgame内での変更ごとに
+明示承認を得ます。観測logへraw packet、NBT、player/BOT情報、接続先を出力しません。
 timeoutや結果不明時は再送せず、自動採掘によるrollbackも行いません。
 
 1. buildを実行し、すべての自動チェックを実行します。

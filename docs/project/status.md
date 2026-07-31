@@ -4,7 +4,7 @@
 
 - 基準コミット: `570463dde6b4b62323e030bdf41b4b054dd53de6`
 - 完成マイルストーン: 実接続前の移動adapter準備と簡単な作業domain
-- 現在の工程: 最初のblock操作のoffline安全境界
+- 現在の工程: Bedrock world・inventory観測のoffline基盤
 
 ## 完成済み
 
@@ -54,6 +54,9 @@
 - block変更を伴わないnavigate／到達確認／位置記録の型付きsimple-work domain
 - 単一dirt配置の厳格なinstruction、観測port、Fake、安全coordinator
 - 配置前後のserver観測契約、最大1回送信、retryなし、既定unsupported runtime binding
+- 1.26.30限定のblock update・own held item・dimension変更の読み取り専用adapter
+- freeze済み観測snapshot、revision、最大128件cache、同値・古いsequence抑制
+- spawn前・dimension移行中・disconnect後のfail-closed無効化とlistener障害隔離
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -67,7 +70,7 @@ MySQLの非秘密なローカル検証結果は
 ## 現在の制約
 
 - 実移動frame providerと有効化設定はなく、通常runtimeのmovement bindingはdisabledで読み取り専用
-- 実block packet adapter、inventory・runtime ID追跡、queue consumerはなくblock bindingもdisabled
+- block変更packet adapter、full inventory、queue consumerはなくblock bindingもdisabled
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
@@ -77,7 +80,7 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-単一dirt配置のinventory・runtime ID・server block observationを推測せず取得できる設計を確認します。
+専用serverでblock updateとheld item観測を段階検証し、その後に単一dirt配置adapterの可否を判断します。
 専用サーバーの各段階とgame操作は個別承認が必要で、runtime consumerは受入完了まで追加しません。
 
 ## 未決定事項

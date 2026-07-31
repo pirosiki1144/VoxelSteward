@@ -196,3 +196,14 @@ consumer、Minecraft connectionには未接続です。詳細は[簡単なMinecr
 application coordinatorはqueue claim、StateStore、共通安全policy、reach、support、TOCTOU再評価、
 server事後観測を統合します。実packet adapterはなく、runtime bindingは`unsupported`かつdisabledです。
 詳細は[最初のブロック操作](block-operations.md)を参照してください。
+
+## 16. Bedrock world・inventory観測
+
+`domain/world-observation`はMinecraft packetに依存しないimmutable snapshot、revision、block cache、
+inventoryの安全な最小表現を管理します。`WorldObservationPort`はworld mutation portと分離した
+読み取り境界です。Bedrock adapterは1.26.30のprimary layer block更新とown entityのheld itemだけを
+変換し、生packet、NBT、表示名をdomainへ渡しません。
+
+dimension変更とdisconnectではcacheを破棄し、spawn前と移行中をfail-closedにします。runtimeは
+既定disabled bindingのcleanupだけを持ち、自動作業やpacket送信へ接続しません。詳細は
+[Bedrock world・inventory観測基盤](world-observation.md)を参照してください。

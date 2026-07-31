@@ -319,3 +319,20 @@
   それらを追跡しません。値を推測せず、実adapterは`unsupported`、runtime bindingはdisabledに保ちます。
 - 理由: 不可逆な採掘よりrollback可能性をoperatorへ残し、実world変更を有効化せずに安全・観測・終端化の
   application境界を先に確立するためです。
+
+## ADR-024: Bedrock観測を有界な読み取り専用snapshotへ変換する
+
+- ステータス: 承認済み（offline Fake検証、実server未検証）
+- 根拠: 1.26.30 schemaの`update_block`は座標・runtime ID・layer、`mob_equipment`はown runtime entity、
+  selected slot、`ItemNew`のnetwork ID・count・stack ID・block runtime IDを持ちます。
+- 決定: Minecraft非依存の`WorldObservationStore`と読み取り専用portへ変換し、revision、UTC時刻、
+  最大128件FIFO block cacheを持たせます。primary layerとown entityだけを受け付け、dimension変更と
+  disconnectでcache・inventoryを破棄します。
+- fail-closed: spawn前・dimension移行中・disconnect後、古いsequence、不正fieldは利用しません。
+  固定依存の`spawn` eventは初回だけのため、dimension変更後は再接続まで利用不能にします。
+  full inventoryとhotbar対応は推測せず`unsupported`です。NBT、表示名、raw packet、player/BOT/server情報は
+  保存しません。
+- runtime: cleanup可能な既定disabled bindingだけを追加し、block操作、inventory操作、consumer、送信packetを
+  接続しません。
+- 理由: 世界変更前にserver観測の正本と寿命を固定し、不明なinventory情報や古いdimension cacheによる
+  誤配置を防ぐためです。

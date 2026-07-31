@@ -147,6 +147,13 @@ block変更を伴わないnavigate・到達確認・位置記録のdomainもrunt
 `unsupported`で、通常runtimeのbindingも既定無効です。実Minecraftへの配置、採掘、queue consumerは
 ありません。詳細は[最初のブロック操作](docs/block-operations.md)を参照してください。
 
+### Bedrock world・inventory観測基盤
+
+Bedrock 1.26.30のblock更新、own entityのheld item、dimension変更を、安全なfreeze済みsnapshotへ
+変換する読み取り専用基盤を実装しています。block cacheは最大128件で、spawn前・dimension移行中・
+切断後は利用できません。full inventory、実block操作adapter、runtime consumerは未実装です。
+詳細は[観測基盤](docs/world-observation.md)を参照してください。
+
 ### Dockerイメージのビルド
 
 ```bash

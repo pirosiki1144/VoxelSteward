@@ -214,7 +214,19 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - server観測した同一座標のdirtだけを成功とし、client申告値やinventory変化だけで完了しないこと。
 - 実adapter未対応時はfail-closedとし、runtimeの既定をdisabledに保つこと。
 
-## 15. 開発エージェントの実行権限要件
+## 15. Bedrock world・inventory観測要件
+
+- 固定protocol versionのserver受信packetだけを観測元とし、生packetをdomainへ渡さないこと。
+- spawn前、dimension移行中、disconnect後の観測を利用不能にすること。
+- block観測はdimension付き整数座標、runtime ID、air判定、UTC観測時刻、sourceに限定すること。
+- block cacheは上限を持ち、dimension変更とdisconnectで破棄すること。
+- held itemはown entityのselected slot、network ID、count、block runtime ID、schema上存在するstack ID
+  だけを保持し、NBT、表示名、lore、player情報を保存しないこと。
+- schemaから確定できないfull inventoryとstack IDを推測せず`unsupported`としてfail-closedにすること。
+- snapshotとeventを実行時にも変更不能にし、同値更新と古いsequenceのeventを抑制すること。
+- subscriber障害をruntime安全動作から隔離し、unsubscribeとcloseでlistenerを解放すること。
+
+## 16. 開発エージェントの実行権限要件
 
 - [開発権限と承認ゲート](project/governance.md)を運用権限の正式な情報源とすること。
 - ロードマップまたは依頼範囲内の編集、固定version依存追加、ローカル検証、隔離Docker

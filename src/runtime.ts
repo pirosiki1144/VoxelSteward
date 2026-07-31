@@ -30,6 +30,10 @@ import {
   type RuntimeNotificationBinding,
 } from "./runtime/notification-port-factory.js";
 import { RuntimeSupervisor } from "./runtime/supervisor.js";
+import {
+  createDisabledRuntimeWorldObservationBinding,
+  type RuntimeWorldObservationBinding,
+} from "./runtime/world-observation-binding.js";
 
 const flushPersistence = async (
   persistence: StatePersistenceSubscriber,
@@ -56,6 +60,7 @@ const main = async (): Promise<void> => {
   let runtimeLogger: Logger | undefined;
   let movementBinding: RuntimeMovementBinding | undefined;
   let blockOperationBinding: RuntimeBlockOperationBinding | undefined;
+  let worldObservationBinding: RuntimeWorldObservationBinding | undefined;
   let removeSignals = (): void => undefined;
   try {
     const notificationConfig = loadNotificationConfig();
@@ -63,6 +68,7 @@ const main = async (): Promise<void> => {
     const config = loadRuntimeConfig();
     movementBinding = createDisabledRuntimeMovementBinding();
     blockOperationBinding = createDisabledRuntimeBlockOperationBinding();
+    worldObservationBinding = createDisabledRuntimeWorldObservationBinding();
     const logger = createLogger(config.mode, config.logLevel);
     runtimeLogger = logger;
     notificationBinding = createRuntimeNotificationBinding(notificationConfig);
@@ -166,6 +172,10 @@ const main = async (): Promise<void> => {
         {
           name: "block_operation_binding",
           run: () => blockOperationBinding?.close(),
+        },
+        {
+          name: "world_observation_binding",
+          run: () => worldObservationBinding?.close(),
         },
         { name: "persistence", run: () => persistence?.close() },
         {
