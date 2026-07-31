@@ -144,3 +144,31 @@
   配送保証。
 - 理由: 現在は一方向通知だけが必要であり、既存ポートへ小さなHTTPアダプターとして接続し、
   Discord障害を安全制御から分離できるためです。
+
+## ADR-015: 開発工程におけるエージェントの自律実行範囲を拡大する
+
+- ステータス: 承認済み
+- 背景: 調査、修正、再検証、ローカルservice検証、commitの各段階で一律に承認を待つと、
+  安全境界に影響しない日常開発も中断され、ロードマップの進行が遅くなります。
+- 決定: [開発権限と承認ゲート](project/governance.md)を正式な権限情報源とし、依頼または
+  ロードマップの現在工程に含まれる編集、検証、修正、再検証を自律実行します。
+- 依存関係: 直接必要で、Node.js 24との互換性、install script、license、保守・securityを
+  確認した固定versionだけを追加・更新し、package fileとlock fileを同時更新して全検証します。
+  major互換性変更、主要framework置換、新service・認証方式は承認対象です。
+- DockerとDB: image build、隔離されたlocal test service、network、使い捨てDB、migration、
+  rollback、Repository統合testを自律実行します。認証・永続volume、本番Docker、外部・共有DB、
+  破壊的migrationは対象外です。
+- Discord: 設定済みIncoming Webhookと既存固定templateによる回数限定の開発・受入送信は、
+  timeoutとretryを有限にし、秘密・mentionを含めず、安全停止から隔離する条件で自律実行します。
+  WebhookやDiscord側resourceの変更、Bot API、双方向通信、大量送信は承認対象です。
+- Git: 必要な検証と秘密情報・差分確認が完了したtask-owned変更だけをlocal commitできます。
+  push、pull、merge、rebase、tag、releaseその他のremote操作は引き続き承認対象です。
+- 安全境界: 実Minecraft接続、game操作、外部DB、本番・cloud、認証volume、主要architecture・
+  security境界の変更には事前承認が必要です。秘密情報の表示・記録、player/BOT/server情報の
+  保存、安全制御の無効化、停止後の再接続、無制限retry、destructive Gitは常に禁止します。
+- Codex設定: `workspace-write`、interactiveな`on-request`、`auto_review`、workspace内networkを
+  使用します。これは上位のCodex policy、sandbox、実行環境を緩和または回避するものではなく、
+  上位制約が要求する承認はそのまま適用します。
+- 効果とrisk: 安全な日常開発を連続実行できる一方、local service、network、dependency、commitの
+  影響範囲が広がります。固定version、有限回数、隔離環境、task-owned差分、全検証、秘密情報
+  allow-listを条件としてriskを制限します。

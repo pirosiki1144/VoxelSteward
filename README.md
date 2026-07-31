@@ -8,7 +8,8 @@ VoxelStewardは、安全性を重視したMinecraft Bedrock Dedicated Server（B
 
 通常運転の状態変化から安全な通知メッセージを生成し、任意でDiscord Incoming Webhookへ
 配送する通知基盤もあります。既定は外部通信を行わないNo-opで、Discord SDKやBot APIは
-使用しません。Webhook URLの設定と実送信には別途運用承認が必要です。設計の詳細は
+使用しません。設定済みWebhookと既存templateによる回数限定の開発・受入送信は、
+運用条件を満たす場合に自律実行できます。WebhookやDiscord側設定の変更は承認が必要です。詳細は
 [通知基盤](docs/notifications.md)を参照してください。
 
 ## 前提環境
@@ -44,6 +45,8 @@ curl http://127.0.0.1:3000/health
 プレイヤー一覧を記録します。移動、視点変更、採掘、設置、攻撃、チャット、コマンド
 など、ゲーム内の状態を変更する操作は実装していません。
 
+実Minecraft serverへの接続とMicrosoft認証は、開始前に承認が必要です。
+
 ### `.env`の設定
 
 既存の`.env`がなければ、例をコピーします。
@@ -70,6 +73,7 @@ cp .env.example .env
 ## 通常運転ランタイム
 
 通常運転は`normal`固定で接続を維持し、他プレイヤーを検知すると安全制御として終了します。
+次の起動は実Minecraft serverへ接続するため、実行前に承認が必要です。
 
 ```bash
 docker compose build runtime
@@ -93,7 +97,8 @@ docker compose logs -f runtime
 ### Discord通知
 
 既定の`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを検証・使用せず、
-外部通信しません。承認済み環境で通知を有効にする場合だけ、秘密情報として管理された
+外部通信しません。governanceの条件を満たす開発・テスト環境で通知を有効にする場合だけ、
+秘密情報として管理された
 Incoming Webhook URLを`DISCORD_WEBHOOK_URL`へ設定し、有効化フラグを厳密に`true`と
 します。不正な設定はMinecraft接続前に終了します。URLをログやGitへ記録しないでください。
 

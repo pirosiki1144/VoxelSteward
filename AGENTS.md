@@ -4,9 +4,11 @@
 
 VoxelSteward is a safety-first automation client for Minecraft Bedrock Dedicated
 Server. The current implementation is a read-only normal runtime and smoke-test
-connection with in-process state management and an external-service-neutral
-notification foundation. Real Discord delivery, database integrations, and game
-actions require explicit approval.
+connection with in-process state management and a Discord Incoming Webhook
+notification adapter. Local development and bounded delivery through the existing
+configured webhook are autonomous within the assigned scope. Real Minecraft
+connections, external databases, production infrastructure, and game actions
+require explicit approval.
 
 The authoritative product requirements, current status, roadmap, and operating
 authority are in:
@@ -75,9 +77,27 @@ Record non-secret real-server verification in `docs/verification/`.
 
 ## Approval boundary
 
-Read-only investigation, approved-scope edits, local tests, builds, Compose
-configuration validation, and image builds without starting services are allowed.
-Follow `docs/project/governance.md` for the full boundary. Stop for approval
-before external connections, container/service startup, production dependency
-changes, authentication-volume changes, game actions, commits, pushes, merges,
-releases, or remote service mutations.
+Follow `docs/project/governance.md` as the authoritative operating boundary.
+
+- Roadmap-scoped source, test, configuration, and documentation edits are
+  autonomous.
+- Exact-version dependency installation required by the assigned scope is
+  autonomous after compatibility, install-script, license, maintenance, and
+  security checks.
+- Local tests, builds, formatting, Docker image builds, and isolated local
+  development or test service startup are autonomous.
+- Local test database startup, migrations, rollback checks, and integration tests
+  are autonomous when they use disposable non-secret data.
+- Bounded delivery through the existing configured Discord Incoming Webhook and
+  existing fixed templates is autonomous. Notification failure must never weaken
+  Minecraft safety behavior.
+- Local commits are autonomous only after all required checks pass and only for
+  task-owned changes. Remote Git operations still require approval.
+- Real Minecraft connections, game actions, external or shared databases,
+  production infrastructure changes, authentication-volume changes, remote Git
+  operations, and destructive operations require approval or remain forbidden.
+- Secrets, player names, bot account information, and server endpoints must not
+  be logged, documented, tested, committed, or sent to Discord.
+
+Project configuration cannot override a stricter Codex system policy, sandbox, or
+execution-environment restriction. Never attempt to bypass an upstream control.

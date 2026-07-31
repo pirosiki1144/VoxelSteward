@@ -6,8 +6,9 @@
 通常runtimeは既定で`NoopNotificationPort`を使用します。明示的に有効化し、起動時の
 厳格なURL検証を通過した場合だけ、Discord Incoming Webhookアダプターを使用します。
 Discord SDK、Bot API、認証・チャンネル作成、定時報告、永続outboxは含みません。
-自動テストは注入したFake HTTP transportだけを使用し、実送信は承認済みの受入試験に
-限定します。
+自動テストは注入したFake HTTP transportだけを使用します。設定済みWebhookと既存の固定
+templateを使う回数限定の開発・テスト・受入送信は、[開発権限と承認ゲート](project/governance.md)
+の条件を満たす場合に自律実行できます。
 
 ## コンポーネント
 
@@ -129,4 +130,8 @@ runtimeはsubscriberを閉じて新規受付を停止した後、通知binding�
 Gitへ保存しません。プロセス再起動後の重複防止・永続配送には、将来MySQL等のoutboxが
 必要です。専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。非秘密な
 結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)を参照してください。
-今後もWebhook設定の変更や外部への実送信には、その都度承認が必要です。
+
+実送信は既存templateだけを使用し、mentionを無効化し、送信回数、timeout、retryを有限に
+保ちます。`.env`、Webhook URL、tokenを表示・記録・コピーせず、配送障害を主要処理と
+Minecraftの安全停止から隔離します。Webhook URLの作成・変更・rotation・削除、Discord側の
+channel、Webhook、Bot、role、権限変更、Bot API、双方向通信、自由文、大量送信は承認必須です。

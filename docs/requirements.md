@@ -139,5 +139,18 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - Discord配送は1試行5秒、最大3試行、総15秒を上限とし、429の待機指定と限定した一時障害
   だけを再試行すること。
 - 通知配送と待機はruntime終了時に中断し、安全切断やプロセス終了を待たせないこと。
-- 実Webhook資格情報は実行環境だけで管理し、実送信は都度承認された専用環境で行うこと。
+- 実Webhook資格情報は実行環境だけで管理すること。設定済みWebhookと固定templateによる
+  開発・テスト・受入送信は、回数、timeout、retryを制限し、秘密情報を送信せず、
+  Minecraftの安全処理から隔離すること。
 - Discordの定時報告、再起動後の重複防止、永続配送保証は別工程とすること。
+
+## 10. 開発エージェントの実行権限要件
+
+- [開発権限と承認ゲート](project/governance.md)を運用権限の正式な情報源とすること。
+- ロードマップまたは依頼範囲内の編集、固定version依存追加、ローカル検証、隔離Docker
+  service、ローカルテストDB、条件付きDiscord送信、検証済みlocal commitを自律実行できること。
+- 実Minecraft接続とgame操作、外部・共有DB、本番・cloud変更、認証volume変更、remote Git
+  操作、主要architectureまたは安全境界の変更は事前承認を必要とすること。
+- `.env`、credential、Webhook URL、player名、BOT情報、server endpointを表示、記録、
+  test fixture化、Discord送信、commitしないこと。
+- Codexの上位policy、sandbox、実行環境が追加承認を要求する場合は、それを回避しないこと。

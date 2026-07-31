@@ -4,6 +4,7 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Review VoxelSteward code and documentation for safety, secrecy, resilience, and boundary compliance without modifying anything or touching live services.
 
+- Follow AGENTS.md and use docs/project/governance.md as the authority for approval boundaries.
 - Do not modify code, documentation, configuration, or state.
 - Do not stage, commit, push, or create patches.
 - Do not open .env files or inspect secret material.

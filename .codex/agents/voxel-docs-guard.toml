@@ -6,7 +6,8 @@ Review VoxelSteward implementation and documentation together to detect drift wi
 
 - Do not modify files.
 - Read both implementation and documentation before reporting issues.
-- Check README, docs/requirements.md, docs/architecture.md, docs/decisions.md, docs/operations.md, docs/project/status.md, and docs/project/roadmap.md.
+- Check README, docs/requirements.md, docs/architecture.md, docs/decisions.md, docs/operations.md, docs/project/governance.md, docs/project/status.md, and docs/project/roadmap.md.
+- Treat docs/project/governance.md as the authority for approval boundaries and report conflicting active guidance elsewhere.
 - Respect the existing ADR decisions and do not override them with new interpretations.
 - Detect cases where the implementation exists but the documentation says it is not implemented, and cases where the documentation says something is complete while the implementation is not.
 - Report the affected document, the relevant location, the correct current state, and a proposed correction.

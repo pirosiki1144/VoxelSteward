@@ -20,9 +20,30 @@ npm start
 
 デフォルトのヘルスチェックエンドポイントは`http://127.0.0.1:3000/health`です。
 
+### 自律実行できるローカル検証
+
+ロードマップまたは割り当てられた作業範囲内では、`npm ci`、format、typecheck、lint、test、
+build、`docker compose config`、Docker image buildを継続して実行できます。失敗時は原因を
+調査し、範囲内の修正と再検証まで進めます。同じ失敗を無制限に繰り返しません。
+
+隔離された開発・テスト用Compose service、container、networkと、認証情報やユーザー永続dataを
+持たない作業専用の一時test volumeは自律的に作成・使用・停止できます。
+実Minecraft serverへ接続する`runtime`と`smoke`、本番service、所有者不明のDocker資源は
+含みません。今回の作業で作成した一時container、network、使い捨てtest volumeだけを整理し、
+認証またはユーザー永続dataを持つvolumeは削除しません。
+
+### ローカルテストデータベース
+
+隔離された空のローカルテストDBでは、migration適用・rollback、Repository統合テスト、
+非秘密なtest data投入・削除、test schema再作成を自律実行できます。実在するplayer名、
+server情報、account情報、credentialは使用しません。外部・共有・staging・本番DBへの接続、
+migration、実data変更、破壊的migrationは承認が必要です。
+
 ## 通常運転
 
 通常運転イメージをビルドし、`normal`固定の`runtime`サービスを起動します。
+image buildは自律実行できますが、`runtime`起動は実Minecraft serverへ接続するため
+事前承認が必要です。
 
 ```bash
 docker compose build runtime
@@ -66,8 +87,12 @@ Webhook URLを秘密値として注入し、フラグを厳密に`true`としま
 配送失敗時の`notification.delivery_failed`は、安全な`code`、`classification`、
 `status`（存在時）、`attempts`と通知IDだけを記録します。応答本文や生Errorは記録しません。
 1試行5秒、最大3試行、レート制限待機を含む総15秒が上限です。runtime停止時は未完了の
-配送と待機を中断し、Minecraftの安全切断を待たせません。実Discord送信試験は別途承認を
-得て実施します。
+配送と待機を中断し、Minecraftの安全切断を待たせません。
+
+設定済みWebhookと既存の固定templateを使う開発・テスト・受入送信は、事前に回数を限定し、
+既存timeout・retry上限を維持する場合に自律実行できます。URLや`.env`の値を表示せず、
+mention、自由文、秘密情報を送信しません。WebhookやDiscord側resource・権限の変更、Bot API、
+双方向通信、大量送信は承認が必要です。
 
 接続状態を外部へ正確に示すreadinessエンドポイントはまだないため、`runtime`には
 形だけのhealthcheckを設定していません。
@@ -111,6 +136,27 @@ AWS/VPS環境では、シークレットマネージャー、またはデプロ�
 Microsoft認証キャッシュは`BOT_ACCOUNT_ID`単位の名前付きDocker volumeへ保存します。
 通常のコンテナ削除では失われません。volumeを削除すると再認証が必要になるため、
 `docker compose down -v`と`docker volume rm`は実行しないでください。
+
+## commit前の確認
+
+割り当てられた作業をlocal commitする前に、必要なformat check、typecheck、lint、test、build、
+`git diff --check`を成功させます。`git status`、差分、対象file、秘密情報を確認し、今回の
+task-owned変更だけを明示的にstageします。検証失敗、未解決警告、意図しない差分、既存変更と
+安全に分離できない状態ではcommitしません。commit後はhash、message、file一覧を報告します。
+
+push、pull、merge、rebase、tag、release、remote branchまたはGitHub resourceの変更には
+個別承認が必要です。
+
+## 承認が必要な操作
+
+実Minecraft/BDS接続、game内操作、認証cache・認証volume変更、外部または共有DB、本番・cloud
+環境、Discord側resourceやWebhook設定、新しい外部service、主要architecture・安全境界の変更、
+remote Git操作は開始前に承認を得ます。正式な区分は
+[開発権限と承認ゲート](project/governance.md)を参照してください。
+
+秘密情報を確認するときは値を出力せず、fileの存在、変数名、終了code、allow-list済みlog field、
+秘密を含まないfingerprintだけを使用します。`.env`、認証cache、Webhook URLを開いたり
+command outputへ表示したりしません。
 
 ## 安全なロールアウト
 
