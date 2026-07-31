@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `c239b954d759e77bf52c2576e55884771e22e628`
-- 完成マイルストーン: 状態駆動通知基盤
-- 現在の工程: Discord Incoming Webhookアダプターのローカル実装と検証
+- 基準コミット: `15314c54ef854504496526877ddb2e14da7fe042`
+- 完成マイルストーン: Discord Incoming Webhookアダプターのローカル実装
+- 現在の工程: 実Discord送信の受入準備（外部接続は未承認・未実施）
 
 ## 完成済み
 
@@ -33,6 +33,8 @@
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
+Discord実送信の計画は
+[Discord Incoming Webhook受入計画](../verification/discord-webhook-plan.md)を参照してください。
 
 ## 現在の制約
 
@@ -44,15 +46,15 @@
 
 ## 次の完了条件
 
-コードレビューとcommit後、別途承認された専用Discordチャンネルで、秘密値を記録せず
-Webhook配送、429相当の運用、通知障害時の安全停止非依存を確認します。実送信前には
-Webhook URL設定と外部接続の個別承認が必要です。MySQL、作業キュー、Minecraft内操作は
-後続工程へ持ち越します。
+別途承認された専用Discordチャンネルと専用Minecraftテストサーバーで、秘密値を記録せず
+Webhook配送、mention抑止、通知障害時の安全停止非依存を確認します。実送信前にはWebhook
+URL設定、Discord送信、Minecraft接続、Dockerサービス起動の個別承認が必要です。試験結果を
+非秘密な検証記録へ残した後、MySQL状態・履歴保存の設計工程へ進みます。
 
 ## 未決定事項
 
 - 永続化開始時のMySQLスキーマとマイグレーション方式
-- Discord実送信試験の安全なfixtureと合格条件
+- 停止直前通知をbest effortのまま扱う期間と、将来outboxで永続保証を開始する時点
 - Webhook URLの本番secret管理方式
 - 作業IDの生成責務と外部指示の形式
 - JST表示をアプリケーション、通知アダプター、UIのどこで担当するか
