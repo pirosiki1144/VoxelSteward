@@ -49,9 +49,10 @@ docker compose --env-file /dev/null --profile test stop mysql-test
 docker compose --env-file /dev/null --profile test rm -f mysql-test
 ```
 
-統合testはmigrationの再適用、transaction rollback、revision冪等性を検証し、最後にdown
-migrationでschemaを除去します。`docker compose down`や`--remove-orphans`は同じprojectの
-runtimeへ影響し得るため、この局所cleanupには使用しません。
+統合testはmigrationの再適用、transaction rollback、revision冪等性に加え、作業queueの
+priority付きFIFO、冪等enqueue、並行claim、有限試行を検証し、最後にdown migrationでschemaを
+除去します。`docker compose down`や`--remove-orphans`は同じprojectのruntimeへ影響し得るため、
+この局所cleanupには使用しません。
 
 通常runtimeで永続化する場合は`MYSQL_PERSISTENCE_ENABLED`を厳密に`true`とし、host、port、
 database、user、passwordを秘密管理された環境から注入します。既定の`false`では他のMySQL

@@ -6,15 +6,15 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 制御された作業を実行します。現在のマイルストーンでは、TypeScriptの開発基盤、
 運用ドキュメント、ヘルスチェックエンドポイント、およびテスト用BDSへ接続する
 読み取り専用の通常運転ランタイムとスモークテスト、プロセス内の状態・進捗管理、
-状態イベントを起点とするIncoming Webhook通知、および任意有効化のMySQL状態・履歴保存を
-提供します。Webhook通知は専用テスト環境、MySQL adapterは隔離ローカルDBで受入試験を
-完了しています。
+状態イベントを起点とするIncoming Webhook通知、任意有効化のMySQL状態・履歴保存、および
+作業を実行しない型付き作業queueを提供します。Webhook通知は専用テスト環境、MySQL adapterは
+隔離ローカルDBで受入試験を完了しています。
 
 このマイルストーンの対象範囲外となる項目は次のとおりです。
 
 - 自律的な判断またはゲーム内での行動
 - 本番環境へのデプロイおよび本番環境の認証情報
-- 作業キュー
+- 作業executorと外部からの作業指示入力
 - Discordの定時報告、永続配送、再起動をまたぐ重複防止、Bot APIによる双方向操作
 
 ## 1.1 長期的な製品範囲
@@ -32,6 +32,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
   Docker Compose
 - Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
 - 状態snapshot、変更履歴、作業checkpoint、通知outboxを保存するMySQL adapter
+- 型付き指示、priority付きFIFO、取消、終端状態、有限試行を持つ作業queue
 
 ## 3. 安全要件
 
@@ -117,6 +118,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - subscriberの障害がruntimeの安全停止や他subscriberを妨げないこと。
 - プレイヤー名、サーバー接続情報、認証情報を状態へ保存しないこと。
 - DiscordとMySQLはMinecraft接続へ直結せず、同じ状態イベントだけを購読すること。
+- 作業queueのclaimだけではMinecraft操作を開始せず、executorと共通安全制御を別工程とすること。
 - MySQL保存はrun IDとrevisionで順序・冪等性を確保し、同一transactionでsnapshot、履歴、
   checkpoint、outboxを更新すること。
 - DB障害は安全停止を妨げず、StateStoreへ再帰dispatchしないこと。
@@ -143,6 +145,17 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - Discord配送は1試行5秒、最大3試行、総15秒を上限とし、429の待機指定と限定した一時障害
   だけを再試行すること。
 - 通知配送と待機はruntime終了時に中断し、安全切断やプロセス終了を待たせないこと。
+
+## 10. 作業指示と作業キュー要件
+
+- 指示は型付きフィールドだけを持ち、任意payload、player名、BOT情報、server情報、credentialを
+  保存しないこと。
+- priorityの高い順、同順位はFIFOでclaimし、同じtask IDのenqueueを冪等に扱うこと。
+- queued、claimed、completed、failed、stopped、cancelledの遷移を明示commandで検証すること。
+- 再キュー回数へ上限を設け、上限到達後はfailedへ終端化して無制限再試行しないこと。
+- Repository境界を介して永続化し、並行workerが同じ指示を二重claimしないこと。
+- claimはMinecraft操作を開始せず、executorと共通安全制御の実装完了まで読み取り専用runtimeへ
+  接続しないこと。
 - 実Webhook資格情報は実行環境だけで管理すること。設定済みWebhookと固定templateによる
   開発・テスト・受入送信は、回数、timeout、retryを制限し、秘密情報を送信せず、
   Minecraftの安全処理から隔離すること。

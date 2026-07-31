@@ -13,8 +13,11 @@
    - Repository port、状態snapshot・履歴・checkpoint・通知outbox（完了）
    - version管理migration、transaction、revision冪等性、隔離MySQL検証（完了）
    - outbox dispatcherと永続配送保証（後続工程）
-4. 作業指示と作業キュー（次工程）
-5. 共通の安全制御
+4. 作業指示と作業キュー（最小実装完了）
+   - 型付き指示、priority付きFIFO、cancel、終端化、有限回の再キュー（完了）
+   - Repository port、MySQL migration、transaction claim、冪等enqueue（完了）
+   - 外部指示入力、executor、claim lease回収（後続工程）
+5. 共通の安全制御（次工程）
 6. 移動機能
 7. 簡単なMinecraft内作業
 8. 道路作成、探索、整地などの個別作業

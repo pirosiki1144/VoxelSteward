@@ -7,6 +7,8 @@ import {
   rollbackAll,
 } from "../src/adapters/persistence/mysql-migrations.js";
 import { MySqlStatePersistenceRepository } from "../src/adapters/persistence/mysql-state-persistence-repository.js";
+import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task-queue-repository.js";
+import { TaskQueueService } from "../src/application/task-queue/index.js";
 import { mapStateChangeToNotification } from "../src/application/notifications/index.js";
 import { createStateStore } from "../src/domain/state/index.js";
 
@@ -37,6 +39,7 @@ suite("MySqlStatePersistenceRepository", () => {
     connectionLimit: 2,
   });
   const repository = new MySqlStatePersistenceRepository(pool);
+  const queueRepository = new MySqlTaskQueueRepository(pool);
 
   beforeAll(async () => {
     await rollbackAll(pool);
@@ -53,7 +56,7 @@ suite("MySqlStatePersistenceRepository", () => {
     const [rows] = await pool.query<VersionRow[]>(
       "SELECT version FROM schema_migrations ORDER BY version",
     );
-    expect(rows).toEqual([{ version: 1 }]);
+    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
   });
 
   it("history、snapshot、checkpoint、outboxを同一revisionで保存し重複を抑制する", async () => {
@@ -167,5 +170,96 @@ suite("MySqlStatePersistenceRepository", () => {
     await pool.execute(
       "INSERT INTO schema_migrations (version, name) VALUES (1, 'state_history')",
     );
+    await migrate(pool);
+  });
+
+  it("task queueを優先度付きFIFOで永続claimし重複enqueueを抑制する", async () => {
+    const times = [
+      "2026-08-01T00:00:00.000Z",
+      "2026-08-01T00:00:01.000Z",
+      "2026-08-01T00:00:02.000Z",
+      "2026-08-01T00:00:03.000Z",
+    ];
+    let index = 0;
+    const queue = new TaskQueueService(
+      queueRepository,
+      () => new Date(times[Math.min(index++, times.length - 1)]!),
+    );
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-low",
+        taskType: "verification",
+        priority: 1,
+        maxAttempts: 2,
+      },
+    });
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-high",
+        taskType: "verification",
+        priority: 10,
+        maxAttempts: 2,
+      },
+    });
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-high",
+        taskType: "ignored-duplicate",
+        priority: 99,
+        maxAttempts: 9,
+      },
+    });
+    const claimed = await queue.dispatch({ type: "task.claim_next" });
+    expect(claimed.item).toMatchObject({
+      taskId: "mysql-high",
+      taskType: "verification",
+      priority: 10,
+      attempts: 1,
+      status: "claimed",
+    });
+  });
+
+  it("並行claimで同じtaskを二重取得しない", async () => {
+    const queue = new TaskQueueService(queueRepository);
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-concurrent",
+        taskType: "verification",
+        priority: 100,
+        maxAttempts: 2,
+      },
+    });
+    const claims = await Promise.all([
+      queue.dispatch({ type: "task.claim_next" }),
+      queue.dispatch({ type: "task.claim_next" }),
+    ]);
+    const ids = claims.flatMap(({ item }) =>
+      item?.taskId === "mysql-concurrent" ? [item.taskId] : [],
+    );
+    expect(ids).toEqual(["mysql-concurrent"]);
+  });
+
+  it("task queueの再キューを試行上限でfailedへ終端化する", async () => {
+    const queue = new TaskQueueService(queueRepository);
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-bounded",
+        taskType: "verification",
+        priority: 100,
+        maxAttempts: 1,
+      },
+    });
+    const claimed = await queue.dispatch({ type: "task.claim_next" });
+    expect(claimed.item?.taskId).toBe("mysql-bounded");
+    const released = await queue.dispatch({
+      type: "task.release",
+      taskId: "mysql-bounded",
+    });
+    expect(released.item).toMatchObject({ status: "failed", attempts: 1 });
   });
 });

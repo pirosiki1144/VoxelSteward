@@ -195,3 +195,21 @@
   migration、永続dataのbackup/restore運用。
 - 理由: 状態変更と通知候補を原子的かつ再現可能に保存しながら、DB障害をMinecraftの安全制御から
   隔離するためです。
+
+## ADR-017: 作業指示を有限状態の永続queueとして分離する
+
+- ステータス: 承認済み（最小実装）
+- 決定: 作業指示は任意payloadを持たない型付きcommandとして受付し、priority降順、同順位は
+  FIFOのqueueで管理します。enqueueはtask ID単位で冪等化し、claim、cancel、release、終端化を
+  明示commandに限定します。
+- 状態と試行: queued、claimed、completed、failed、stopped、cancelledを使用します。releaseは
+  最大試行回数未満だけqueuedへ戻し、上限到達時はfailedへ終端化します。終端状態からの暗黙の
+  再開は許可しません。
+- 永続化: application serviceは`TaskQueueRepository`だけに依存します。MySQL adapterは
+  transaction内の`FOR UPDATE SKIP LOCKED`で1件を排他的にclaimし、多重workerでも同じ指示を
+  二重取得しません。
+- 安全境界: 現在のclaimはキュー状態の変更だけで、Minecraft操作を開始しません。外部入力、
+  executor、claim lease回収、scheduleは未実装です。秘密、player/BOT/server情報をqueueへ
+  入れられる任意フィールドは設けません。
+- 理由: 将来の作業実行を、安全制御と永続化から独立して順序付け、無制限再試行と二重実行を
+  防ぐ土台を先に確立するためです。

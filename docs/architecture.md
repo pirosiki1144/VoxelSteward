@@ -17,6 +17,7 @@ Application coordinator ---- Safety policy
         |
         +---- Minecraft port ---- bedrock-protocol adapter (read-only smoke)
         +---- Repository ports -- MySQL state persistence repository
+        +---- Task queue service -- TaskQueueRepository -- MySQL task queue
         +---- Checkpoint records - current MySQL repository; resume API (future)
         +---- Instance lock ----- DB lease/advisory lock (future)
 ```
@@ -62,6 +63,8 @@ SIGTERMを受けた場合も、上限時間が設定された同じ停止処理�
 状態ペイロード、タイムスタンプを含めます。
 
 永続化先はMySQLです。現在はruntime run、状態、作業checkpoint、通知outboxを保存します。
+作業queueは独立したRepository portを介し、MySQL transactionでpriority付きFIFOの1件を
+排他的にclaimします。queueのclaimは作業実行を意味せず、Minecraft adapterへ接続しません。
 分散デプロイ用のDB leaseは未実装です。将来追加する場合も識別情報自体を保存せず、安全な
 内部IDをlease keyに使用し、lease取得・更新失敗時は作業を実行せず安全に切断します。
 

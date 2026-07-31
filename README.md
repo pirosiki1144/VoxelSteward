@@ -117,6 +117,13 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 [状態管理](docs/state-management.md)を参照してください。outbox配送workerと再起動後の
 Discord配送保証は未実装です。
 
+### 作業指示と作業キュー
+
+型付き作業指示をpriority付きFIFOで管理するdomain、application service、Repository port、
+MySQL adapterがあります。claim、取消、有限回の再キュー、終端化だけを実装しており、
+Minecraft内の操作や外部からの指示受付は行いません。詳細は
+[作業指示と作業キュー](docs/task-queue.md)を参照してください。
+
 ### Dockerイメージのビルド
 
 ```bash
@@ -204,4 +211,5 @@ commitしないでください。
 詳しくは、[要件](docs/requirements.md)、[アーキテクチャ](docs/architecture.md)、
 [運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)、
 [状態管理](docs/state-management.md)、[通知基盤](docs/notifications.md)、
+[作業指示と作業キュー](docs/task-queue.md)、
 [現在の状況](docs/project/status.md)、[ロードマップ](docs/project/roadmap.md)を参照してください。

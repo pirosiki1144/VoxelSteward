@@ -30,6 +30,12 @@ const migrations: readonly Migration[] = [
     up: new URL("./migrations/001_state_history.sql", import.meta.url),
     down: new URL("./migrations/001_state_history.down.sql", import.meta.url),
   },
+  {
+    version: 2,
+    name: "task_queue",
+    up: new URL("./migrations/002_task_queue.sql", import.meta.url),
+    down: new URL("./migrations/002_task_queue.down.sql", import.meta.url),
+  },
 ];
 
 const statements = (sql: string): readonly string[] =>

@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `deae5a6cfb5606885300ae65e46ea548c6a90b0c`
-- 完成マイルストーン: MySQLへの状態・履歴保存の最小実装
-- 現在の工程: 作業指示と作業キューの設計準備
+- 基準コミット: `ef1bf16613afa234a98b2b8c61f4faba04538b29`
+- 完成マイルストーン: 作業指示と作業キューの最小実装
+- 現在の工程: 共通の安全制御の設計準備
 
 ## 完成済み
 
@@ -34,7 +34,11 @@
 - MySQL Repository portと状態イベント起点の直列永続化subscriber
 - run ID・revisionによるsnapshot、履歴、作業checkpoint、通知outboxの冪等保存
 - version管理されたMySQL migrationとtransaction rollback
-- 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験5件
+- 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験8件
+- 型付き作業指示とpriority付きFIFO queue
+- cancel、終端化、最大試行回数による有限の再キュー
+- TaskQueue Repository portとMySQL transactionによる排他的claim
+- task ID単位の冪等enqueueとmigration 002
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -48,7 +52,7 @@ MySQLの非秘密なローカル検証結果は
 ## 現在の制約
 
 - Minecraft内の操作機能はない
-- 作業キューとスケジュール制御はない
+- 作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - MySQL無効時は状態イベントを永続化しない
 - Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
 - 通知outbox dispatcherと配送済み状態の更新はなく、Discordはoutboxをまだconsumeしない
@@ -56,8 +60,9 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-作業指示と作業キューについて、domain command、優先順位、停止・再開、Repository境界、
-受入条件を設計します。外部・共有DBへの接続やmigration適用は承認が必要です。
+共通安全制御について、将来のexecutorが他player検知、operator停止、接続状態、体力・空腹度の
+安全判断を迂回できないdomain境界と受入条件を設計します。Minecraft実接続とgame操作は承認が
+必要です。
 
 ## 未決定事項
 
