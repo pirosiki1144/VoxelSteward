@@ -187,10 +187,12 @@ command outputへ表示したりしません。
 
 ## 安全なロールアウト
 
-移動基盤は現在Fake検証だけが完了しており、通常runtimeへ実adapterを接続してはいけません。
+移動基盤はoffline serializer・Fake transport検証まで完了していますが、通常runtimeのbindingは
+disabledで、実frame providerもありません。通常runtimeへmovement executorを接続してはいけません。
 実移動試験を行う前に、packet仕様、速度、座標確定、停止方法、障害物・落下時の中止条件を記載した
 専用テストサーバー試験計画を作成し、実Minecraft接続とgame操作の承認を得ます。視点変更、jump、
 採掘、設置、攻撃、item、chat、commandを移動試験へ混在させません。
+段階、packet上限、中止条件は[実移動受入計画](verification/movement-acceptance-plan.md)に従います。
 
 1. buildを実行し、すべての自動チェックを実行します。
 2. テスト用データベースへマイグレーションを適用します。

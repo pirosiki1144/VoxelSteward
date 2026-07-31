@@ -135,7 +135,9 @@ Minecraft内の操作や外部からの指示受付は行いません。詳細�
 
 有限stepの直線移動plan、型付き`MovementPort`、各step前後で共通安全policyを再評価する
 coordinator、Fake検証を実装しています。実Minecraftへ移動packetを送るadapterと通常runtimeへの
-executor接続は未実装であり、現在のruntimeは引き続き読み取り専用です。詳細は
+executor接続は未実装であり、現在のruntimeは引き続き読み取り専用です。1.26.30限定の厳格な
+frame／serializer／Bedrock transport境界は準備済みですが、実frame providerと有効化設定はありません。
+block変更を伴わないnavigate・到達確認・位置記録のdomainもruntime未接続です。詳細は
 [移動基盤](docs/movement.md)を参照してください。
 
 ### Dockerイメージのビルド

@@ -190,8 +190,23 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - domain/applicationはBedrock packetへ依存せず、実送信を`MovementPort`のadapterへ限定すること。
 - 実adapterが未検証の間は通常runtimeへ接続せず、読み取り専用動作を維持すること。
 - 視点変更、jump、採掘、設置、攻撃、item、chat、commandを移動基盤へ含めないこと。
+- `player_auth_input`はallow-list済みversionとschemaでのみ生成し、必須field、有限値、単調tickを
+  送信前に検証すること。item・block等のconditional fieldと対象外input flagを生成しないこと。
+- 送信した申告位置を到達結果にせず、own entityのserver観測だけを正本とすること。server補正、
+  dimension不一致、切断、Abort後は後続packetを送らないこと。
+- frame生成規則が実サーバーで未検証の間は通常runtimeのmovement bindingを無効のまま維持し、
+  queue consumerや実行機能を自動開始しないこと。
 
-## 13. 開発エージェントの実行権限要件
+## 13. 簡単な作業domain要件
+
+- 最初の作業種別は`navigate_to`、`verify_arrival`、`record_position`だけとし、任意payloadを許可しないこと。
+- `navigate_to`だけが共通安全policy付きMovementCoordinator境界へ委譲できること。
+- `navigate_to`はserver観測originと同じdimension・同じYの水平移動だけに限定すること。
+- 到達確認と位置記録はserver観測位置だけを使用し、観測欠損・不正値をfail-closedで扱うこと。
+- block、entity、inventory、視点、jump、chatを変更する指示を型で表現しないこと。
+- runtime consumer、外部指示API、実Minecraft操作は別工程とし、自動開始しないこと。
+
+## 14. 開発エージェントの実行権限要件
 
 - [開発権限と承認ゲート](project/governance.md)を運用権限の正式な情報源とすること。
 - ロードマップまたは依頼範囲内の編集、固定version依存追加、ローカル検証、隔離Docker

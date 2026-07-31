@@ -14,6 +14,10 @@ import { runCleanupSteps } from "./runtime/cleanup.js";
 import { loadNotificationConfig } from "./runtime/notification-config.js";
 import { loadPersistenceConfig } from "./runtime/persistence-config.js";
 import {
+  createDisabledRuntimeMovementBinding,
+  type RuntimeMovementBinding,
+} from "./runtime/movement-binding.js";
+import {
   createRuntimePersistenceBinding,
   type RuntimePersistenceBinding,
 } from "./runtime/persistence-binding.js";
@@ -46,11 +50,13 @@ const main = async (): Promise<void> => {
   let persistence: StatePersistenceSubscriber | undefined;
   let persistenceBinding: RuntimePersistenceBinding | undefined;
   let runtimeLogger: Logger | undefined;
+  let movementBinding: RuntimeMovementBinding | undefined;
   let removeSignals = (): void => undefined;
   try {
     const notificationConfig = loadNotificationConfig();
     const persistenceConfig = loadPersistenceConfig();
     const config = loadRuntimeConfig();
+    movementBinding = createDisabledRuntimeMovementBinding();
     const logger = createLogger(config.mode, config.logLevel);
     runtimeLogger = logger;
     notificationBinding = createRuntimeNotificationBinding(notificationConfig);
@@ -150,6 +156,7 @@ const main = async (): Promise<void> => {
           run: () => notificationBinding?.close(),
         },
         { name: "signals", run: removeSignals },
+        { name: "movement_binding", run: () => movementBinding?.close() },
         { name: "persistence", run: () => persistence?.close() },
         {
           name: "persistence_flush",

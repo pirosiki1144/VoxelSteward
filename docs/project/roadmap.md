@@ -21,12 +21,15 @@
    - StateSnapshot起点の開始・継続判定と未知telemetryのfail-closed（完了）
    - queue claim境界、他player・operator停止後の再開禁止、重複停止抑制（完了）
    - 将来の危険入力、回復行動、分散worker停止連携（後続工程）
-6. 移動機能（最小基盤完了）
+6. 移動機能（実接続前のadapter準備完了）
    - 有限step plan、座標・dimension・上限検証、MovementPort、Fake（完了）
    - step前後の共通安全再評価、cancel、timeout、状態・queue終端化（完了）
-   - 実Bedrock adapter、障害物検知、専用サーバー受入試験（後続・承認必須）
+   - version限定frame factory、Bedrock transport adapter、runtime disabled binding（完了）
+   - 実frame provider、障害物検知、専用サーバー受入試験（後続・承認必須）
    - 1.26系packet候補、禁止方式、serializer要件、段階的受入案（設計確認完了）
-7. 簡単なMinecraft内作業
+7. 簡単なMinecraft内作業（domain/application最小境界完了）
+   - navigate、到達確認、位置記録の型・検証・Fake境界（完了）
+   - runtime consumer、queue終端化統合、実移動による受入（後続・承認必須）
 8. 道路作成、探索、整地などの個別作業
 9. 運用スケジュール制御
 

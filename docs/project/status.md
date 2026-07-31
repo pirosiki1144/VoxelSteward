@@ -48,6 +48,10 @@
 - 各step前後の共通安全policy再評価、cancel、timeout、後続step抑止
 - StateStoreと永続queueを一度だけ終端化する`MovementCoordinator`
 - 1.26系movement packet候補、禁止方式、serializer要件、段階的受入試験の設計確認
+- 1.26.30限定のPlayerAuthInput frame検証・schema serializeとBedrock transport adapter
+- server観測・補正・単調tick・Abort・listener cleanupのnetwork非依存検証
+- runtimeの既定disabled movement bindingと終了cleanup境界
+- block変更を伴わないnavigate／到達確認／位置記録の型付きsimple-work domain
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -60,7 +64,7 @@ MySQLの非秘密なローカル検証結果は
 
 ## 現在の制約
 
-- Minecraftへpacketを送る実移動adapterはなく、通常runtimeは読み取り専用
+- 実移動frame providerと有効化設定はなく、通常runtimeのmovement bindingはdisabledで読み取り専用
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
@@ -70,8 +74,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1.26系`player_auth_input`のversion別frame生成、単調tick、neutral input、server補正をnetwork非依存の
-serializer testで確立します。実Minecraft接続とgame操作は承認が必要です。
+専用サーバー受入計画を段階ごとにレビューし、まずneutral frameとserver観測の実機整合を確認します。
+各段階の実Minecraft接続とgame操作は個別承認が必要です。runtime consumerは受入完了まで追加しません。
 
 ## 未決定事項
 

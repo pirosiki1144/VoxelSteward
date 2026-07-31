@@ -170,10 +170,21 @@ step数、timeout、到達許容差を検証します。applicationの`MovementC
 `DefaultWorkSafetyPolicy`を評価し、許可された場合だけ`MovementPort`を呼びます。cancelまたは
 安全条件喪失後はportを一度だけ停止し、新規stepを送りません。
 
-`MovementPort`はMinecraft adapter境界です。現在はFakeだけがあり、bedrock-protocolの送信adapter、
-queue consumer、runtime executorはありません。この分離により、packet仕様を推測せずに有限性、
-中断、作業状態・queue終端化を検証できます。詳細は[移動基盤](movement.md)を参照してください。
+`MovementPort`はMinecraft adapter境界です。固定versionのframe factoryと
+`BedrockMovementPort`は、厳格検証済みの1 tick frameを注入transportへqueueし、own entityの
+server観測を待ちます。目標からphysics入力を推測するframe providerは未実装で、runtime bindingは
+既定disabled、queue consumerとruntime executorもありません。この分離により、実移動を有効化せず
+serializer、tick、補正、Abort、listener cleanupを検証できます。詳細は[移動基盤](movement.md)を
+参照してください。
 
 StateStoreと外部queue Repositoryは同一transactionではありません。正常経路は各1回だけ終端化し、
 Repository障害時はStateStoreをterminalへ保ったまま`finalization_error`を返し、曖昧な自動retryを
 行いません。queueの`claimed`残留回収はclaim leaseとともに後続工程で扱います。
+
+## 14. 簡単な作業domain
+
+`simple-work` domainは`navigate_to`、`verify_arrival`、`record_position`だけを判別可能な型で表し、
+任意payloadやworld変更操作を持ちません。application coordinatorはnavigateだけを既存の
+MovementCoordinator境界へ渡し、確認・記録は注入されたserver観測位置を読みます。runtime、queue
+consumer、Minecraft connectionには未接続です。詳細は[簡単なMinecraft内作業](simple-work.md)を
+参照してください。

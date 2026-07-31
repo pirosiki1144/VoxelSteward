@@ -276,3 +276,30 @@
   優先します。jump、sprint、sneak、item、block、attack、chat等のflag・packetは対象外です。
 - 理由: Bedrockのserver-authoritative movementを単純な位置teleportとして扱うと、server reject、
   巻戻し、継続移動、誤到達判定を起こし、安全policyを満たせないためです。
+
+## ADR-021: Bedrock移動adapterを検証済みframe注入境界として準備する
+
+- ステータス: 承認済み（実接続前の準備）
+- 決定: 固定依存と同じ1.26.30だけをallow-listし、完全な1 tick分の`player_auth_input` frameを
+  厳格検証するfactoryと、bedrock client transportへqueueしてserver観測を待つMovementPort adapterを
+  実装します。targetからinput vector、delta、rotation、tickをadapterで推測しません。
+- packet安全性: input flagsは空、conditional transaction・item・block fieldは生成せず、modeを固定します。
+  tick後退・重複、非有限field、未知versionは送信前に拒否します。1 move呼出しは最大1 frameで、
+  catch-up loopと自動retryを持ちません。
+- 観測と中断: own entityのserver観測だけを結果とし、補正、異dimension、invalid observation、切断、
+  Abortは有限失敗です。stop後はneutralを含む新規送信をせずlistenerを解除します。
+- runtime: movement bindingのcleanup境界だけを追加し、既定はdisabledです。frame provider、queue consumer、
+  executor、設定による有効化は専用サーバー受入まで追加しません。
+- 理由: schema・transportの検証可能部分を先に固定しながら、未確定のphysicsを推測して実ゲーム操作を
+  有効化する危険を避けるためです。
+
+## ADR-022: 最初の作業domainを非破壊な3種類に限定する
+
+- ステータス: 承認済み（runtime未接続）
+- 決定: 最初の作業は`navigate_to`、`verify_arrival`、`record_position`だけを型付きで表します。
+  navigateだけが共通安全policy付きMovementCoordinatorへ委譲でき、確認と記録はserver観測位置だけを
+  使用します。navigateは観測originと同じdimension・同じYの水平目標だけに限定します。任意payloadや
+  block・entity・inventory操作を表す型を設けません。
+- 境界: runtime consumer、外部指示API、queue終端化統合、実Minecraft操作は未実装です。
+- 理由: 世界を変更しない作業からdomain契約と観測結果の扱いを検証し、採掘・設置等を安全境界確立前に
+  混入させないためです。
