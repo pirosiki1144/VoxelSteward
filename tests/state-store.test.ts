@@ -60,6 +60,7 @@ describe("InMemoryStateStore", () => {
       minecraft: {
         connection: "disconnected",
         spawnCompleted: false,
+        telemetryStatus: "unknown",
         otherPlayerDetected: false,
       },
       task: {
@@ -84,6 +85,23 @@ describe("InMemoryStateStore", () => {
     expect(now).toHaveBeenCalledTimes(2);
     expect(event?.occurredAt).toBe("2026-07-30T01:02:03.004Z");
     expect(event?.after.updatedAt).toBe("2026-07-30T01:02:03.004Z");
+  });
+
+  it("不正telemetryを明示的に無効化して古い安全値を残さない", () => {
+    const store = createStateStore({ clock: new FakeClock() });
+    store.dispatch({
+      type: "minecraft.telemetry.update",
+      telemetry: { health: 20, hunger: 20 },
+    });
+
+    const event = store.dispatch({ type: "minecraft.telemetry.invalidate" });
+
+    expect(event?.changedFields).toContain("minecraft.telemetryStatus");
+    expect(store.getSnapshot().minecraft).toMatchObject({
+      telemetryStatus: "invalid",
+    });
+    expect(store.getSnapshot().minecraft.health).toBeUndefined();
+    expect(store.getSnapshot().minecraft.hunger).toBeUndefined();
   });
 
   it.each([
@@ -253,6 +271,7 @@ describe("InMemoryStateStore", () => {
     expect(first?.changedFields).toEqual([
       "minecraft.position",
       "minecraft.health",
+      "minecraft.telemetryStatus",
     ]);
     expect(duplicate).toBeUndefined();
     expect(store.getSnapshot().minecraft).toMatchObject({

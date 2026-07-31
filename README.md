@@ -124,6 +124,13 @@ MySQL adapterがあります。claim、取消、有限回の再キュー、終�
 Minecraft内の操作や外部からの指示受付は行いません。詳細は
 [作業指示と作業キュー](docs/task-queue.md)を参照してください。
 
+### 共通の安全制御
+
+将来の作業executorは、runtime、Minecraft接続・spawn、他player検知、停止要求、体力、空腹度を
+共通policyで検査し、安全な場合だけqueueをclaimします。未知・不正telemetryはfail-closedで
+拒否し、他player検知またはoperator停止後は再開しません。現在は判定境界だけで、Minecraft内の
+操作はありません。詳細は[共通の安全制御](docs/safety-controls.md)を参照してください。
+
 ### Dockerイメージのビルド
 
 ```bash
@@ -212,4 +219,5 @@ commitしないでください。
 [運用手順](docs/operations.md)、[技術的な意思決定](docs/decisions.md)、
 [状態管理](docs/state-management.md)、[通知基盤](docs/notifications.md)、
 [作業指示と作業キュー](docs/task-queue.md)、
+[共通の安全制御](docs/safety-controls.md)、
 [現在の状況](docs/project/status.md)、[ロードマップ](docs/project/roadmap.md)を参照してください。

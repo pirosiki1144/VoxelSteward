@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `ef1bf16613afa234a98b2b8c61f4faba04538b29`
-- 完成マイルストーン: 作業指示と作業キューの最小実装
-- 現在の工程: 共通の安全制御の設計準備
+- 基準コミット: `665e329c97eb50ad3378fe84ea0f6bad1f7a36ab`
+- 完成マイルストーン: 共通の安全制御の最小実装
+- 現在の工程: 移動機能の設計準備
 
 ## 完成済み
 
@@ -39,6 +39,10 @@
 - cancel、終端化、最大試行回数による有限の再キュー
 - TaskQueue Repository portとMySQL transactionによる排他的claim
 - task ID単位の冪等enqueueとmigration 002
+- StateSnapshotだけを入力とするfail-closedな作業安全policy
+- runtime、接続・spawn、他player、停止要求、体力・空腹度による開始・継続判定
+- 安全判定後だけclaimする`SafetyControlledTaskQueue`
+- 他player・signal停止後の再claim禁止とtask停止のプロセス内重複抑制
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -53,6 +57,7 @@ MySQLの非秘密なローカル検証結果は
 
 - Minecraft内の操作機能はない
 - 作業executor、外部指示入力、claim lease回収、スケジュール制御はない
+- 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
 - Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
 - 通知outbox dispatcherと配送済み状態の更新はなく、Discordはoutboxをまだconsumeしない
@@ -60,9 +65,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-共通安全制御について、将来のexecutorが他player検知、operator停止、接続状態、体力・空腹度の
-安全判断を迂回できないdomain境界と受入条件を設計します。Minecraft実接続とgame操作は承認が
-必要です。
+移動機能について、Minecraft操作port、経路、安全点ごとの共通policy再評価、中断、位置検証の
+受入条件を設計します。Minecraft実接続とgame操作は承認が必要です。
 
 ## 未決定事項
 

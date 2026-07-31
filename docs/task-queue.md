@@ -41,5 +41,7 @@ application serviceは`TaskQueueRepository`だけに依存します。MySQL adap
 - operatorによるpause/resume UI
 - schedule
 
-次工程では共通安全制御を先に実装し、executorが他player検知、operator停止、体力・空腹度などの
-停止判断を迂回できない境界を設計します。
+共通安全制御の最小境界は実装済みです。将来executorは`SafetyControlledTaskQueue`だけから
+claimし、他player検知、operator停止、接続・spawn、体力・空腹度の判定を迂回しない設計です。
+詳細は[共通の安全制御](safety-controls.md)を参照してください。executorとMinecraft操作は
+引き続き未実装です。

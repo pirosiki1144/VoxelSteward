@@ -149,3 +149,16 @@ runtime終了時はsubscriberの新規受付を止めた後、別のruntime bind
 追加しません。Webhook URLは状態、通知本文、ログへ渡しません。Discord Bot API、
 通知outboxへの書込みは実装済みですが、outbox配送worker、定時報告、配送済み状態の更新、
 再起動後の配送保証は未実装です。詳細は[通知基盤](notifications.md)を参照してください。
+
+## 12. 共通の安全制御
+
+`DefaultWorkSafetyPolicy`はStateStoreの単一snapshotから、作業開始と継続の可否を純粋なdomain
+判定として返します。runtime ready、Minecraft spawned、他player未検知、停止要求なし、取得済みで
+正常範囲の体力・空腹度をすべて満たした場合だけ許可します。未知・不正telemetryはfail-closedで、
+開始前はblock、継続中はstopです。他player検知とoperator・signal停止は非再開可能です。
+
+application層の`SafetyControlledTaskQueue`は、将来executorに公開するqueue claim境界です。
+安全判定を通過するまでRepositoryのclaimを呼ばず、claim後の停止判定はtaskを一度だけstoppedへ
+終端化します。現在のread-only runtimeはStateStoreへ接続・spawn・telemetry・停止を反映するだけで、
+queue consumerやMinecraft操作を開始しません。debug smokeの観測例外は作業実行境界へ接続しません。
+詳細は[共通の安全制御](safety-controls.md)を参照してください。

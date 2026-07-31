@@ -17,8 +17,11 @@
    - 型付き指示、priority付きFIFO、cancel、終端化、有限回の再キュー（完了）
    - Repository port、MySQL migration、transaction claim、冪等enqueue（完了）
    - 外部指示入力、executor、claim lease回収（後続工程）
-5. 共通の安全制御（次工程）
-6. 移動機能
+5. 共通の安全制御（最小実装完了）
+   - StateSnapshot起点の開始・継続判定と未知telemetryのfail-closed（完了）
+   - queue claim境界、他player・operator停止後の再開禁止、重複停止抑制（完了）
+   - 将来の危険入力、回復行動、分散worker停止連携（後続工程）
+6. 移動機能（次工程）
 7. 簡単なMinecraft内作業
 8. 道路作成、探索、整地などの個別作業
 9. 運用スケジュール制御

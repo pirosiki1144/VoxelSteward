@@ -28,6 +28,7 @@ export interface Position {
 export interface MinecraftState {
   readonly connection: MinecraftConnectionState;
   readonly spawnCompleted: boolean;
+  readonly telemetryStatus: "unknown" | "valid" | "invalid";
   readonly position?: Position;
   readonly health?: number;
   readonly hunger?: number;

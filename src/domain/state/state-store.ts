@@ -84,6 +84,7 @@ export class InMemoryStateStore implements StateStore {
       minecraft: {
         connection: "disconnected",
         spawnCompleted: false,
+        telemetryStatus: "unknown",
         otherPlayerDetected: false,
       },
       task: {
@@ -188,6 +189,7 @@ export class InMemoryStateStore implements StateStore {
             ...(disconnected
               ? {
                   spawnCompleted: false,
+                  telemetryStatus: "unknown",
                   position: undefined,
                   health: undefined,
                   hunger: undefined,
@@ -199,6 +201,7 @@ export class InMemoryStateStore implements StateStore {
           ? [
               "minecraft.connection",
               "minecraft.spawnCompleted",
+              "minecraft.telemetryStatus",
               "minecraft.position",
               "minecraft.health",
               "minecraft.hunger",
@@ -239,6 +242,7 @@ export class InMemoryStateStore implements StateStore {
           assertFiniteTelemetry(position.z, "position.z");
         }
         const changed: string[] = [];
+        const telemetryWasValid = draft.minecraft.telemetryStatus === "valid";
         if (
           position !== undefined &&
           !samePosition(draft.minecraft.position, position)
@@ -251,10 +255,12 @@ export class InMemoryStateStore implements StateStore {
         if (hunger !== undefined && hunger !== draft.minecraft.hunger) {
           changed.push("minecraft.hunger");
         }
+        if (!telemetryWasValid) changed.push("minecraft.telemetryStatus");
         if (changed.length === 0) return [];
         Object.assign(draft, {
           minecraft: {
             ...draft.minecraft,
+            telemetryStatus: "valid",
             ...(position === undefined ? {} : { position: { ...position } }),
             ...(health === undefined ? {} : { health }),
             ...(hunger === undefined ? {} : { hunger }),
@@ -262,6 +268,24 @@ export class InMemoryStateStore implements StateStore {
         });
         return changed;
       }
+
+      case "minecraft.telemetry.invalidate":
+        if (draft.minecraft.telemetryStatus === "invalid") return [];
+        Object.assign(draft, {
+          minecraft: {
+            ...draft.minecraft,
+            telemetryStatus: "invalid",
+            position: undefined,
+            health: undefined,
+            hunger: undefined,
+          },
+        });
+        return [
+          "minecraft.telemetryStatus",
+          "minecraft.position",
+          "minecraft.health",
+          "minecraft.hunger",
+        ];
 
       case "safety.other_player_detected":
         if (draft.minecraft.otherPlayerDetected) return [];

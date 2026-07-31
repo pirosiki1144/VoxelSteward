@@ -215,3 +215,24 @@
   入れられる任意フィールドは設けません。
 - 理由: 将来の作業実行を、安全制御と永続化から独立して順序付け、無制限再試行と二重実行を
   防ぐ土台を先に確立するためです。
+
+## ADR-018: StateSnapshot起点の共通作業安全境界
+
+- ステータス: 承認済み（最小実装）
+- 決定: 作業の開始と継続は、Minecraftやtask固有実装ではなく、StateStoreの単一snapshotを
+  入力とする`DefaultWorkSafetyPolicy`で判定します。将来executorのqueue claimは
+  `SafetyControlledTaskQueue`を経由し、安全判定を通過するまでRepositoryを更新しません。
+- fail-closed: runtime ready、Minecraft spawned、spawn完了、他player未検知、停止要求なし、
+  体力10以上、空腹度6以上をすべて必要とします。telemetryの未取得、非有限、0～20範囲外を
+  許可せず、閾値は設定で無効化できません。
+- 停止と再開: 作業中に条件を失った場合はstopとし、同一taskの重複停止をprocess内で抑制します。
+  他player検知とoperator・signal停止は非再開可能で、同じprocessで再claimしません。
+- 競合: claimの前後で最新snapshotを評価し、その間に安全条件を失った場合はclaimed taskを即時に
+  stoppedへ終端化してexecutorへ渡しません。
+- 互換性: normal runtimeのPlayerDetectionPolicy、上限付き再接続、StateStoreの原子的な
+  他player停止、安全切断を変更しません。debug smokeは読み取り専用観測例外のままで、作業実行
+  policyへ接続しません。
+- 未実装: executor、Minecraft操作、食事・退避などの回復動作、追加危険入力、分散worker間の
+  停止冪等性、claim lease回収。
+- 理由: 将来のtask実装が安全条件を個別解釈または迂回することを防ぎ、不明な状態では動作しない
+  一貫した境界を、game操作の導入前に確立するためです。

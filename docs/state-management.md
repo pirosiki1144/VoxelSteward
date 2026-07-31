@@ -54,6 +54,7 @@ interface StateSnapshot {
   readonly minecraft: {
     readonly connection: MinecraftConnectionState;
     readonly spawnCompleted: boolean;
+    readonly telemetryStatus: "unknown" | "valid" | "invalid";
     readonly position?: Readonly<{ x: number; y: number; z: number }>;
     readonly health?: number;
     readonly hunger?: number;
@@ -100,6 +101,10 @@ interface StateSnapshot {
 - 体力
 - 空腹度
 - 他プレイヤー検知済みか
+
+`telemetryStatus`は初期・切断後を`unknown`、検証済み更新を`valid`、受信値のdomain検証失敗を
+`invalid`として保持します。`invalid`では古い位置・体力・空腹度を消去し、共通安全制御が
+古い正常値で作業継続を許可しないようにします。
 
 プレイヤー名、サーバー接続情報、認証情報は含めません。
 
@@ -148,6 +153,7 @@ type StateCommand =
     }
   | { type: "minecraft.spawn.update"; completed: boolean }
   | { type: "minecraft.telemetry.update"; telemetry: Telemetry }
+  | { type: "minecraft.telemetry.invalidate" }
   | { type: "safety.other_player_detected" }
   | { type: "task.prepare"; taskId: string; taskType: string }
   | { type: "task.transition"; to: TaskState }

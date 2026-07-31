@@ -288,7 +288,7 @@ export class RuntimeSupervisor {
         ) {
           return;
         }
-        this.#dispatchState({
+        const updated = this.#dispatchState({
           type: "minecraft.telemetry.update",
           telemetry: {
             ...(position === undefined ? {} : { position }),
@@ -296,6 +296,9 @@ export class RuntimeSupervisor {
             ...(hunger === undefined ? {} : { hunger }),
           },
         });
+        if (!updated) {
+          this.#dispatchState({ type: "minecraft.telemetry.invalidate" });
+        }
       });
       bind("playerJoined", (player) => {
         if (players.has(player.id)) return;
@@ -388,14 +391,16 @@ export class RuntimeSupervisor {
     this.#dispatchState({ type: "runtime.transition", to: "failed" });
   }
 
-  #dispatchState(command: StateCommand): void {
+  #dispatchState(command: StateCommand): boolean {
     try {
       this.#stateStore.dispatch(command);
+      return true;
     } catch {
       this.#logger.log("error", {
         event: "runtime.state_update_failed",
         command: command.type,
       });
+      return false;
     }
   }
 }

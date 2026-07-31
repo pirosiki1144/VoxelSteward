@@ -5,6 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { NotificationSubscriber } from "../src/application/notifications/index.js";
 import { StatePersistenceSubscriber } from "../src/application/persistence/index.js";
+import { SafetyControlledTaskQueue } from "../src/application/safety/index.js";
+import { TaskQueueService } from "../src/application/task-queue/index.js";
+import { DefaultWorkSafetyPolicy } from "../src/domain/safety/index.js";
 import {
   createStateStore,
   type StateStore,
@@ -19,6 +22,7 @@ import type {
 } from "../src/smoke/types.js";
 import { FakeNotificationPort } from "./fakes/fake-notification-port.js";
 import { FakeStatePersistenceRepository } from "./fakes/fake-state-persistence-repository.js";
+import { FakeTaskQueueRepository } from "./fakes/fake-task-queue-repository.js";
 import { PersistenceError } from "../src/ports/state-persistence-repository.js";
 
 class FakeConnection
@@ -114,6 +118,146 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("runtimeのspawnとtelemetryが揃った後だけ安全境界からtaskをclaimする", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const repository = new FakeTaskQueueRepository();
+    const queue = new TaskQueueService(repository);
+    const safetyQueue = new SafetyControlledTaskQueue(
+      queue,
+      stateStore,
+      new DefaultWorkSafetyPolicy(),
+    );
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "runtime-safe-task",
+        taskType: "verification",
+        priority: 1,
+        maxAttempts: 1,
+      },
+    });
+    const { supervisor, run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    expect((await safetyQueue.claimNext()).decision.reason).toBe(
+      "runtime_not_ready",
+    );
+
+    connection.emit("join");
+    connection.emit("spawn");
+    expect((await safetyQueue.claimNext()).decision.reason).toBe(
+      "telemetry_unavailable",
+    );
+
+    connection.emit("state", { health: 20, hunger: 20 });
+    expect((await safetyQueue.claimNext()).item).toMatchObject({
+      taskId: "runtime-safe-task",
+      status: "claimed",
+    });
+
+    supervisor.requestStop("stop_requested");
+    await run;
+  });
+
+  it("runtimeの他プレイヤー停止後はtaskを一度だけ停止し再開を拒否する", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const repository = new FakeTaskQueueRepository();
+    const queue = new TaskQueueService(repository);
+    const safetyQueue = new SafetyControlledTaskQueue(
+      queue,
+      stateStore,
+      new DefaultWorkSafetyPolicy(),
+    );
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "runtime-stop-task",
+        taskType: "verification",
+        priority: 1,
+        maxAttempts: 1,
+      },
+    });
+    const { run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("authenticated", "runtime identity");
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("state", { health: 20, hunger: 20 });
+    await safetyQueue.claimNext();
+    connection.emit("playerJoined", player);
+
+    await expect(run).resolves.toEqual({
+      reason: "other_player_detected",
+      exitCode: 0,
+    });
+    expect(
+      await safetyQueue.enforceContinuation("runtime-stop-task"),
+    ).toMatchObject({
+      stopped: true,
+      decision: { reason: "other_player_detected" },
+    });
+    expect(
+      await safetyQueue.enforceContinuation("runtime-stop-task"),
+    ).toMatchObject({ stopped: false });
+    expect((await safetyQueue.claimNext()).decision).toMatchObject({
+      disposition: "block",
+      reason: "other_player_detected",
+      resumable: false,
+    });
+  });
+
+  it("runtimeが不正telemetryを受信した後は古い値で作業継続を許可しない", async () => {
+    const connection = new FakeConnection();
+    const stateStore = createStateStore();
+    const repository = new FakeTaskQueueRepository();
+    const queue = new TaskQueueService(repository);
+    const safetyQueue = new SafetyControlledTaskQueue(
+      queue,
+      stateStore,
+      new DefaultWorkSafetyPolicy(),
+    );
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "invalid-telemetry-task",
+        taskType: "verification",
+        priority: 1,
+        maxAttempts: 1,
+      },
+    });
+    const { supervisor, run } = setup(
+      [connection],
+      {},
+      () => Promise.resolve(),
+      stateStore,
+    );
+    connection.emit("join");
+    connection.emit("spawn");
+    connection.emit("state", { health: 20, hunger: 20 });
+    await safetyQueue.claimNext();
+    connection.emit("state", { health: Number.NaN });
+
+    expect(stateStore.getSnapshot().minecraft.telemetryStatus).toBe("invalid");
+    expect(
+      await safetyQueue.enforceContinuation("invalid-telemetry-task"),
+    ).toMatchObject({
+      stopped: true,
+      decision: { disposition: "stop", reason: "telemetry_invalid" },
+    });
+
+    supervisor.requestStop("stop_requested");
+    await run;
+  });
+
   it("永続化障害時も他プレイヤー安全切断を完了する", async () => {
     const connection = new FakeConnection();
     const stateStore = createStateStore();

@@ -24,6 +24,7 @@ export type StateCommand =
         readonly hunger?: number;
       };
     }
+  | { readonly type: "minecraft.telemetry.invalidate" }
   | { readonly type: "safety.other_player_detected" }
   | {
       readonly type: "task.prepare";
