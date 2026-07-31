@@ -162,3 +162,18 @@ application層の`SafetyControlledTaskQueue`は、将来executorに公開するq
 終端化します。現在のread-only runtimeはStateStoreへ接続・spawn・telemetry・停止を反映するだけで、
 queue consumerやMinecraft操作を開始しません。debug smokeの観測例外は作業実行境界へ接続しません。
 詳細は[共通の安全制御](safety-controls.md)を参照してください。
+
+## 13. 移動基盤
+
+domainの移動planは現在位置から同一dimensionの目標位置までを有限stepへ分割し、座標、step距離、
+step数、timeout、到達許容差を検証します。applicationの`MovementCoordinator`は各step前後で
+`DefaultWorkSafetyPolicy`を評価し、許可された場合だけ`MovementPort`を呼びます。cancelまたは
+安全条件喪失後はportを一度だけ停止し、新規stepを送りません。
+
+`MovementPort`はMinecraft adapter境界です。現在はFakeだけがあり、bedrock-protocolの送信adapter、
+queue consumer、runtime executorはありません。この分離により、packet仕様を推測せずに有限性、
+中断、作業状態・queue終端化を検証できます。詳細は[移動基盤](movement.md)を参照してください。
+
+StateStoreと外部queue Repositoryは同一transactionではありません。正常経路は各1回だけ終端化し、
+Repository障害時はStateStoreをterminalへ保ったまま`finalization_error`を返し、曖昧な自動retryを
+行いません。queueの`claimed`残留回収はclaim leaseとともに後続工程で扱います。

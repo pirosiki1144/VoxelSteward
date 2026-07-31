@@ -3,8 +3,8 @@
 ## 基準
 
 - 基準コミット: `665e329c97eb50ad3378fe84ea0f6bad1f7a36ab`
-- 完成マイルストーン: 共通の安全制御の最小実装
-- 現在の工程: 移動機能の設計準備
+- 完成マイルストーン: 移動機能のFake検証可能な最小基盤
+- 現在の工程: 実移動adapter導入前の専用サーバー試験設計
 
 ## 完成済み
 
@@ -43,6 +43,10 @@
 - runtime、接続・spawn、他player、停止要求、体力・空腹度による開始・継続判定
 - 安全判定後だけclaimする`SafetyControlledTaskQueue`
 - 他player・signal停止後の再claim禁止とtask停止のプロセス内重複抑制
+- 有限stepの同一dimension移動planと座標・上限検証
+- Minecraft非依存の`MovementPort`とテスト専用Fake
+- 各step前後の共通安全policy再評価、cancel、timeout、後続step抑止
+- StateStoreと永続queueを一度だけ終端化する`MovementCoordinator`
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -55,8 +59,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 現在の制約
 
-- Minecraft内の操作機能はない
-- 作業executor、外部指示入力、claim lease回収、スケジュール制御はない
+- Minecraftへpacketを送る実移動adapterはなく、通常runtimeは読み取り専用
+- 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
 - Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
@@ -65,8 +69,8 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-移動機能について、Minecraft操作port、経路、安全点ごとの共通policy再評価、中断、位置検証の
-受入条件を設計します。Minecraft実接続とgame操作は承認が必要です。
+実Bedrock移動adapterのpacket根拠、速度、server側位置確定、落下・障害物のfail-closed条件と、
+専用テストサーバーでの段階的な受入手順を設計します。実Minecraft接続とgame操作は承認が必要です。
 
 ## 未決定事項
 

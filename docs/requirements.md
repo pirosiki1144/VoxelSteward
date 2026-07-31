@@ -176,7 +176,22 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - `debug` smokeの観測継続は読み取り専用試験だけに限定し、作業実行の安全policyへ適用しないこと。
 - 現工程ではMinecraft操作、executor、回復行動、外部指示入力を実装しないこと。
 
-## 12. 開発エージェントの実行権限要件
+## 12. 移動基盤要件
+
+- 移動指示は現在位置、目標位置、dimension、最大step距離、最大step数、1 step timeout、到達許容差を
+  型付きで表現すること。
+- 非有限・範囲外座標、異dimension、無効な上限、最大step数を超えるplanを送信前に拒否すること。
+- 移動は有限stepへ分割し、各stepの前後で共通安全policyを最新snapshotに対して評価すること。
+- 各stepの観測位置をstep目標と照合し、許容差超過またはdimension不一致では後続stepを送らないこと。
+- 安全条件喪失、cancel、signal/operator停止後は新規stepを送らず、portの停止を多重実行しないこと。
+- timeout、port障害、不正な観測位置を安全な結果へ分類し、stepを無制限にretryしないこと。
+- 正常経路ではStateStoreと永続queueの作業状態をcompleted、failed、stoppedのいずれかへ各1回だけ
+  終端化すること。外部Repository障害は`finalization_error`で有限終了し、自動再実行しないこと。
+- domain/applicationはBedrock packetへ依存せず、実送信を`MovementPort`のadapterへ限定すること。
+- 実adapterが未検証の間は通常runtimeへ接続せず、読み取り専用動作を維持すること。
+- 視点変更、jump、採掘、設置、攻撃、item、chat、commandを移動基盤へ含めないこと。
+
+## 13. 開発エージェントの実行権限要件
 
 - [開発権限と承認ゲート](project/governance.md)を運用権限の正式な情報源とすること。
 - ロードマップまたは依頼範囲内の編集、固定version依存追加、ローカル検証、隔離Docker

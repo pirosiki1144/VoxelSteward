@@ -333,6 +333,7 @@ describe("RuntimeSupervisor", () => {
     connection.emit("join");
     connection.emit("state", {
       position: { x: 10, y: 71, z: -4 },
+      dimension: "overworld",
       health: 20,
       hunger: 18,
       playerName: "must not enter state",
@@ -345,6 +346,7 @@ describe("RuntimeSupervisor", () => {
         connection: "spawned",
         spawnCompleted: true,
         position: { x: 10, y: 71, z: -4 },
+        dimension: "overworld",
         health: 20,
         hunger: 18,
         otherPlayerDetected: false,
@@ -362,8 +364,33 @@ describe("RuntimeSupervisor", () => {
       minecraft: {
         connection: "disconnected",
         spawnCompleted: false,
+        dimension: undefined,
       },
     });
+  });
+
+  it("未知dimensionと同時に届いた位置を古いdimensionへ混在させない", async () => {
+    const connection = new FakeConnection();
+    const { supervisor, run } = setup([connection]);
+    connection.emit("join");
+    connection.emit("state", {
+      position: { x: 1, y: 71, z: 1 },
+      dimension: "overworld",
+      health: 20,
+      hunger: 20,
+    });
+    connection.emit("spawn");
+    connection.emit("state", {
+      position: { x: 99, y: 80, z: 99 },
+      dimension: "unknown-dimension",
+    });
+    expect(supervisor.getStateSnapshot().minecraft).toMatchObject({
+      telemetryStatus: "invalid",
+      position: undefined,
+      dimension: undefined,
+    });
+    supervisor.requestStop("stop_requested");
+    await run;
   });
 
   it("接続とスポーン後に待機状態を維持する", async () => {

@@ -280,18 +280,29 @@ export class RuntimeSupervisor {
         }
       });
       bind("state", (state) => {
-        const { position, health, hunger } = state;
+        const { position, dimension, health, hunger } = state;
         if (
           position === undefined &&
+          dimension === undefined &&
           health === undefined &&
           hunger === undefined
         ) {
+          return;
+        }
+        if (
+          dimension !== undefined &&
+          dimension !== "overworld" &&
+          dimension !== "nether" &&
+          dimension !== "end"
+        ) {
+          this.#dispatchState({ type: "minecraft.telemetry.invalidate" });
           return;
         }
         const updated = this.#dispatchState({
           type: "minecraft.telemetry.update",
           telemetry: {
             ...(position === undefined ? {} : { position }),
+            ...(dimension === undefined ? {} : { dimension }),
             ...(health === undefined ? {} : { health }),
             ...(hunger === undefined ? {} : { hunger }),
           },

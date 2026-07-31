@@ -23,6 +23,10 @@ export class TaskQueueService {
     this.#clock = clock;
   }
 
+  find(taskId: string): Promise<TaskQueueItem | undefined> {
+    return this.#repository.find(taskId);
+  }
+
   async dispatch(command: TaskQueueCommand): Promise<TaskQueueEvent> {
     const occurredAt = this.#clock().toISOString();
     let item: TaskQueueItem | undefined;

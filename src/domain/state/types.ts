@@ -30,6 +30,7 @@ export interface MinecraftState {
   readonly spawnCompleted: boolean;
   readonly telemetryStatus: "unknown" | "valid" | "invalid";
   readonly position?: Position;
+  readonly dimension?: "overworld" | "nether" | "end";
   readonly health?: number;
   readonly hunger?: number;
   readonly otherPlayerDetected: boolean;

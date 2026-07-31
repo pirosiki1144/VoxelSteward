@@ -87,6 +87,31 @@ describe("InMemoryStateStore", () => {
     expect(event?.after.updatedAt).toBe("2026-07-30T01:02:03.004Z");
   });
 
+  it("移動判定用dimensionをtelemetryに保持し切断時に消去する", () => {
+    const store = createStateStore({ clock: new FakeClock() });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connecting",
+    });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connected",
+    });
+    store.dispatch({
+      type: "minecraft.telemetry.update",
+      telemetry: {
+        position: { x: 1, y: 71, z: 2 },
+        dimension: "overworld",
+      },
+    });
+    expect(store.getSnapshot().minecraft.dimension).toBe("overworld");
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "disconnected",
+    });
+    expect(store.getSnapshot().minecraft.dimension).toBeUndefined();
+  });
+
   it("不正telemetryを明示的に無効化して古い安全値を残さない", () => {
     const store = createStateStore({ clock: new FakeClock() });
     store.dispatch({

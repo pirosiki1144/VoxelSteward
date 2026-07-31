@@ -20,6 +20,7 @@ export type StateCommand =
       readonly type: "minecraft.telemetry.update";
       readonly telemetry: {
         readonly position?: Position;
+        readonly dimension?: "overworld" | "nether" | "end";
         readonly health?: number;
         readonly hunger?: number;
       };

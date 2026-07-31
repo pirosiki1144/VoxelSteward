@@ -7,6 +7,7 @@ import type { TaskQueueRepository } from "../../src/ports/task-queue-repository.
 export class FakeTaskQueueRepository implements TaskQueueRepository {
   readonly #items = new Map<string, TaskQueueItem>();
   #closed = false;
+  replaceError: Error | undefined;
 
   insert(item: TaskQueueItem): Promise<TaskQueueItem> {
     this.#ensureOpen();
@@ -42,6 +43,8 @@ export class FakeTaskQueueRepository implements TaskQueueRepository {
     item: TaskQueueItem,
   ): Promise<void> {
     this.#ensureOpen();
+    if (this.replaceError !== undefined)
+      return Promise.reject(this.replaceError);
     const current = this.#items.get(item.taskId);
     if (current?.status !== expectedStatus)
       return Promise.reject(new Error("queue conflict"));

@@ -236,3 +236,26 @@
   停止冪等性、claim lease回収。
 - 理由: 将来のtask実装が安全条件を個別解釈または迂回することを防ぎ、不明な状態では動作しない
   一貫した境界を、game操作の導入前に確立するためです。
+
+## ADR-019: 実packet adapterより先に有限移動portと安全coordinatorを確立する
+
+- ステータス: 承認済み（Fakeによる最小基盤）
+- 決定: 移動はMinecraft非依存の型付きplan、`MovementPort`、application coordinatorに分離します。
+  planは同一dimension内の直線を有限stepへ分割し、座標範囲、最大step距離・数、timeout、到達許容差を
+  送信前に検証します。
+- 安全境界: coordinatorは各stepの前後で`DefaultWorkSafetyPolicy`を最新snapshotへ適用します。
+  他player、signal/operator停止、接続・spawn不成立、health・hunger危険、telemetry欠損・不正では
+  portを一度だけ停止し、後続stepを送りません。cancel、timeout、port障害も有限の終端結果にし、
+  自動retryしません。
+- 状態整合: 正常経路では開始した作業のStateStoreと永続queueをcompleted、failed、stoppedの
+  いずれかへ各1回だけ終端化します。移動の観測位置とdimensionをStateStoreへ反映し、進捗を
+  step完了率で更新します。
+  両者は単一transactionではないため、Repository障害時は`finalization_error`で有限終了し、
+  StateStoreをterminalへ保ちます。queueが`claimed`で残る場合のlease回収は後続工程とし、曖昧な
+  自動retryや二重終端化を行いません。
+- adapter: 現在はFakeだけを実装します。bedrock-protocolの送信packetを推測せず、一次仕様、dependency
+  の型、専用テストサーバーでの段階的検証を準備できるまで実adapterとruntime executorを追加しません。
+- 対象外: 異dimension移動、経路探索、障害物・落下・危険block・敵対MOB検知、視点変更、jump、
+  採掘、設置、攻撃、item、chat、command。
+- 理由: game protocolの誤った推測による暴走を避け、安全制御を迂回できない中断・状態整合の境界を
+  外部接続なしで先に検証するためです。

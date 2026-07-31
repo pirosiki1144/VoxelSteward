@@ -191,6 +191,7 @@ export class InMemoryStateStore implements StateStore {
                   spawnCompleted: false,
                   telemetryStatus: "unknown",
                   position: undefined,
+                  dimension: undefined,
                   health: undefined,
                   hunger: undefined,
                 }
@@ -203,6 +204,7 @@ export class InMemoryStateStore implements StateStore {
               "minecraft.spawnCompleted",
               "minecraft.telemetryStatus",
               "minecraft.position",
+              "minecraft.dimension",
               "minecraft.health",
               "minecraft.hunger",
             ]
@@ -233,7 +235,7 @@ export class InMemoryStateStore implements StateStore {
         return ["minecraft.spawnCompleted", "minecraft.connection"];
 
       case "minecraft.telemetry.update": {
-        const { position, health, hunger } = command.telemetry;
+        const { position, dimension, health, hunger } = command.telemetry;
         assertFiniteTelemetry(health, "health");
         assertFiniteTelemetry(hunger, "hunger");
         if (position !== undefined) {
@@ -255,6 +257,12 @@ export class InMemoryStateStore implements StateStore {
         if (hunger !== undefined && hunger !== draft.minecraft.hunger) {
           changed.push("minecraft.hunger");
         }
+        if (
+          dimension !== undefined &&
+          dimension !== draft.minecraft.dimension
+        ) {
+          changed.push("minecraft.dimension");
+        }
         if (!telemetryWasValid) changed.push("minecraft.telemetryStatus");
         if (changed.length === 0) return [];
         Object.assign(draft, {
@@ -262,6 +270,7 @@ export class InMemoryStateStore implements StateStore {
             ...draft.minecraft,
             telemetryStatus: "valid",
             ...(position === undefined ? {} : { position: { ...position } }),
+            ...(dimension === undefined ? {} : { dimension }),
             ...(health === undefined ? {} : { health }),
             ...(hunger === undefined ? {} : { hunger }),
           },
@@ -276,6 +285,7 @@ export class InMemoryStateStore implements StateStore {
             ...draft.minecraft,
             telemetryStatus: "invalid",
             position: undefined,
+            dimension: undefined,
             health: undefined,
             hunger: undefined,
           },
@@ -283,6 +293,7 @@ export class InMemoryStateStore implements StateStore {
         return [
           "minecraft.telemetryStatus",
           "minecraft.position",
+          "minecraft.dimension",
           "minecraft.health",
           "minecraft.hunger",
         ];
