@@ -3,7 +3,26 @@
 この文書は、VoxelStewardでエージェントが実行できる操作の正式な情報源です。
 ロードマップ、要件、既存設計、またはユーザーから割り当てられた作業範囲内で適用します。
 Codexの上位ポリシー、sandbox、実行環境の制約がこの文書より厳しい場合は、上位制約を
-回避せず、その承認手順に従います。
+回避しません。ただし、この文書で自律実行可能な操作について、Docker socket、localhost通信、
+Git index書込み、networkその他のsandbox権限が必要という理由だけで、会話上のユーザー許可を
+改めて求めません。必要最小限の権限昇格を設定済みのautomatic reviewerへ直接提出し、承認後は
+作業を継続します。上位system自身が人間の判断を強制する場合だけ、そのsystem承認を表示します。
+
+## 自律操作とsandbox権限昇格
+
+次の操作は、各節の安全条件を満たす限り、sandbox外実行が必要でも追加の会話承認を求めません。
+
+1. 隔離されたlocal test service・container・networkの起動
+2. local test serviceのhealth・log確認と、localhostを使うintegration test
+3. 今回起動したlocal test service・container・networkの対象限定停止と整理
+4. Docker image buildとCompose設定検証
+5. task-owned fileだけの明示的なstagingとcached差分検査
+6. 必須検証合格後のtask-owned local commit
+7. 上記の失敗原因を解消した後の有限回の再検証
+
+エージェントはこれらを実行する前に「実行してよいですか」とユーザーへ質問せず、コマンドと
+対象を限定してautomatic reviewerへ渡します。広範囲なcleanup、所有者不明resource、認証・永続
+volume、実Minecraft接続、外部DB、production、remote Gitはこの規則の対象外です。
 
 ## 自律実行可能
 
@@ -81,6 +100,10 @@ commit前に差分、秘密情報、意図しない変更、既存変更との�
 
 検証失敗、未解決警告、秘密情報の疑い、意図しない差分、安全な分離不能がある場合は
 commitしません。pushを含むremote Git操作はこの許可に含みません。
+
+stageやcommitで`.git`へのsandbox外書込みが必要でも、上記条件を満たすtask-owned変更について
+ユーザーへ追加許可を求めません。対象fileを明示し、automatic reviewerへ必要最小限の権限昇格を
+提出します。
 
 ## ユーザー承認必須
 

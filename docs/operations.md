@@ -32,6 +32,11 @@ build、`docker compose config`、Docker image buildを継続して実行でき�
 含みません。今回の作業で作成した一時container、network、使い捨てtest volumeだけを整理し、
 認証またはユーザー永続dataを持つvolumeは削除しません。
 
+Docker socket、localhost通信、Git index書込みなどでsandbox権限昇格が必要でも、この節のlocal検証、
+隔離serviceの起動・health確認・対象限定停止、image build、および検証済みlocal commitについて、
+ユーザーへ追加の会話承認は求めません。対象を限定した権限昇格をautomatic reviewerへ直接提出して
+継続します。上位systemが人間判断を強制した場合は、そのsystem承認に従います。
+
 ### ローカルテストデータベース
 
 隔離された空のローカルテストDBでは、migration適用・rollback、Repository統合テスト、
@@ -163,6 +168,8 @@ Microsoft認証キャッシュは`BOT_ACCOUNT_ID`単位の名前付きDocker vol
 `git diff --check`を成功させます。`git status`、差分、対象file、秘密情報を確認し、今回の
 task-owned変更だけを明示的にstageします。検証失敗、未解決警告、意図しない差分、既存変更と
 安全に分離できない状態ではcommitしません。commit後はhash、message、file一覧を報告します。
+明示stageやcommitにsandbox外の`.git`書込みが必要な場合も、条件を満たすlocal commitは追加の
+会話承認なしでautomatic reviewerへ提出します。
 
 push、pull、merge、rebase、tag、release、remote branchまたはGitHub resourceの変更には
 個別承認が必要です。

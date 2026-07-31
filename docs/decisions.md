@@ -168,7 +168,9 @@
   保存、安全制御の無効化、停止後の再接続、無制限retry、destructive Gitは常に禁止します。
 - Codex設定: `workspace-write`、interactiveな`on-request`、`auto_review`、workspace内networkを
   使用します。これは上位のCodex policy、sandbox、実行環境を緩和または回避するものではなく、
-  上位制約が要求する承認はそのまま適用します。
+  上位制約を回避しません。自律範囲のDocker test service、localhost test、image build、明示stage、
+  local commitで権限昇格が必要な場合は、ユーザーへ会話上の再承認を求めず`auto_review`へ直接提出
+  します。上位system自身が人間判断を強制する場合だけ、そのsystem承認を表示します。
 - 効果とrisk: 安全な日常開発を連続実行できる一方、local service、network、dependency、commitの
   影響範囲が広がります。固定version、有限回数、隔離環境、task-owned差分、全検証、秘密情報
   allow-listを条件としてriskを制限します。

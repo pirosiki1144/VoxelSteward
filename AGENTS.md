@@ -93,6 +93,13 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   Minecraft safety behavior.
 - Local commits are autonomous only after all required checks pass and only for
   task-owned changes. Remote Git operations still require approval.
+- For autonomous operations above, do not ask the user for conversational
+  permission merely because Docker socket access, localhost networking, Git
+  index writes, or another sandbox capability requires escalation. Submit the
+  narrowly scoped escalation directly to the configured automatic reviewer and
+  continue when approved. This includes isolated test-service start/health/stop,
+  local integration tests, image builds, explicit staging, and verified local
+  commits.
 - Real Minecraft connections, game actions, external or shared databases,
   production infrastructure changes, authentication-volume changes, remote Git
   operations, and destructive operations require approval or remain forbidden.
@@ -101,3 +108,6 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
 
 Project configuration cannot override a stricter Codex system policy, sandbox, or
 execution-environment restriction. Never attempt to bypass an upstream control.
+If the upstream system itself requires a human decision, expose that system
+approval; otherwise autonomous operations must not be paused for redundant user
+confirmation.

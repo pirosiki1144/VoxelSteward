@@ -170,4 +170,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
   操作、主要architectureまたは安全境界の変更は事前承認を必要とすること。
 - `.env`、credential、Webhook URL、player名、BOT情報、server endpointを表示、記録、
   test fixture化、Discord送信、commitしないこと。
-- Codexの上位policy、sandbox、実行環境が追加承認を要求する場合は、それを回避しないこと。
+- Codexの上位policy、sandbox、実行環境を回避しないこと。ただし、自律実行可能なlocal service、
+  localhost統合test、image build、明示stage、local commitについては、sandbox権限を理由とする
+  会話上の再承認を求めず、必要最小限の権限昇格をautomatic reviewerへ直接提出すること。
+- 上位system自身が人間判断を強制する場合を除き、自律範囲の作業を冗長な承認待ちで停止しないこと。
