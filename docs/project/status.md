@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `0b7e6b876472fa69a24a0a2321b1ff89a0c6aa6d`
+- 基準コミット: `c9c6363dde93b940a22ab6556e53b25d4c9f4446`
 - 完成マイルストーン: 単一block配置のprotocol evidenceと匿名Golden Fixture観測境界
-- 現在の工程: 実送信を行わないGolden Fixture取得bridgeと専用entrypointの準備
+- 現在の工程: Golden Capture機能を見送り、次の安全な開発工程を選定中
 
 ## 完成済み
 
@@ -83,6 +83,9 @@ MySQLの非秘密なローカル検証結果は
 - authoritative frame排他所有と専用acceptance preflightはoffline実装済み
 - Geyser・Cloudburst・PrismarineJSの固定commitを比較したProtocol Evidence Matrixと、絶対座標・tick・
   runtime IDを残さない匿名Golden Fixture観測境界を実装済み。実fixture取得とproduction adapter有効化は未実施
+- decoded packet capture bridge、専用entrypoint、proxy安全性調査はmainへ採用せず、検討用branch
+  `spike/golden-capture-investigation`（commit `b2ee072`）へ分離して保管
+- Golden Capture機能と実fixture取得は見送り。安全な一次根拠がない状態でproxyやcapture sourceを推測実装しない
 - 配置用frame意味論、face対応、transaction envelope選択が未確定で、実server試験A～Eは未実施
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
@@ -93,14 +96,14 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1. decoded packetを安全なallow-listへ投影するcapture bridgeを実装する
-2. 実networkを使わないfixtureとFake transportでcapture、匿名化、単発取得、cleanupを検証する
-3. Golden Fixture専用entrypointと、秘密情報を保存しない取得・review手順を整備する
-4. 上記のoffline検証後、承認を得た専用serverの読み取り段階でfixtureを取得する
-5. fixtureでface、座標、transaction envelope、item action、authoritative frameを確定する
+1. Capture関連コードをmainへ取り込まず、通常runtimeとsmokeの読み取り専用動作を維持する
+2. production block配置adapterとruntime consumerを`unsupported`／disabledのまま維持する
+3. face、envelope、item action、authoritative frameを推測値で実装しない
+4. Capture再検討時は`spike/golden-capture-investigation`を起点に、一次根拠と安全性を改めてレビューする
+5. 次の開発対象は、既存ロードマップからCaptureや未確定配置protocolに依存しない工程を選定する
 
-実fixture取得、Minecraft接続、game操作は承認必須です。production block配置adapterとruntime
-consumerはfixture reviewと専用server受入が完了するまで有効化しません。
+実fixture取得、Minecraft接続、game操作は引き続き承認必須です。Captureを見送っている間もproduction block配置
+adapterとruntime consumerは有効化しません。
 
 ## 未決定事項
 
