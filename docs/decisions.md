@@ -210,8 +210,9 @@
 - 永続化: application serviceは`TaskQueueRepository`だけに依存します。MySQL adapterは
   transaction内の`FOR UPDATE SKIP LOCKED`で1件を排他的にclaimし、多重workerでも同じ指示を
   二重取得しません。
-- 安全境界: 現在のclaimはキュー状態の変更だけで、Minecraft操作を開始しません。外部入力、
-  executor、claim lease回収、scheduleは未実装です。秘密、player/BOT/server情報をqueueへ
+- 安全境界: この決定時点のclaimはキュー状態の変更だけで、Minecraft操作を開始しませんでした。
+  ローカルoperator入力、読み取り専用executor、claim lease回収は後続のADR-031で追加しています。
+  scheduleとMinecraftへ作用するexecutorは未実装です。秘密、player/BOT/server情報をqueueへ
   入れられる任意フィールドは設けません。
 - 理由: 将来の作業実行を、安全制御と永続化から独立して順序付け、無制限再試行と二重実行を
   防ぐ土台を先に確立するためです。
@@ -220,7 +221,7 @@
 
 - ステータス: 承認済み（最小実装）
 - 決定: 作業の開始と継続は、Minecraftやtask固有実装ではなく、StateStoreの単一snapshotを
-  入力とする`DefaultWorkSafetyPolicy`で判定します。将来executorのqueue claimは
+  入力とする`DefaultWorkSafetyPolicy`で判定します。executorのqueue claimは
   `SafetyControlledTaskQueue`を経由し、安全判定を通過するまでRepositoryを更新しません。
 - fail-closed: runtime ready、Minecraft spawned、spawn完了、他player未検知、停止要求なし、
   体力10以上、空腹度6以上をすべて必要とします。telemetryの未取得、非有限、0～20範囲外を
@@ -232,8 +233,9 @@
 - 互換性: normal runtimeのPlayerDetectionPolicy、上限付き再接続、StateStoreの原子的な
   他player停止、安全切断を変更しません。debug smokeは読み取り専用観測例外のままで、作業実行
   policyへ接続しません。
-- 未実装: executor、Minecraft操作、食事・退避などの回復動作、追加危険入力、分散worker間の
-  停止冪等性、claim lease回収。
+- 後続状況: この決定時点で未実装だった読み取り専用executorとclaim lease回収はADR-031で
+  追加しました。Minecraft操作、食事・退避などの回復動作、追加危険入力、分散worker間の
+  停止冪等性は未実装です。
 - 理由: 将来のtask実装が安全条件を個別解釈または迂回することを防ぎ、不明な状態では動作しない
   一貫した境界を、game操作の導入前に確立するためです。
 
@@ -300,7 +302,8 @@
   navigateだけが共通安全policy付きMovementCoordinatorへ委譲でき、確認と記録はserver観測位置だけを
   使用します。navigateは観測originと同じdimension・同じYの水平目標だけに限定します。任意payloadや
   block・entity・inventory操作を表す型を設けません。
-- 境界: runtime consumer、外部指示API、queue終端化統合、実Minecraft操作は未実装です。
+- 境界: この決定時点で未実装だった読み取り専用runtime consumerとqueue終端化統合は
+  ADR-031で追加しました。外部network指示APIと実Minecraft操作は未実装です。
 - 理由: 世界を変更しない作業からdomain契約と観測結果の扱いを検証し、採掘・設置等を安全境界確立前に
   混入させないためです。
 
@@ -449,7 +452,7 @@
 
 ## ADR-031: operator指示とexecutorを読み取り専用typeへ限定する
 
-- ステータス: 承認済み（Fake・隔離MySQL実装、実server受入は未実施）
+- ステータス: 承認済み（専用テストサーバー受入完了）
 - 入力: ローカルoperator専用entrypointはschema version 1の`verify_arrival`と`record_position`だけを
   MySQL queueへ冪等投入します。HTTP、Minecraft chat、Discord双方向入力を使わず、未知type、余分なfield、
   自由文、秘密情報を拒否します。
@@ -462,3 +465,4 @@
   checkpoint、通知outboxを既存Repository経路で保存します。DB障害は安全切断から隔離します。
 - 理由: 実移動やblock操作を有効化する前に、operator入力から安全判定、server観測、永続結果までの最小loopを
   world変更なしで検証するためです。
+- 検証: `docs/verification/read-only-operator-loop.md`に専用テストサーバーでの受入結果を記録しています。

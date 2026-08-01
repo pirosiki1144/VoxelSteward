@@ -2,7 +2,7 @@
 
 ## 基準
 
-- 基準コミット: `24d423205a55610e921746b47a7e23d1b8fe02b7`
+- 基準コミット: `398d771210ca6a7e8e790562410706f79b8ed241`
 - 完成マイルストーン: MySQL有効・読み取り専用operator task loopの実サーバー受入
 - 現在の工程: 読み取り専用loop完成後の移動機能安全化
 
@@ -124,5 +124,5 @@ Capture関連コードはmainへ取り込まず、production block配置adapter�
 
 - outboxのat-least-once重複をDiscord受信側で表示または抑制するか
 - Webhook URLの本番secret管理方式
-- 作業IDの生成責務と外部指示の形式
+- 将来の外部network指示における作業IDの生成責務と入力形式
 - JST表示をアプリケーション、通知アダプター、UIのどこで担当するか

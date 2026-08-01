@@ -207,7 +207,9 @@ transactionはadapter内だけに置き、StateStoreとRuntimeSupervisorへ持�
 DB障害は`PERSISTENCE_TRANSIENT`または`PERSISTENCE_FATAL`へ分類し、生errorをログへ渡しません。
 永続化subscriberの失敗はStateStoreへ再dispatchせず、後続eventとMinecraftの安全停止を
 妨げません。終了時は安全切断完了後に最大1秒だけ既受付writeのflushを試み、新規受付を閉じます。
-outbox dispatcher、配送済み更新、再起動後のDiscord再送は未実装です。
+outbox dispatcherは排他claim、有限lease回収、配送結果更新、再起動後の未配送通知の再配送を
+実装済みです。配送成功後の状態更新前にprocessが停止した場合は、at-least-once配送により
+重複する可能性があります。
 
 初期状態はruntime `starting`、Minecraft `disconnected`、`spawnCompleted: false`、
 作業`idle`、`revision: 0`とします。Storeは内部に可変なスナップショットを保持せず、

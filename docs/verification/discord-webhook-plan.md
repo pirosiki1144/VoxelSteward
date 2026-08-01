@@ -51,9 +51,9 @@ Webhook URLをチャット、コマンド履歴、ログ、試験記録へ表示
 4. runtimeコンテナが停止し、再接続しないことを確認します。
 5. 停止要求・正常停止通知の配送有無を記録します。
 
-現在は永続outboxを持たず、runtime終了時に未完了配送をAbortするため、停止直前通知は
-best effortです。停止通知が未配送でもMinecraftの安全終了を優先します。停止通知の
-永続保証はMySQL等のoutbox導入時に別の受入条件として追加します。
+この試験計画の作成時点では永続outboxを持たず、runtime終了時に未完了配送をAbortするため、
+停止直前通知はbest effortでした。停止通知が未配送でもMinecraftの安全終了を優先する方針です。
+後続のADR-029でMySQL outboxと有限lease付きdispatcherを追加しました。
 
 ## 試験3: 他プレイヤー検知と安全停止
 

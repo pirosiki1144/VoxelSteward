@@ -1,10 +1,10 @@
 # 開発ロードマップ
 
-## 直近の優先目標
+## 最小運用loop（完了）
 
 Captureとblock配置protocolの追加調査は現在の優先経路から外し、検討結果を
-`spike/golden-capture-investigation`（commit `b2ee072`）に保管します。まず次の最小運用loopを
-完成させます。
+`spike/golden-capture-investigation`（commit `b2ee072`）に保管しました。次の最小運用loopは
+専用テストサーバーでの受入まで完了しています。
 
 ```text
 MySQLへ稼働記録を保存
@@ -38,7 +38,8 @@ MySQLへ稼働記録を保存
 
 ### 3. 最小の外部指示入力
 
-ローカルoperator entrypoint、厳格なschema version 1、冪等enqueue、cancel、状態照会までoffline実装済みです。
+ローカルoperator entrypoint、厳格なschema version 1、冪等enqueue、cancel、状態照会を実装し、
+専用テストサーバーで読み取り専用taskの投入から完了まで確認済みです。
 
 - 最初の入力経路はローカルoperator向けの明示的な管理entrypointとし、Minecraft chatやDiscord双方向操作を使わない
 - 指示を型・schema version・task IDで検証し、MySQL queueへ冪等にenqueueする
@@ -85,7 +86,7 @@ revision順履歴、SIGTERM安全停止を確認済みです。
 4. 作業指示と作業キュー（最小実装完了）
    - 型付き指示、priority付きFIFO、cancel、終端化、有限回の再キュー（完了）
    - Repository port、MySQL migration、transaction claim、冪等enqueue（完了）
-   - ローカルoperator向け外部指示入力、読み取り専用executor、claim lease回収（offline完了）
+   - ローカルoperator向け外部指示入力、読み取り専用executor、claim lease回収（専用テストサーバー受入完了）
 5. 共通の安全制御（最小実装完了）
    - StateSnapshot起点の開始・継続判定と未知telemetryのfail-closed（完了）
    - queue claim境界、他player・operator停止後の再開禁止、重複停止抑制（完了）
@@ -98,7 +99,7 @@ revision順履歴、SIGTERM安全停止を確認済みです。
    - 1.26系packet候補、禁止方式、serializer要件、段階的受入案（設計確認完了）
 7. 簡単なMinecraft内作業（domain/application最小境界完了）
    - navigate、到達確認、位置記録の型・検証・Fake境界（完了）
-   - `verify_arrival`・`record_position`の読み取り専用runtime consumerとqueue終端化統合（offline完了）
+   - `verify_arrival`・`record_position`の読み取り専用runtime consumerとqueue終端化統合（専用テストサーバー受入完了）
    - 実移動による受入（読み取り専用loop完成後・承認必須）
 8. 最初のブロック操作（型付き永続化と実接続前gateまで完了）
    - 単一dirt配置の型、port、Fake、安全coordinator、既定unsupported binding（完了）

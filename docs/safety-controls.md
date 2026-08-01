@@ -33,15 +33,17 @@ application facadeを実装しています。Minecraft内の操作、executor、
 
 ## queueとの境界
 
-将来のexecutorは`TaskQueueService`を直接使用せず、`SafetyControlledTaskQueue`からclaimします。
+executorは`TaskQueueService`を直接使用せず、`SafetyControlledTaskQueue`からclaimします。
 facadeはclaim直前に最新snapshotを評価し、安全でない場合はRepositoryを呼びません。claim後は、
 TOCTOU競合を閉じるため最新snapshotを再評価し、間に安全条件を失った場合はclaimed taskを即時に
 stoppedへ終端化してexecutorへ返しません。Minecraftへ作用する各安全点の直前にも
 `enforceContinuation`を呼ぶ設計とします。停止判定では
 claimed taskを`stopped`へ終端化し、同一taskへの重複停止をプロセス内で抑制します。
 
-この境界はexecutorをまだ起動せず、現在の読み取り専用runtimeにもqueue consumerを追加しません。
-process crash後のclaim lease回収や分散worker間の停止冪等性は後続工程です。
+現在の読み取り専用runtimeは`verify_arrival`と`record_position`だけを処理するqueue consumerを
+この境界内で起動します。30秒のclaim leaseと期限切れ所有権の回収を実装済みですが、結果不明の
+taskは自動再実行せずmanual reviewに残します。Minecraftへ作用するexecutorと分散worker間の
+停止冪等性は後続工程です。
 
 ## 障害時の原則
 
