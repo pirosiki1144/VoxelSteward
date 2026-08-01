@@ -72,7 +72,8 @@ services:
       context: .
       dockerfile: Dockerfile
     image: voxel-steward:local
-    command: ["node", "dist/src/operator-task.js"]
+    entrypoint: ["node", "dist/src/operator-task.js"]
+    command: []
     init: true
     restart: "no"
     read_only: true
