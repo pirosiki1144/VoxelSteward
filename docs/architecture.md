@@ -219,3 +219,21 @@ full inventoryの`ItemV4.extra_data`はopaqueなため使用しません。block
 配置protocolのadapter層は、faceとenvelopeを別々のcapability evidenceとして扱います。固定schema内に
 `up`の数値enumおよびauthority設定からenvelopeを選択する規則がないため、両候補をoffline serializeできても
 production portは`unsupported`のままです。
+
+decoded packet capture bridgeは`packet`イベントからpacket名と必要fieldだけを即時投影し、raw objectを
+保持、logger、outputへ渡しません。`start_game`からserver-authoritative inventory設定だけを取り、
+movement authority更新、dirt item registry、primary-layer support block観測とtransactionを同一capture内で
+突合します。standalone transactionは直前のallow-list済みPlayerAuthInput frameと組み合わせ、埋込み
+transactionは同じframeを使用します。1件取得、timeout、packet上限、明示closeのいずれかでlistenerと
+内部観測を解放します。出力は秘密情報検査後にOS一時領域へ0600で保存し、通常runtimeや送信portには
+接続しません。
+
+専用`golden-fixture-capture` entrypointは、標準入力のnewline-delimited decoded packet source、capture bridge、
+一時出力、capture用途専用InstanceLockだけを組み立てます。通常runtime、smoke、placement acceptanceの
+entrypointから参照されず、Minecraft client factory、認証、送信transport、再接続loopを依存関係に持ちません。
+Composeではprofile隔離、`restart: "no"`、`network_mode: "none"`、認証volumeなし、read-only root filesystemと
+tmpfsを使用します。
+
+固定`bedrock-protocol` 3.57.0の標準Relayは、認証境界、packet再serialize／queue、改変可能event、error時dump、
+endpoint debug経路を含むためcapture sourceに採用しません。stdin entrypointへ接続できる安全なrelayが存在すると
+推測せず、server-side allow-list projectionまたは監査済みrelayが別途証明されるまで実取得をblockedとします。

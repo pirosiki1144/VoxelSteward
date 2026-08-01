@@ -215,6 +215,30 @@ protocol capabilityがunsupportedのため起動対象ではなく、起動し�
 [単一dirt配置の受入計画](verification/block-placement-acceptance-plan.md)のgateとoperator checklistを満たし、
 段階ごとの承認を得た後だけ実施します。
 
+### Golden Fixture capture entrypoint
+
+`golden-fixture-capture` serviceは`capture` profileに隔離されています。次の安全特性を持ちます。
+
+- `GOLDEN_CAPTURE_MODE=decoded_stream`、1.26.30、最大fixture数1を厳格に要求
+- timeoutは既定60秒、最大300秒。packet数は既定10,000、最大100,000
+- `restart: "no"`、`network_mode: "none"`で自動再接続や外部通信を行わない
+- 通常runtime用の認証volume、`.env`、Minecraft接続設定を使用しない
+- `/tmp/voxel-steward-golden-capture-locks`のcapture専用lockを使い、BOT識別用lockと混在させない
+- 出力はcontainer／local processのOS一時領域だけで、終了前に秘密情報検査する
+
+入力はレビュー済みproxy／test server relayが標準入力へ送るnewline-delimited JSONに限定します。各行は
+`{"data":{"name":"...","params":{...}}}`形で、BigIntの`tick`は10進文字列とします。入力行は最大256KiBで、
+保存・echo・log出力しません。Entry Pointにpacket送信APIはありません。
+
+現時点では安全レビュー済みrelayが未実装のため、serviceを起動してはいけません。通常Bedrock clientは別clientの
+server-bound interactionを受信できません。relayの実装、安全レビュー、一時出力の回収方法、実Minecraft接続と
+人間による1block配置の承認を別工程で完了してから実行します。
+
+固定`bedrock-protocol` 3.57.0の標準Relayは、安全性レビューで不採用です。`logging: false`だけではendpoint debug、
+parse失敗時dump、認証cache、packet再serialize／queue／改変APIを構造的に除去できません。標準Relayを起動したり、
+設定だけで安全になったと扱ったりしません。再開条件は
+[proxy安全性レビュー](verification/block-placement-proxy-safety-review.md)に従います。
+
 1. buildを実行し、すべての自動チェックを実行します。
 2. テスト用データベースへマイグレーションを適用します。
 3. 専用のテストサーバー設定を使用してデプロイします。

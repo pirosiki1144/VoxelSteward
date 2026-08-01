@@ -94,6 +94,19 @@ docker compose logs -f runtime
 回復不能エラー、他プレイヤー検知、SIGINT、SIGTERMでは再接続しません。
 `reconnect.exhausted`と`runtime.finished`の`exitCode: 1`は再接続上限到達を示します。
 
+## Golden Fixture capture
+
+`golden-fixture-capture`は通常runtime、smoke、配置acceptanceから分離された`capture` profileの
+受信専用entrypointです。Minecraft client、認証、packet送信、再接続を実装せず、レビュー済みの
+proxy／test server relayから標準入力へ渡されたdecoded packetだけを最大1件の匿名fixtureへ変換します。
+認証volumeをmountせず、networkも無効です。実relayは未実装であり、実Minecraft serverに接続する取得試験は
+別途承認と安全レビューが完了するまで実行しません。詳細は
+[Golden Fixture取得計画](docs/verification/block-placement-golden-fixture-plan.md)を参照してください。
+
+固定`bedrock-protocol` 3.57.0の標準Relayは、認証cache、endpoint debug、packet dump、再serialize／queue、
+改変可能APIを持つためcapture用途には不採用です。安全なserver-side projectionまたは監査済みrelayの根拠が
+得られるまで、実fixture取得はblockedです。
+
 ### Discord通知
 
 既定の`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを検証・使用せず、

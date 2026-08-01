@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `0b7e6b876472fa69a24a0a2321b1ff89a0c6aa6d`
-- 完成マイルストーン: 単一block配置のprotocol evidenceと匿名Golden Fixture観測境界
-- 現在の工程: 実送信を行わないGolden Fixture取得bridgeと専用entrypointの準備
+- 基準コミット: `c9c6363dde93b940a22ab6556e53b25d4c9f4446`
+- 完成マイルストーン: decoded packetから匿名Golden Fixtureへのoffline capture bridge
+- 現在の工程: 安全なserver-side projectionまたは監査済みrelayの一次根拠待ち（実取得blocked）
 
 ## 完成済み
 
@@ -66,6 +66,11 @@
 - own `ItemNew`のmetadata・stack ID・block runtime ID・空extraのallow-list投影
 - transaction用`Item`候補への送信なし限定変換と、両envelopeのoffline構文検証
 - face数値・envelope選択規則が固定schemaにないことを明示するfail-closed capability評価
+- decoded packetのstandalone／PlayerAuthInput埋込みinteractionを即時allow-list投影する受信専用bridge
+- authority、dirt registry、support block observationの照合と、単発取得・timeout・packet上限cleanup
+- 秘密情報検査後にGit管理外のOS一時領域へowner-onlyで保存するGolden Fixture output
+- 通常runtime等から分離され、network・認証volume・送信API・再接続を持たないGolden Capture専用entrypoint
+- 固定`bedrock-protocol` 3.57.0標準Relayの安全性レビューと不採用判断
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -93,11 +98,11 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1. decoded packetを安全なallow-listへ投影するcapture bridgeを実装する
-2. 実networkを使わないfixtureとFake transportでcapture、匿名化、単発取得、cleanupを検証する
-3. Golden Fixture専用entrypointと、秘密情報を保存しない取得・review手順を整備する
-4. 上記のoffline検証後、承認を得た専用serverの読み取り段階でfixtureを取得する
-5. fixtureでface、座標、transaction envelope、item action、authoritative frameを確定する
+1. test server側allow-list projectionまたは監査済みrelayについて、認証・endpoint・raw packet非保持の一次根拠を得る
+2. 改変・queue・send・再接続APIがないことを型、process境界、offline testで証明する
+3. disconnect cleanup、一時出力回収、timeout、packet上限を独立安全レビューする
+4. 条件成立後に限り、別承認の専用serverでfixtureを取得してEvidence Matrixを判定する
+5. 条件が成立しない間は実装を推測せず、production adapterを`unsupported`に保つ
 
 実fixture取得、Minecraft接続、game操作は承認必須です。production block配置adapterとruntime
 consumerはfixture reviewと専用server受入が完了するまで有効化しません。

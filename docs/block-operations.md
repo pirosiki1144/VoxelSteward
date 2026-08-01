@@ -51,6 +51,19 @@ allow-list投影し、同じ接続generationの`item_registry`から`minecraft:d
 選ぶかという規則は固定dependency内にありません。authority flagを選択規則として推測せず、capabilityは
 常に`unsupported`です。offline round-tripはserver受理や配置意味論を証明しません。
 
+## decoded packet capture bridge
+
+`BedrockBlockPlacementCaptureBridge`は、注入されたdecoded packet sourceの`packet`イベントを受信専用で
+購読します。packetごとに必要fieldだけをallow-list投影し、生packet object、NBT、識別情報、接続先を保持または
+ログ出力しません。`start_game`のserver-authoritative inventory設定、movement authority、dirt item registry、
+primary-layer support block観測が揃う場合だけtransactionを候補化します。standalone transactionは直前の
+allow-list済みPlayerAuthInput frameと組み合わせ、埋込みtransactionは同じframeを使用します。
+
+transactionはheld item、action source／slot／old-new itemも突合して既存Observerへ渡します。1件取得後は
+自動closeし、既定60秒、10,000 decoded packetの上限でもfail-closedに終了します。fixtureは出力直前に
+禁止keyとURL形式を検査し、OS一時領域へ0600で保存します。自由なlogger、raw dump、通常runtime接続、
+packet送信はありません。
+
 ## 未実装
 
 - full inventory/hotbar対応と、opaqueな`ItemV4.extra_data`の意味解析
@@ -58,6 +71,8 @@ allow-list投影し、同じ接続generationの`item_registry`から`minecraft:d
 - 視点、face、support位置を実serverで検証するadapter
 - queue consumer、runtime executor
 - 実Minecraft配置、rollback、自動再試行
+- Golden Fixture専用entrypointと、server／proxy側decoded sourceへの実接続
+- raw packet・認証・endpointへ触れないserver-side projectionまたは監査済みrelay
 
 ## authoritative frame排他境界
 

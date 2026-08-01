@@ -37,6 +37,28 @@
 
 tickは最初の観測を`0`へ正規化します。観測は最大1件で、2件目、close後、不正field、余分なfieldを拒否します。
 
+`BedrockBlockPlacementCaptureBridge`はdecoded sourceの汎用`packet`イベントを受けますが、各callback内で
+packet名を確認し、必要fieldだけを即時投影します。raw objectを保存・返却・ログ出力するAPIはありません。
+standalone interactionは直前のPlayerAuthInput frame、埋込みinteractionは同じframeを使います。
+`start_game`のauthority設定、dirt item registry、primary-layer support block観測が揃わない候補は採用しません。
+
+既定timeoutは60秒、最大decoded packet数は10,000です。取得成功、timeout、packet上限、明示closeのすべてで
+listenerと一時観測を解放します。出力前に禁止keyとURL形式を再検査し、Git worktree外のOS一時領域へ
+owner-only（0600）で保存します。
+
+専用`golden-fixture-capture` entrypointは通常runtime、smoke、placement acceptanceと別processです。Composeの
+`capture` profile、`restart: "no"`、network無効、認証volumeなしで構成し、標準入力からdecoded streamだけを
+受けます。capture用途専用InstanceLockを使用し、Minecraft client生成、認証、packet送信、再接続を持ちません。
+
+通常clientは別clientのserver-bound packetを受信しないため、安全なproxy／test server relayは後続工程です。
+relayは各decoded packetをnewline-delimited JSONとして一度だけ転送し、raw byte、接続情報、識別情報を保存・
+ログ出力してはいけません。relayが完成するまではEntry Pointを実取得へ使用しません。
+
+固定`bedrock-protocol` 3.57.0の標準Relayを安全レビューした結果、認証情報のdecode／cache、接続先debug、
+parse失敗時dump、decode後の再serialize、queue、packet改変APIが確認されたため不採用としました。詳細は
+[Golden Capture proxy安全性レビュー](block-placement-proxy-safety-review.md)を参照してください。
+安全なserver-side projectionまたは監査済みrelayの一次根拠が得られるまで、実取得はblockedです。
+
 ## 実施段階
 
 1. 観測ツールの単体テストと全回帰テストを通す。

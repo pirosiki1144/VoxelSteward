@@ -39,6 +39,9 @@
    - 1.26.30 transaction schemaのoffline serialize確認（完了、意味論未確定のためadapterはunsupported）
    - authoritative frame排他所有とacceptance preflight（完了、offline）
    - 固定参照実装のProtocol Evidence Matrixと匿名Golden Fixture観測境界（完了、実fixture取得は未実施）
+   - decoded packetのallow-list capture bridge、照合、単発取得、Git管理外一時出力（完了、offline）
+   - capture profile専用entrypoint、stdin decoded stream、専用lock、network／認証volume分離（完了、offline）
+   - 標準`bedrock-protocol` Relayの安全性レビュー（完了、不採用。実fixture取得はblocked）
    - face・envelope・配置frame意味論の一次根拠確定後、専用server受入A～E（後続・承認必須）
    - 単一block採掘、自動rollback、複数block操作（未実装）
 9. 道路作成、探索、整地などの個別作業

@@ -413,3 +413,61 @@
   不明結果では`unsupported`を維持し、自動fallbackや再試行を行いません。
 - 理由: 外部実装の慣例だけをコピーせず、対象server構成の観測と突合しながら、fixture自体から秘密情報と
   個人情報を排除するためです。
+
+## ADR-029: decoded packetは単発allow-list capture bridgeでのみGolden Fixtureへ変換する
+
+- ステータス: 承認済み（offline bridgeのみ。実接続と実fixture取得は未承認）
+- 背景: Observerは安全化済み候補を検証できますが、decoder出力との間に明示的な投影境界がなく、raw dumpや
+  汎用packet loggerを追加すると識別情報、接続先、NBT、絶対座標を保存する危険があります。
+- 決定: 注入されたdecoded packet sourceを受信専用で購読し、`start_game`のauthority設定、movement authority、
+  dirt item registry、primary-layer block観測、standalone／PlayerAuthInput埋込みinteractionの必要fieldだけを
+  callback内で投影します。raw packet objectを保持、logger、output、domainへ渡すAPIは作りません。
+- 一致条件: held itemのnetwork IDは同じcapture内のdirt registryと比較し、transactionのsupport runtime IDは
+  同じ座標のserver block観測と比較します。実値はfixtureに残さずbooleanだけを保存します。standalone方式は
+  直前のallow-list済みauthoritative frameがある場合だけ候補化します。
+- 上限とcleanup: 1件取得後に自動closeし、既定60秒timeoutと10,000 packet上限を設けます。成功、timeout、
+  上限、明示closeでlistener、timer、絶対座標を含む一時観測を解放し、自動再試行しません。
+- 出力: 固定shapeを出力直前に秘密情報検査し、OS一時領域へowner-onlyで保存します。自由な出力先、raw dump、
+  response loggingは提供しません。
+- 影響: Fake sourceだけで両envelope、照合、単発取得、cleanupを検証できます。ただし通常Bedrock clientは他clientの
+  server-bound interactionを受信しないため、実取得には別途レビュー済みのserver／proxy側decoded sourceと
+  専用entrypointが必要です。通常runtime、production配置port、Minecraft送信機能は有効化しません。
+
+## ADR-030: Golden Captureをnetworkなしの専用stdin entrypointとして隔離する
+
+- ステータス: 承認済み（offline entrypointのみ。relayと実取得は未実装）
+- 背景: 通常runtime、smoke、placement acceptanceへcaptureを組み込むと、認証volume、Minecraft送信transport、
+  再接続loopと観測用途が混在します。また通常clientは別clientのserver-bound interactionを受信できません。
+- 決定: `golden-fixture-capture`を独立entrypointとCompose `capture` profileにします。入力はレビュー済みrelayから
+  標準入力へ渡すnewline-delimited decoded packetだけとし、Minecraft client、認証、send／queue API、再接続を
+  依存関係から除外します。Composeは`restart: "no"`、network無効、認証volumeなし、read-only rootとtmpfsを
+  使用します。
+- 起動条件: modeは`decoded_stream`を明示し、protocol 1.26.30、最大fixture数1を固定します。timeoutは1～300秒、
+  packet数は1～100,000に制限します。不正設定はlockやinput開始前に拒否します。
+- lockと終了: BOT識別用lockとは別の一時directoryと固定capture用途IDでInstanceLockを取得します。成功、EOF、
+  timeout、packet上限、SIGINT、SIGTERM、入力不正の全経路でinput、capture listener、timer、lockを解放し、
+  自動再起動・自動再接続しません。
+- 入出力: 入力行は256KiBを上限とし、保存・echo・log出力しません。出力は秘密情報検査済みfixtureだけをOS一時
+  領域へ0600で保存します。Entry Pointの構造化終了logにはfixture、raw packet、出力内容を含めません。
+- 影響: offlineでprocess境界とcleanupを検証できます。実取得にはserver-bound packetを観測する安全な
+  proxy／test server relay、一時出力回収手順、Minecraft接続・人間操作の承認が別途必要です。
+
+## ADR-031: bedrock-protocol標準RelayをGolden Captureへ採用しない
+
+- ステータス: 承認済み（不採用決定）
+- 背景: Golden Fixture取得にはhuman clientのserver-bound interactionを復号後に観測する境界が必要です。
+  第一候補として固定`bedrock-protocol` 3.57.0の標準Relayをコードレベルで調査しました。
+- version判定: 3.57.0は1.26.30をcurrent versionとし、protocol 1001 schemaを持ちます。既存offline testでも対象
+  transactionをserializeできます。ただしschema対応は安全なend-to-end relayを証明しません。
+- 不採用理由: 標準Relayはdownstream login JWT／profile／skin dataをdecode・保持し、upstream Microsoft Authflowと
+  cacheを使用します。destination host／portとclient addressのdebug経路、parse失敗時のpacket dumpもあります。
+  全packetをdecodeしてqueueへ再serializeし、`client_cache_status`を変更します。公開eventはparams変更、cancel、
+  任意packet queueを許可します。
+- 切断評価: downstream／upstream相互close経路はありますが、capture 1件後のqueue・timer・map cleanupと再送禁止を
+  保証する専用contractではありません。他の不合格項目を補えないため部分適合に留めます。
+- 決定: 標準Relayを使用せず、設定でlogを抑えるだけの派生も作りません。新しいcustom proxyを推測実装せず、
+  server-side allow-list projectionまたはraw packet・認証・endpoint・send APIを持たない監査済みrelayの一次根拠が
+  得られるまで実取得をblockedにします。
+- 影響: offline capture bridgeと専用entrypointは維持しますが外部sourceへ接続しません。production配置adapterは
+  `unsupported`、通常runtimeは非接続のままです。詳細な根拠は
+  [proxy安全性レビュー](verification/block-placement-proxy-safety-review.md)に記録します。

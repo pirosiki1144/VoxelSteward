@@ -87,6 +87,29 @@ services:
       - /tmp:size=16m,mode=1777
     stop_grace_period: 20s
 
+  golden-fixture-capture:
+    profiles: ["capture"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward-golden-fixture-capture:local
+    command: ["node", "dist/src/golden-fixture-capture.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    network_mode: "none"
+    stdin_open: true
+    environment:
+      GOLDEN_CAPTURE_MODE: decoded_stream
+      GOLDEN_CAPTURE_MAX_FIXTURES: "1"
+      GOLDEN_CAPTURE_TIMEOUT_MS: ${GOLDEN_CAPTURE_TIMEOUT_MS:-60000}
+      GOLDEN_CAPTURE_MAX_PACKETS: ${GOLDEN_CAPTURE_MAX_PACKETS:-10000}
+      MINECRAFT_VERSION: "1.26.30"
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 5s
+
   mysql-test:
     image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
     profiles: ["test"]
