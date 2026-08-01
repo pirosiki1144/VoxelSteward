@@ -235,7 +235,6 @@ export class RuntimeSupervisor {
         if (this.#policy.decide(player, playerName) === "ignore_self") return;
         this.#logger.log("warn", {
           event: "minecraft.other_player_detected",
-          playerName: player.name ?? "取得不可",
           detectedAt: player.detectedAt,
         });
         this.#stopReason = "other_player_detected";

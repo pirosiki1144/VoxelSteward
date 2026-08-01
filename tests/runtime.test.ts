@@ -450,6 +450,7 @@ describe("RuntimeSupervisor", () => {
     expect(
       output.join("").match(/minecraft\.other_player_detected/g),
     ).toHaveLength(1);
+    expect(output.join("")).not.toContain(player.name);
   });
 
   it("BOT自身は他プレイヤーとして扱わない", async () => {
