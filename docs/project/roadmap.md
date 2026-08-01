@@ -1,5 +1,61 @@
 # 開発ロードマップ
 
+## 直近の優先目標
+
+Captureとblock配置protocolの追加調査は現在の優先経路から外し、検討結果を
+`spike/golden-capture-investigation`（commit `b2ee072`）に保管します。まず次の最小運用loopを
+完成させます。
+
+```text
+MySQLへ稼働記録を保存
+→ 承認済み専用Minecraft serverへ読み取り専用で接続
+→ operatorが型付き作業指示を投入
+→ 共通安全制御下のexecutorが指示を実行
+→ 結果・checkpoint・停止理由をMySQLへ保存
+```
+
+### 1. MySQL稼働記録（最優先）
+
+- 既存のruntime run、状態snapshot、履歴、checkpoint、通知outboxを通常runtimeから確実に保存する
+- 接続、spawn、telemetry、作業指示、claim、開始、完了、失敗、安全停止をrevision順に追跡できるようにする
+- DBアクセスをRepository境界に限定し、schema変更をmigrationで管理する
+- player名、BOT account情報、server endpoint、認証情報、raw packetを保存しない
+- DB障害がMinecraftの安全停止や切断を妨げないことをFakeと隔離MySQLで検証する
+- runtime再起動後も、完了済み作業を再実行せず、未完了作業をmanual reviewへ送れることを完了条件とする
+
+### 2. MySQL有効状態での読み取り専用Minecraft接続
+
+- `MYSQL_PERSISTENCE_ENABLED=true`の構成をローカルの隔離MySQLで検証する
+- その後、別途承認を得た専用test serverへBOT 1体で接続する
+- login、spawn、位置、体力、空腹度、dimension、他player検知、切断理由を、取得できた範囲で状態へ反映する
+- normal modeの他player安全停止、SIGINT、SIGTERM、timeout、二重起動防止を維持する
+- Minecraft接続情報や認証情報をDB、log、文書へ保存しない
+- 接続から安全切断までの状態・履歴・checkpointがMySQLで確認できることを完了条件とする
+
+### 3. 最小の外部指示入力
+
+- 最初の入力経路はローカルoperator向けの明示的な管理entrypointとし、Minecraft chatやDiscord双方向操作を使わない
+- 指示を型・schema version・task IDで検証し、MySQL queueへ冪等にenqueueする
+- 最初に許可する指示を、世界を変更しない`verify_arrival`と`record_position`に限定する
+- 自由文、未知のtask type、秘密情報、player名、server endpointを拒否する
+- cancelと状態照会を用意し、入力しただけではMinecraft操作を開始しない
+
+### 4. 読み取り専用task executor
+
+- executorは共通安全policyが許可した場合だけqueueをclaimする
+- `verify_arrival`と`record_position`だけを実行し、移動、block操作、攻撃、chat、commandを送信しない
+- claim、実行、完了、失敗、停止、checkpointをMySQLへ保存する
+- 他player、operator停止、接続喪失、体力・空腹度の危険、SIGINT、SIGTERMでは作業を停止して安全に切断する
+- claim leaseを有限時間で回収し、crash後に同じ作業を無条件で再実行しない
+- Fake接続と隔離MySQLの自動テスト後、承認済み専用test serverで1指示ずつ受入確認する
+
+### 5. 読み取り専用loop完成後
+
+- 実frame providerと障害物検知を完成させ、承認済み専用test serverで移動を段階検証する
+- 移動の安全性確認後に、簡単なMinecraft内作業をexecutorへ接続する
+- block配置はface、envelope、item action、authoritative frameの一次根拠が確定するまで`unsupported`を維持する
+- Captureを再検討する場合だけ保管branchを起点に独立した安全レビューを行う
+
 ## 実装順序
 
 1. 状態・進捗管理（最小実装完了）
@@ -17,7 +73,7 @@
 4. 作業指示と作業キュー（最小実装完了）
    - 型付き指示、priority付きFIFO、cancel、終端化、有限回の再キュー（完了）
    - Repository port、MySQL migration、transaction claim、冪等enqueue（完了）
-   - 外部指示入力、executor、claim lease回収（後続工程）
+   - ローカルoperator向け外部指示入力、読み取り専用executor、claim lease回収（直近工程）
 5. 共通の安全制御（最小実装完了）
    - StateSnapshot起点の開始・継続判定と未知telemetryのfail-closed（完了）
    - queue claim境界、他player・operator停止後の再開禁止、重複停止抑制（完了）
@@ -30,7 +86,8 @@
    - 1.26系packet候補、禁止方式、serializer要件、段階的受入案（設計確認完了）
 7. 簡単なMinecraft内作業（domain/application最小境界完了）
    - navigate、到達確認、位置記録の型・検証・Fake境界（完了）
-   - runtime consumer、queue終端化統合、実移動による受入（後続・承認必須）
+   - `verify_arrival`・`record_position`の読み取り専用runtime consumerとqueue終端化統合（直近工程）
+   - 実移動による受入（読み取り専用loop完成後・承認必須）
 8. 最初のブロック操作（型付き永続化と実接続前gateまで完了）
    - 単一dirt配置の型、port、Fake、安全coordinator、既定unsupported binding（完了）
    - item registryによるdirt同定とtransaction用held item限定変換（完了、offline）
@@ -40,6 +97,7 @@
    - 1.26.30 transaction schemaのoffline serialize確認（完了、意味論未確定のためadapterはunsupported）
    - authoritative frame排他所有とacceptance preflight（完了、offline）
    - 固定参照実装のProtocol Evidence Matrixと匿名Golden Fixture観測境界（完了、実fixture取得は未実施）
+   - Capture bridgeと専用entrypointの検討結果は別branchへ保管し、mainでの実装は見送り
    - face・envelope・配置frame意味論の一次根拠確定後、専用server受入A～E（後続・承認必須）
    - 単一block採掘、自動rollback、複数block操作（未実装）
 9. 道路作成、探索、整地などの個別作業
