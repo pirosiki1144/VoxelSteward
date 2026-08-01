@@ -56,6 +56,39 @@ authority are in:
 - Keep state-domain code independent of Minecraft, Discord, databases, Docker,
   and process signals.
 
+## Context and token efficiency
+
+These rules apply to every agent and sub-agent working in this repository.
+
+- Treat `docs/project/status.md`, `docs/project/roadmap.md`, and committed
+  verification records as the source of truth. Do not reconstruct completed
+  work from chat history when the repository already records it.
+- Inspect only files relevant to the current task. Use targeted searches and
+  bounded command output instead of repeatedly reading the whole repository or
+  printing full successful logs.
+- Keep progress updates and handoff reports concise. Report outcomes, changed
+  files, failed checks, and unresolved risks; do not repeat the complete user
+  request or unchanged project history.
+- During implementation, run focused tests for the affected area. Run the full
+  required verification suite once after the implementation stabilizes, unless
+  a failure or high-risk change justifies another full run.
+- Reuse existing fixtures, design evidence, and verification records. Do not
+  repeat external research or real-service acceptance tests unless the evidence
+  is missing, stale, or the relevant behavior changed.
+- Delegate only independent, bounded work that benefits from parallelism or
+  when the user explicitly requests agents. Give sub-agents the smallest useful
+  context and avoid duplicating the same investigation across agents.
+- Prefer summaries for successful command output. Preserve detailed diagnostics
+  only for failures or evidence that must be recorded.
+- Token efficiency never overrides safety checks, required validation,
+  documentation accuracy, or approval boundaries.
+
+## Current development phase
+
+Read `docs/project/status.md` for the current baseline, constraints, and next
+completion criteria, and `docs/project/roadmap.md` for sequencing. Do not copy a
+potentially stale phase description into agent-specific configuration.
+
 ## Documentation
 
 Architecture or safety changes must update the relevant file under `docs/`.

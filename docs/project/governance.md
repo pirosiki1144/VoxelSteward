@@ -24,6 +24,27 @@ Git index書込み、networkその他のsandbox権限が必要という理由だ
 対象を限定してautomatic reviewerへ渡します。広範囲なcleanup、所有者不明resource、認証・永続
 volume、実Minecraft接続、外部DB、production、remote Gitはこの規則の対象外です。
 
+## コンテキストとトークンの節約
+
+次の方針を、主担当とsub-agentを含む全エージェントの共通ルールとします。
+
+- 完了済み工程はchat履歴から再構成せず、`docs/project/status.md`、
+  `docs/project/roadmap.md`、既存の検証記録を正本として参照する
+- 現在の作業に関係するfileだけを対象に検索・読取りし、repository全体や成功logの全文を
+  繰り返し出力しない
+- 途中報告と完了報告は、結果、変更file、失敗、未解決riskを中心に簡潔にし、依頼文や
+  変更のない履歴を反復しない
+- 実装中は影響範囲のfocused testを使用し、実装安定後に必須の全検証を原則1回実行する。
+  failureまたは高risk変更がある場合だけ必要な再実行を行う
+- 既存fixture、設計根拠、検証記録を再利用し、関連動作が変わっていない実service試験や
+  外部調査を繰り返さない
+- sub-agentは独立して並行化する価値がある作業、またはユーザーが明示した場合に限定し、
+  最小限のcontextを渡して同じ調査を重複させない
+- 成功したcommandは要約し、詳細なdiagnosticはfailureまたは保存すべき根拠がある場合に限定する
+
+節約を理由に、安全確認、必須検証、文書整合、秘密情報保護、承認ゲートを省略してはいけません。
+現在工程の正本は`docs/project/status.md`、工程順序の正本は`docs/project/roadmap.md`とします。
+
 ## 自律実行可能
 
 ### 調査・実装・修正

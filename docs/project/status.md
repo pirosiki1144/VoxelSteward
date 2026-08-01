@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `9dc2be55416a360a89d7ae27cbf2fb7538319a2c`
-- 完成マイルストーン: 単一block配置の型付き永続化と実接続前gate
-- 現在の工程: Bedrock単一block配置のprotocol不足解消
+- 基準コミット: `0b7e6b876472fa69a24a0a2321b1ff89a0c6aa6d`
+- 完成マイルストーン: 単一block配置のprotocol evidenceと匿名Golden Fixture観測境界
+- 現在の工程: 実送信を行わないGolden Fixture取得bridgeと専用entrypointの準備
 
 ## 完成済み
 
@@ -93,8 +93,14 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-まず上記5項目を一次根拠とoffline fixtureで確定し、その後に専用serverの読み取り段階から受入します。
-専用サーバーの各段階とgame操作は個別承認が必要で、runtime consumerは受入完了まで追加しません。
+1. decoded packetを安全なallow-listへ投影するcapture bridgeを実装する
+2. 実networkを使わないfixtureとFake transportでcapture、匿名化、単発取得、cleanupを検証する
+3. Golden Fixture専用entrypointと、秘密情報を保存しない取得・review手順を整備する
+4. 上記のoffline検証後、承認を得た専用serverの読み取り段階でfixtureを取得する
+5. fixtureでface、座標、transaction envelope、item action、authoritative frameを確定する
+
+実fixture取得、Minecraft接続、game操作は承認必須です。production block配置adapterとruntime
+consumerはfixture reviewと専用server受入が完了するまで有効化しません。
 
 ## 未決定事項
 
