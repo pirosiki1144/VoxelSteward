@@ -39,7 +39,26 @@ export class TaskQueueService {
         );
         break;
       case "task.claim_next":
-        item = await this.#repository.claimNext(occurredAt);
+        if (
+          (command.claimOwner === undefined) !==
+            (command.leaseDurationMs === undefined) ||
+          (command.leaseDurationMs !== undefined &&
+            (!Number.isSafeInteger(command.leaseDurationMs) ||
+              command.leaseDurationMs < 1 ||
+              command.leaseDurationMs > 300_000))
+        ) {
+          throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+        }
+        item = await this.#repository.claimNext(
+          occurredAt,
+          command.allowedTaskTypes,
+          command.claimOwner,
+          command.leaseDurationMs === undefined
+            ? undefined
+            : new Date(
+                new Date(occurredAt).getTime() + command.leaseDurationMs,
+              ).toISOString(),
+        );
         break;
       case "task.cancel": {
         const current = await this.#required(command.taskId);

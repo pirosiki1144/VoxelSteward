@@ -44,14 +44,41 @@ const task = (): TaskInstruction => ({
 });
 
 describe("typed task instruction codec", () => {
+  it.each([
+    {
+      version: 1 as const,
+      kind: "record_position" as const,
+      instruction: {
+        taskId: "record-codec",
+        taskType: "record_position" as const,
+      },
+    },
+    {
+      version: 1 as const,
+      kind: "verify_arrival" as const,
+      instruction: {
+        taskId: "verify-codec",
+        taskType: "verify_arrival" as const,
+        expected: { x: 1, y: 71, z: 2, dimension: "overworld" as const },
+        tolerance: 0.5,
+      },
+    },
+  ])("読み取り専用指示を完全復元する", (details) => {
+    const encoded = encodeTaskInstructionDetails(details);
+    expect(decodeTaskInstructionDetails(encoded.version, encoded.json)).toEqual(
+      details,
+    );
+  });
   it("version 1を完全復元しnested valueをfreezeする", () => {
     const encoded = encodeTaskInstructionDetails(task().details);
     const decoded = decodeTaskInstructionDetails(encoded.version, encoded.json);
     expect(decoded).toEqual(task().details);
     expect(Object.isFrozen(decoded)).toBe(true);
     expect(Object.isFrozen(decoded?.instruction)).toBe(true);
-    expect(Object.isFrozen(decoded?.instruction.target)).toBe(true);
-    expect(Object.isFrozen(decoded?.instruction.support.position)).toBe(true);
+    if (decoded?.kind !== "place_single_dirt")
+      throw new Error("unexpected instruction kind");
+    expect(Object.isFrozen(decoded.instruction.target)).toBe(true);
+    expect(Object.isFrozen(decoded.instruction.support.position)).toBe(true);
   });
 
   it.each([
@@ -134,7 +161,7 @@ describe("typed task lifecycle", () => {
           instruction: { ...operation(), taskId: "different" },
         },
       },
-    ]) {
+    ] as TaskInstruction[]) {
       await expect(
         queue.dispatch({ type: "task.enqueue", instruction }),
       ).rejects.toMatchObject({ code: "INVALID_TASK_INSTRUCTION" });

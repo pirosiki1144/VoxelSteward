@@ -15,7 +15,7 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 
 - 自律的な判断またはゲーム内での行動
 - 本番環境へのデプロイおよび本番環境の認証情報
-- 作業executorと外部からの作業指示入力
+- Minecraft操作を伴う作業executorと外部networkからの作業指示入力
 - Discordの定時報告、Bot APIによる双方向操作、厳密なexactly-once配送
 
 ## 1.1 長期的な製品範囲
@@ -166,6 +166,10 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - Repository境界を介して永続化し、並行workerが同じ指示を二重claimしないこと。
 - claimはMinecraft操作を開始せず、executorと共通安全制御の実装完了まで読み取り専用runtimeへ
   接続しないこと。
+- ローカルoperator entrypointはschema version 1の`verify_arrival`と`record_position`だけを受け付け、
+  未知type、余分なfield、自由文、秘密情報を拒否すること。
+- 読み取り専用executorはserver観測済み位置だけを使用し、Minecraft packetを送信しないこと。
+- claim leaseは有限とし、期限切れ所有権を回収してもclaimed taskを自動再実行せずmanual reviewへ残すこと。
 - 実Webhook資格情報は実行環境だけで管理すること。設定済みWebhookと固定templateによる
   開発・テスト・受入送信は、回数、timeout、retryを制限し、秘密情報を送信せず、
   Minecraftの安全処理から隔離すること。

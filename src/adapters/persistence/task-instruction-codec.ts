@@ -3,6 +3,11 @@ import {
   type PlaceSingleBlockInstruction,
 } from "../../domain/block-operation/index.js";
 import type { TaskInstruction } from "../../domain/task-queue/index.js";
+import {
+  validateSimpleWorkInstruction,
+  type RecordPositionInstruction,
+  type VerifyArrivalInstruction,
+} from "../../domain/simple-work/index.js";
 
 export class TaskInstructionCodecError extends Error {
   override readonly name = "TaskInstructionCodecError";
@@ -31,7 +36,7 @@ const hasExactKeys = (
   );
 };
 
-const freezeDetails = (
+const freezeBlockDetails = (
   instruction: PlaceSingleBlockInstruction,
 ): TypedDetails =>
   Object.freeze({
@@ -47,6 +52,21 @@ const freezeDetails = (
     }),
   });
 
+const freezeSimpleDetails = (
+  kind: "verify_arrival" | "record_position",
+  instruction: VerifyArrivalInstruction | RecordPositionInstruction,
+): TypedDetails =>
+  Object.freeze({
+    version: 1,
+    kind,
+    instruction: Object.freeze({
+      ...instruction,
+      ...(instruction.taskType === "verify_arrival"
+        ? { expected: Object.freeze({ ...instruction.expected }) }
+        : {}),
+    }),
+  }) as TypedDetails;
+
 export const encodeTaskInstructionDetails = (
   details: TaskInstruction["details"],
 ): { readonly version: number | null; readonly json: string | null } => {
@@ -57,10 +77,14 @@ export const encodeTaskInstructionDetails = (
       candidate === undefined ||
       !hasExactKeys(candidate, ["version", "kind", "instruction"]) ||
       details.version !== 1 ||
-      details.kind !== "place_single_dirt"
+      !["place_single_dirt", "verify_arrival", "record_position"].includes(
+        details.kind,
+      )
     )
       throw new Error();
-    validateBlockOperationInstruction(details.instruction);
+    if (details.kind === "place_single_dirt")
+      validateBlockOperationInstruction(details.instruction);
+    else validateSimpleWorkInstruction(details.instruction);
     return { version: 1, json: JSON.stringify(details) };
   } catch {
     throw new TaskInstructionCodecError();
@@ -81,12 +105,29 @@ export const decodeTaskInstructionDetails = (
       details === undefined ||
       !hasExactKeys(details, ["version", "kind", "instruction"]) ||
       details.version !== 1 ||
-      details.kind !== "place_single_dirt"
+      typeof details.kind !== "string" ||
+      !["place_single_dirt", "verify_arrival", "record_position"].includes(
+        details.kind,
+      )
     ) {
       throw new Error();
     }
-    validateBlockOperationInstruction(details.instruction);
-    return freezeDetails(details.instruction);
+    if (details.kind === "place_single_dirt") {
+      validateBlockOperationInstruction(details.instruction);
+      return freezeBlockDetails(details.instruction);
+    }
+    validateSimpleWorkInstruction(details.instruction);
+    if (
+      details.kind === "verify_arrival" &&
+      details.instruction.taskType === "verify_arrival"
+    )
+      return freezeSimpleDetails(details.kind, details.instruction);
+    if (
+      details.kind === "record_position" &&
+      details.instruction.taskType === "record_position"
+    )
+      return freezeSimpleDetails(details.kind, details.instruction);
+    throw new Error();
   } catch {
     throw new TaskInstructionCodecError();
   }

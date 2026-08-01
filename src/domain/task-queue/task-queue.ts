@@ -1,4 +1,8 @@
-import { validateBlockOperationInstruction } from "../block-operation/index.js";
+import {
+  blockOperationInstructionEquals,
+  validateBlockOperationInstruction,
+} from "../block-operation/index.js";
+import { validateSimpleWorkInstruction } from "../simple-work/index.js";
 import { TaskQueueError } from "./errors.js";
 import type {
   TaskInstruction,
@@ -23,11 +27,34 @@ const allowedTransitions: Readonly<
 const freezeInstruction = (instruction: TaskInstruction): TaskInstruction => {
   if (instruction.details === undefined)
     return Object.freeze({ ...instruction });
-  const operation = instruction.details.instruction;
+  const details = instruction.details;
+  if (details.kind === "verify_arrival") {
+    const simple = details.instruction;
+    return Object.freeze({
+      ...instruction,
+      details: Object.freeze({
+        ...details,
+        instruction: Object.freeze({
+          ...simple,
+          expected: Object.freeze({ ...simple.expected }),
+        }),
+      }),
+    });
+  }
+  if (details.kind === "record_position") {
+    return Object.freeze({
+      ...instruction,
+      details: Object.freeze({
+        ...details,
+        instruction: Object.freeze({ ...details.instruction }),
+      }),
+    });
+  }
+  const operation = details.instruction;
   return Object.freeze({
     ...instruction,
     details: Object.freeze({
-      ...instruction.details,
+      ...details,
       instruction: Object.freeze({
         ...operation,
         target: Object.freeze({ ...operation.target }),
@@ -83,27 +110,94 @@ export const validateTaskInstruction = (instruction: TaskInstruction): void => {
   if (instruction.details !== undefined) {
     const details = instruction.details;
     const detailKeys = Object.keys(details);
-    try {
-      validateBlockOperationInstruction(details.instruction);
-    } catch {
-      throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
-    }
     if (
       details.version !== 1 ||
-      details.kind !== "place_single_dirt" ||
       detailKeys.length !== 3 ||
       !detailKeys.every((key) =>
         ["version", "kind", "instruction"].includes(key),
       ) ||
-      instruction.taskType !== "place_single_dirt" ||
       instruction.taskId !== details.instruction.taskId ||
-      instruction.maxAttempts !== 1
+      instruction.taskType !== details.kind
     ) {
       throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
     }
-  } else if (instruction.taskType === "place_single_dirt") {
+    try {
+      if (details.kind === "place_single_dirt") {
+        validateBlockOperationInstruction(details.instruction);
+        if (instruction.maxAttempts !== 1)
+          throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+      } else {
+        validateSimpleWorkInstruction(details.instruction);
+        if (
+          details.kind !== "verify_arrival" &&
+          details.kind !== "record_position"
+        ) {
+          throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+        }
+      }
+    } catch {
+      throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+    }
+  } else if (
+    instruction.taskType === "place_single_dirt" ||
+    instruction.taskType === "verify_arrival" ||
+    instruction.taskType === "record_position"
+  ) {
     throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
   }
+};
+
+export const taskInstructionEquals = (
+  left: TaskInstruction,
+  right: TaskInstruction,
+): boolean => {
+  if (left.details === undefined && right.details === undefined)
+    return left.taskId === right.taskId;
+  if (
+    left.details === undefined ||
+    right.details === undefined ||
+    left.details.kind !== right.details.kind
+  )
+    return false;
+  let detailsEqual = false;
+  if (
+    left.details.kind === "place_single_dirt" &&
+    right.details.kind === "place_single_dirt"
+  ) {
+    detailsEqual = blockOperationInstructionEquals(
+      left.details.instruction,
+      right.details.instruction,
+    );
+  } else if (
+    left.details.kind === "verify_arrival" &&
+    right.details.kind === "verify_arrival"
+  ) {
+    const leftInstruction = left.details.instruction;
+    const rightInstruction = right.details.instruction;
+    detailsEqual =
+      leftInstruction.taskId === rightInstruction.taskId &&
+      leftInstruction.taskType === rightInstruction.taskType &&
+      leftInstruction.tolerance === rightInstruction.tolerance &&
+      leftInstruction.expected.x === rightInstruction.expected.x &&
+      leftInstruction.expected.y === rightInstruction.expected.y &&
+      leftInstruction.expected.z === rightInstruction.expected.z &&
+      leftInstruction.expected.dimension ===
+        rightInstruction.expected.dimension;
+  } else if (
+    left.details.kind === "record_position" &&
+    right.details.kind === "record_position"
+  ) {
+    detailsEqual =
+      left.details.instruction.taskId === right.details.instruction.taskId &&
+      left.details.instruction.taskType === right.details.instruction.taskType;
+  }
+  return (
+    left.taskId === right.taskId &&
+    left.taskType === right.taskType &&
+    left.priority === right.priority &&
+    left.maxAttempts === right.maxAttempts &&
+    detailsEqual
+  );
 };
 
 export const createQueuedTask = (

@@ -10,9 +10,12 @@ import { MySqlStatePersistenceRepository } from "../src/adapters/persistence/mys
 import { MySqlNotificationOutboxRepository } from "../src/adapters/persistence/mysql-notification-outbox-repository.js";
 import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task-queue-repository.js";
 import { TaskQueueService } from "../src/application/task-queue/index.js";
+import { SafetyControlledTaskQueue } from "../src/application/safety/index.js";
+import { ReadonlyTaskExecutor } from "../src/application/task-executor/index.js";
 import { StatePersistenceSubscriber } from "../src/application/persistence/index.js";
 import { mapStateChangeToNotification } from "../src/application/notifications/index.js";
 import { createStateStore } from "../src/domain/state/index.js";
+import { DefaultWorkSafetyPolicy } from "../src/domain/safety/index.js";
 import type { PlaceSingleBlockInstruction } from "../src/domain/block-operation/index.js";
 import { taskRecoveryDisposition } from "../src/domain/task-queue/index.js";
 
@@ -75,6 +78,7 @@ suite("MySqlStatePersistenceRepository", () => {
       { version: 2 },
       { version: 3 },
       { version: 4 },
+      { version: 5 },
     ]);
   });
 
@@ -325,6 +329,118 @@ suite("MySqlStatePersistenceRepository", () => {
       attempts: 1,
       status: "claimed",
     });
+  });
+
+  it("読み取り専用指示を冪等保存し対象typeだけをlease付きclaimする", async () => {
+    const queue = new TaskQueueService(queueRepository);
+    const instruction = {
+      taskId: "mysql-record-position",
+      taskType: "record_position" as const,
+      priority: 90,
+      maxAttempts: 2,
+      details: {
+        version: 1 as const,
+        kind: "record_position" as const,
+        instruction: {
+          taskId: "mysql-record-position",
+          taskType: "record_position" as const,
+        },
+      },
+    };
+    await queue.dispatch({ type: "task.enqueue", instruction });
+    await queue.dispatch({ type: "task.enqueue", instruction });
+    const claimed = await queue.dispatch({
+      type: "task.claim_next",
+      allowedTaskTypes: ["record_position"],
+      claimOwner: "integration-worker",
+      leaseDurationMs: 30_000,
+    });
+    expect(claimed.item).toMatchObject({
+      taskId: instruction.taskId,
+      status: "claimed",
+      attempts: 1,
+      details: instruction.details,
+    });
+    expect(
+      await queueRepository.recoverExpiredClaims("2999-01-01T00:00:00.000Z"),
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      taskRecoveryDisposition((await queue.find(instruction.taskId))!),
+    ).toBe("manual_review");
+  });
+
+  it("読み取り専用executorの完了結果と位置checkpointを一貫保存する", async () => {
+    const runId = "00000000-0000-4000-8000-000000000031";
+    await repository.initialize(runId, "2026-08-01T01:00:00.000Z");
+    const store = createStateStore();
+    store.dispatch({ type: "runtime.transition", to: "connecting" });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connecting",
+    });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connected",
+    });
+    store.dispatch({ type: "minecraft.spawn.update", completed: true });
+    store.dispatch({ type: "runtime.transition", to: "ready" });
+    store.dispatch({
+      type: "minecraft.telemetry.update",
+      telemetry: {
+        position: { x: 4, y: 71, z: 8 },
+        dimension: "overworld",
+        health: 20,
+        hunger: 20,
+      },
+    });
+    const subscriber = new StatePersistenceSubscriber(repository, runId);
+    subscriber.subscribe(store);
+    const queue = new TaskQueueService(queueRepository);
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: "mysql-executor-record",
+        taskType: "record_position",
+        priority: 95,
+        maxAttempts: 1,
+        details: {
+          version: 1,
+          kind: "record_position",
+          instruction: {
+            taskId: "mysql-executor-record",
+            taskType: "record_position",
+          },
+        },
+      },
+    });
+    const executor = new ReadonlyTaskExecutor({
+      queue,
+      safeQueue: new SafetyControlledTaskQueue(
+        queue,
+        store,
+        new DefaultWorkSafetyPolicy(),
+      ),
+      stateStore: store,
+    });
+    expect(await executor.processNext()).toBe(true);
+    await subscriber.flush();
+    subscriber.close();
+    await executor.close();
+    expect((await queue.find("mysql-executor-record"))?.status).toBe(
+      "completed",
+    );
+    const [checkpoints] = await pool.query<CheckpointRow[]>(
+      `SELECT revision, task_state FROM task_checkpoints
+       WHERE run_id = ? AND task_id = ?`,
+      [runId, "mysql-executor-record"],
+    );
+    expect(checkpoints).toHaveLength(1);
+    expect(checkpoints[0]?.task_state).toBe("completed");
+    const [snapshots] = await pool.query<RevisionRow[]>(
+      "SELECT revision FROM state_snapshots WHERE run_id = ?",
+      [runId],
+    );
+    expect(snapshots[0]?.revision).toBe(checkpoints[0]?.revision);
   });
 
   it("並行claimで同じtaskを二重取得しない", async () => {

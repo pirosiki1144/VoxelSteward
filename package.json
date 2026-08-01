@@ -16,6 +16,7 @@
     "test": "vitest run",
     "runtime": "node dist/src/runtime.js",
     "smoke": "node dist/src/smoke.js",
+    "operator-task": "node dist/src/operator-task.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

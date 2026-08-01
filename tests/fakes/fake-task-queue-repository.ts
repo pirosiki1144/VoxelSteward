@@ -1,33 +1,21 @@
 import {
   claimTask,
+  taskInstructionEquals,
   type TaskQueueItem,
 } from "../../src/domain/task-queue/index.js";
-import { blockOperationInstructionEquals } from "../../src/domain/block-operation/index.js";
 import type { TaskQueueRepository } from "../../src/ports/task-queue-repository.js";
 
 export class FakeTaskQueueRepository implements TaskQueueRepository {
   readonly #items = new Map<string, TaskQueueItem>();
   #closed = false;
   replaceError: Error | undefined;
+  claimError: Error | undefined;
 
   insert(item: TaskQueueItem): Promise<TaskQueueItem> {
     this.#ensureOpen();
     const existing = this.#items.get(item.taskId);
     if (existing !== undefined) {
-      if (
-        (existing.details !== undefined || item.details !== undefined) &&
-        (existing.taskType !== item.taskType ||
-          existing.priority !== item.priority ||
-          existing.maxAttempts !== item.maxAttempts ||
-          existing.details?.version !== item.details?.version ||
-          existing.details?.kind !== item.details?.kind ||
-          existing.details === undefined ||
-          item.details === undefined ||
-          !blockOperationInstructionEquals(
-            existing.details.instruction,
-            item.details.instruction,
-          ))
-      ) {
+      if (!taskInstructionEquals(existing, item)) {
         return Promise.reject(new Error("task instruction conflict"));
       }
       return Promise.resolve(existing);
@@ -41,10 +29,23 @@ export class FakeTaskQueueRepository implements TaskQueueRepository {
     return Promise.resolve(this.#items.get(taskId));
   }
 
-  claimNext(claimedAt: string): Promise<TaskQueueItem | undefined> {
+  claimNext(
+    claimedAt: string,
+    allowedTaskTypes?: readonly string[],
+    _claimOwner?: string,
+    _leaseExpiresAt?: string,
+  ): Promise<TaskQueueItem | undefined> {
     this.#ensureOpen();
+    void _claimOwner;
+    void _leaseExpiresAt;
+    if (this.claimError !== undefined) return Promise.reject(this.claimError);
     const item = [...this.#items.values()]
-      .filter(({ status }) => status === "queued")
+      .filter(
+        ({ status, taskType }) =>
+          status === "queued" &&
+          (allowedTaskTypes === undefined ||
+            allowedTaskTypes.includes(taskType)),
+      )
       .sort(
         (left, right) =>
           right.priority - left.priority ||
@@ -55,6 +56,12 @@ export class FakeTaskQueueRepository implements TaskQueueRepository {
     const claimed = claimTask(item, () => new Date(claimedAt));
     this.#items.set(item.taskId, claimed);
     return Promise.resolve(claimed);
+  }
+
+  recoverExpiredClaims(_expiredAt: string): Promise<number> {
+    this.#ensureOpen();
+    void _expiredAt;
+    return Promise.resolve(0);
   }
 
   replace(expected: TaskQueueItem, item: TaskQueueItem): Promise<void> {

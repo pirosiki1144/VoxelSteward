@@ -32,7 +32,10 @@ export class SafetyControlledTaskQueue {
     this.#policy = policy;
   }
 
-  async claimNext(): Promise<SafetyClaimResult> {
+  async claimNext(
+    allowedTaskTypes?: readonly string[],
+    claim?: { readonly owner: string; readonly leaseDurationMs: number },
+  ): Promise<SafetyClaimResult> {
     const decision = this.#policy.evaluate(
       this.#snapshots.getSnapshot(),
       "start",
@@ -40,7 +43,16 @@ export class SafetyControlledTaskQueue {
     if (decision.disposition !== "allow") {
       return Object.freeze({ decision });
     }
-    const { item } = await this.#queue.dispatch({ type: "task.claim_next" });
+    const { item } = await this.#queue.dispatch({
+      type: "task.claim_next",
+      ...(allowedTaskTypes === undefined ? {} : { allowedTaskTypes }),
+      ...(claim === undefined
+        ? {}
+        : {
+            claimOwner: claim.owner,
+            leaseDurationMs: claim.leaseDurationMs,
+          }),
+    });
     if (item === undefined) return Object.freeze({ decision });
     const afterClaim = this.#policy.evaluate(
       this.#snapshots.getSnapshot(),
@@ -63,6 +75,10 @@ export class SafetyControlledTaskQueue {
     }
     const stopped = await this.#stopOnce(taskId);
     return Object.freeze({ decision, stopped });
+  }
+
+  stop(taskId: string): Promise<boolean> {
+    return this.#stopOnce(taskId);
   }
 
   async #stopOnce(taskId: string): Promise<boolean> {

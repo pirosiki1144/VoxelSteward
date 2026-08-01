@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `899c100b722c664b2504f745551845edb67bdc1b`
-- 完成マイルストーン: MySQL稼働記録の通常runtime統合と再起動復旧監査
-- 現在の工程: 承認済み専用test serverでのMySQL有効・読み取り専用runtime検証待ち
+- 基準コミット: `24d423205a55610e921746b47a7e23d1b8fe02b7`
+- 完成マイルストーン: ローカルoperator指示入力と読み取り専用task executorのoffline統合
+- 現在の工程: 承認済み専用test serverでのMySQL有効・読み取り専用運用loop検証待ち
 
 ## 完成済み
 
@@ -48,6 +48,9 @@
 - cancel、終端化、最大試行回数による有限の再キュー
 - TaskQueue Repository portとMySQL transactionによる排他的claim
 - task ID単位の冪等enqueueとmigration 002
+- schema version 1の`verify_arrival`・`record_position`永続化とローカルoperator entrypoint
+- 対象type限定claim、30秒lease、期限切れ所有権回収とmanual review維持
+- 共通安全policy下でserver観測位置だけを使う読み取り専用executor
 - StateSnapshotだけを入力とするfail-closedな作業安全policy
 - runtime、接続・spawn、他player、停止要求、体力・空腹度による開始・継続判定
 - 安全判定後だけclaimする`SafetyControlledTaskQueue`
@@ -96,7 +99,7 @@ MySQLの非秘密なローカル検証結果は
   `spike/golden-capture-investigation`（commit `b2ee072`）へ分離して保管
 - Golden Capture機能と実fixture取得は見送り。安全な一次根拠がない状態でproxyやcapture sourceを推測実装しない
 - 配置用frame意味論、face対応、transaction envelope選択が未確定で、実server試験A～Eは未実施
-- 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
+- Minecraft操作を伴うexecutor、外部network指示入力、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
 - MySQL無効時のDiscord通知はprocess内best effortで、再起動後の配送はない
@@ -109,7 +112,7 @@ MySQLの非秘密なローカル検証結果は
 2. `MYSQL_PERSISTENCE_ENABLED=true`でBOT 1体の読み取り専用runtimeを1回だけ起動する
 3. 接続、spawn、telemetry、安全停止のrevision順履歴を秘密情報なしで確認する
 4. normal modeの他player安全停止、SIGTERM、二重起動防止を維持する
-5. 実接続を伴わない次工程としてローカルoperator向け読み取り専用指示入力の設計を進める
+5. `verify_arrival`と`record_position`を各1件ずつ実行し、結果とcheckpointをMySQLで確認する
 
 Capture関連コードはmainへ取り込まず、production block配置adapterとruntime consumerは
 `unsupported`／disabledのまま維持します。face、envelope、item action、authoritative frameを推測値で

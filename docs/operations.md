@@ -68,8 +68,17 @@ database、user、passwordを秘密管理された環境から注入します。
 設定を検証せずDB接続もしません。`persistence.write_failed`はcode、retryable、revision、
 attemptsだけを記録し、生のDB errorや接続情報を出力しません。
 起動時の`persistence.task_recovery_audited`は`claimable`、`manualReview`、`terminal`の件数だけを
-記録します。`claimed`は自動でqueuedへ戻さず、operator確認までmanual reviewとします。終端済みtaskは
+記録します。`recoveredLeases`は期限切れ所有権の回収件数です。`claimed`は自動でqueuedへ戻さず、
+operator確認までmanual reviewとします。終端済みtaskは
 再実行対象に戻しません。
+
+### ローカルoperator指示
+
+`npm run build`後、MySQL設定を秘密管理された環境から注入し、`npm run operator-task --`に続けて
+`enqueue record-position`、`enqueue verify-arrival`、`status`、`cancel`のいずれかを実行します。
+完全な引数例は[作業指示と作業キュー](task-queue.md)を参照してください。コンテナ利用時は
+`operator-task` serviceを明示的に`docker compose run --rm`で起動します。このserviceはMinecraft認証volumeを
+mountせず、指示投入だけではruntimeやMinecraft接続を開始しません。
 
 ## 通常運転
 

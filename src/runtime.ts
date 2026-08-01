@@ -6,10 +6,16 @@ import {
   OutboxDispatcher,
 } from "./application/notifications/index.js";
 import { StatePersistenceSubscriber } from "./application/persistence/index.js";
-import { auditTaskRecovery } from "./application/task-queue/index.js";
+import { SafetyControlledTaskQueue } from "./application/safety/index.js";
+import { ReadonlyTaskExecutor } from "./application/task-executor/index.js";
+import {
+  auditTaskRecovery,
+  TaskQueueService,
+} from "./application/task-queue/index.js";
 import { toSafeNotificationDeliveryFailure } from "./adapters/notifications/discord-webhook-notification-port.js";
 import { toSafePersistenceFailure } from "./adapters/persistence/mysql-state-persistence-repository.js";
 import { createStateStore } from "./domain/state/index.js";
+import { DefaultWorkSafetyPolicy } from "./domain/safety/index.js";
 import { InstanceLock } from "./infrastructure/instance-lock.js";
 import { createLogger } from "./infrastructure/logger.js";
 import type { Logger } from "./infrastructure/logger.js";
@@ -66,6 +72,7 @@ const main = async (): Promise<void> => {
   let movementBinding: RuntimeMovementBinding | undefined;
   let blockOperationBinding: RuntimeBlockOperationBinding | undefined;
   let worldObservationBinding: RuntimeWorldObservationBinding | undefined;
+  let taskExecutor: ReadonlyTaskExecutor | undefined;
   let removeSignals = (): void => undefined;
   try {
     const notificationConfig = loadNotificationConfig();
@@ -82,6 +89,10 @@ const main = async (): Promise<void> => {
     persistenceBinding =
       await createRuntimePersistenceBinding(persistenceConfig);
     if (persistenceBinding.taskQueueRepository !== undefined) {
+      const recoveredLeases =
+        await persistenceBinding.taskQueueRepository.recoverExpiredClaims(
+          new Date().toISOString(),
+        );
       const recovery = await auditTaskRecovery(
         persistenceBinding.taskQueueRepository,
       );
@@ -90,6 +101,7 @@ const main = async (): Promise<void> => {
         claimable: recovery.claimable,
         manualReview: recovery.manualReview,
         terminal: recovery.terminal,
+        recoveredLeases,
       });
     }
 
@@ -147,6 +159,28 @@ const main = async (): Promise<void> => {
       },
     );
     persistence.subscribe(stateStore);
+    if (persistenceBinding.taskQueueRepository !== undefined) {
+      const taskQueue = new TaskQueueService(
+        persistenceBinding.taskQueueRepository,
+      );
+      const safeTaskQueue = new SafetyControlledTaskQueue(
+        taskQueue,
+        stateStore,
+        new DefaultWorkSafetyPolicy(),
+      );
+      taskExecutor = new ReadonlyTaskExecutor({
+        queue: taskQueue,
+        safeQueue: safeTaskQueue,
+        stateStore,
+        onError: (code) => {
+          logger.log("error", {
+            event: "task_executor.error",
+            code,
+          });
+        },
+      });
+      taskExecutor.start();
+    }
     if (persistenceBinding.outboxRepository !== undefined) {
       outboxDispatcher = new OutboxDispatcher(
         persistenceBinding.outboxRepository,
@@ -207,6 +241,7 @@ const main = async (): Promise<void> => {
     await runCleanupSteps(
       [
         { name: "outbox_dispatcher", run: () => outboxDispatcher?.stop() },
+        { name: "task_executor", run: () => taskExecutor?.close() },
         { name: "notifications", run: () => notifications?.close() },
         {
           name: "notification_binding",

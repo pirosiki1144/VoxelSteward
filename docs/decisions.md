@@ -446,3 +446,19 @@
   subscriber内の有限retryと安全なerror callbackへ隔離し、他player検知やsignalによる切断を妨げません。
 - 理由: crash後の実行結果を推測せずoperator判断へ送り、永続化障害時もworld操作と安全停止の双方を
   fail-closedに保つためです。
+
+## ADR-031: operator指示とexecutorを読み取り専用typeへ限定する
+
+- ステータス: 承認済み（Fake・隔離MySQL実装、実server受入は未実施）
+- 入力: ローカルoperator専用entrypointはschema version 1の`verify_arrival`と`record_position`だけを
+  MySQL queueへ冪等投入します。HTTP、Minecraft chat、Discord双方向入力を使わず、未知type、余分なfield、
+  自由文、秘密情報を拒否します。
+- 実行: 通常runtimeのexecutorは`SafetyControlledTaskQueue`を唯一のclaim境界とし、ready、spawn、
+  telemetry、health、hunger、他player、停止要求を共通policyで評価します。server観測済み位置だけを読み、
+  Minecraft送信portを呼びません。
+- leaseと復旧: claim所有権は30秒で期限切れとし、migration 005で永続化します。期限切れ所有権は回収しますが、
+  taskをqueuedへ戻さず`claimed`のmanual reviewに残し、crash後の無条件再実行を防ぎます。
+- 永続化: claim、作業状態、進捗、完了・失敗・停止をStateStore eventとqueueへ反映し、snapshot、history、
+  checkpoint、通知outboxを既存Repository経路で保存します。DB障害は安全切断から隔離します。
+- 理由: 実移動やblock操作を有効化する前に、operator入力から安全判定、server観測、永続結果までの最小loopを
+  world変更なしで検証するためです。

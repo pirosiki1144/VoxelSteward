@@ -1,4 +1,8 @@
 import type { PlaceSingleBlockInstruction } from "../block-operation/index.js";
+import type {
+  RecordPositionInstruction,
+  VerifyArrivalInstruction,
+} from "../simple-work/index.js";
 
 export type TaskQueueStatus =
   "queued" | "claimed" | "completed" | "failed" | "stopped" | "cancelled";
@@ -13,6 +17,16 @@ export interface TaskInstruction {
         readonly version: 1;
         readonly kind: "place_single_dirt";
         readonly instruction: PlaceSingleBlockInstruction;
+      }
+    | {
+        readonly version: 1;
+        readonly kind: "verify_arrival";
+        readonly instruction: VerifyArrivalInstruction;
+      }
+    | {
+        readonly version: 1;
+        readonly kind: "record_position";
+        readonly instruction: RecordPositionInstruction;
       }
     | undefined;
 }
@@ -37,7 +51,12 @@ export type TaskQueueTerminalStatus = Extract<
 
 export type TaskQueueCommand =
   | { readonly type: "task.enqueue"; readonly instruction: TaskInstruction }
-  | { readonly type: "task.claim_next" }
+  | {
+      readonly type: "task.claim_next";
+      readonly allowedTaskTypes?: readonly string[];
+      readonly claimOwner?: string;
+      readonly leaseDurationMs?: number;
+    }
   | { readonly type: "task.cancel"; readonly taskId: string }
   | { readonly type: "task.release"; readonly taskId: string }
   | { readonly type: "task.mark_delivery_started"; readonly taskId: string }

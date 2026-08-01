@@ -5,9 +5,9 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 
-import { blockOperationInstructionEquals } from "../../domain/block-operation/index.js";
 import {
   claimTask,
+  taskInstructionEquals,
   type TaskQueueItem,
   type TaskExecutionPhase,
   type TaskQueueStatus,
@@ -48,7 +48,7 @@ const freezeRow = (row: TaskQueueRow): TaskQueueItem => {
     details !== undefined &&
     (details.instruction.taskId !== row.task_id ||
       details.instruction.taskType !== row.task_type ||
-      row.max_attempts !== 1)
+      (details.kind === "place_single_dirt" && row.max_attempts !== 1))
   ) {
     throw new TaskInstructionCodecError();
   }
@@ -105,20 +105,7 @@ export class MySqlTaskQueueRepository implements TaskQueueRepository {
     );
     const persisted = await this.find(item.taskId);
     if (persisted === undefined) throw new Error("task queue insert failed");
-    if (
-      (persisted.details !== undefined || item.details !== undefined) &&
-      (persisted.taskType !== item.taskType ||
-        persisted.priority !== item.priority ||
-        persisted.maxAttempts !== item.maxAttempts ||
-        persisted.details?.version !== item.details?.version ||
-        persisted.details?.kind !== item.details?.kind ||
-        persisted.details === undefined ||
-        item.details === undefined ||
-        !blockOperationInstructionEquals(
-          persisted.details.instruction,
-          item.details.instruction,
-        ))
-    ) {
+    if (!taskInstructionEquals(persisted, item)) {
       throw new TaskInstructionCodecError();
     }
     return persisted;
@@ -133,16 +120,27 @@ export class MySqlTaskQueueRepository implements TaskQueueRepository {
     return rows[0] === undefined ? undefined : freezeRow(rows[0]);
   }
 
-  async claimNext(claimedAt: string): Promise<TaskQueueItem | undefined> {
+  async claimNext(
+    claimedAt: string,
+    allowedTaskTypes?: readonly string[],
+    claimOwner?: string,
+    leaseExpiresAt?: string,
+  ): Promise<TaskQueueItem | undefined> {
     this.#ensureOpen();
+    if (allowedTaskTypes?.length === 0) return undefined;
     const connection = await this.#pool.getConnection();
     try {
       await connection.beginTransaction();
+      const typeClause =
+        allowedTaskTypes === undefined
+          ? ""
+          : ` AND task_type IN (${allowedTaskTypes.map(() => "?").join(",")})`;
       const [rows] = await connection.query<TaskQueueRow[]>(
         `SELECT ${selectColumns} FROM task_queue
-         WHERE status = 'queued'
+         WHERE status = 'queued'${typeClause}
          ORDER BY priority DESC, created_at ASC, task_id ASC
          LIMIT 1 FOR UPDATE SKIP LOCKED`,
+        allowedTaskTypes === undefined ? [] : [...allowedTaskTypes],
       );
       if (rows[0] === undefined) {
         await connection.commit();
@@ -151,6 +149,13 @@ export class MySqlTaskQueueRepository implements TaskQueueRepository {
       const current = freezeRow(rows[0]);
       const claimed = claimTask(current, () => new Date(claimedAt));
       await this.#replace(connection, current, claimed);
+      if (claimOwner !== undefined && leaseExpiresAt !== undefined) {
+        await connection.execute(
+          `UPDATE task_queue SET claim_owner = ?, claim_expires_at = ?
+           WHERE task_id = ? AND status = 'claimed'`,
+          [claimOwner, new Date(leaseExpiresAt), claimed.taskId],
+        );
+      }
       await connection.commit();
       return claimed;
     } catch (error) {
@@ -161,10 +166,20 @@ export class MySqlTaskQueueRepository implements TaskQueueRepository {
     }
   }
 
+  async recoverExpiredClaims(expiredAt: string): Promise<number> {
+    this.#ensureOpen();
+    const [result] = await this.#pool.execute<ResultSetHeader>(
+      `UPDATE task_queue SET claim_owner = NULL, claim_expires_at = NULL
+       WHERE status = 'claimed' AND claim_expires_at IS NOT NULL AND claim_expires_at <= ?`,
+      [new Date(expiredAt)],
+    );
+    return result.affectedRows;
+  }
+
   async replace(expected: TaskQueueItem, item: TaskQueueItem): Promise<void> {
     this.#ensureOpen();
     const [result] = await this.#pool.execute<ResultSetHeader>(
-      `UPDATE task_queue SET status = ?, attempts = ?, execution_phase = ?, updated_at = ?, claimed_at = ?, finished_at = ?
+      `UPDATE task_queue SET status = ?, attempts = ?, execution_phase = ?, updated_at = ?, claimed_at = ?, finished_at = ?, claim_owner = NULL, claim_expires_at = NULL
        WHERE task_id = ? AND status = ? AND execution_phase = ? AND updated_at = ?`,
       [
         item.status,
@@ -202,7 +217,7 @@ export class MySqlTaskQueueRepository implements TaskQueueRepository {
     item: TaskQueueItem,
   ): Promise<void> {
     const [result] = await connection.execute<ResultSetHeader>(
-      `UPDATE task_queue SET status = ?, attempts = ?, execution_phase = ?, updated_at = ?, claimed_at = ?, finished_at = ?
+      `UPDATE task_queue SET status = ?, attempts = ?, execution_phase = ?, updated_at = ?, claimed_at = ?, finished_at = ?, claim_owner = NULL, claim_expires_at = NULL
        WHERE task_id = ? AND status = ? AND execution_phase = ? AND updated_at = ?`,
       [
         item.status,

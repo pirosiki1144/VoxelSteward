@@ -114,21 +114,23 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 通知outboxです。プレイヤー名、BOT情報、接続先、認証情報は保存しません。
 
 設定値と隔離テスト方法は[運用手順](docs/operations.md)、スキーマと障害境界は
-[状態管理](docs/state-management.md)を参照してください。outbox配送workerと再起動後の
-Discord配送保証は未実装です。
+[状態管理](docs/state-management.md)を参照してください。MySQL有効時はoutbox配送workerが
+有限leaseと再試行でat-least-once配送し、MySQL無効時はprocess内best effortです。
 
 ### 作業指示と作業キュー
 
 型付き作業指示をpriority付きFIFOで管理するdomain、application service、Repository port、
 MySQL adapterがあります。claim、取消、有限回の再キュー、終端化だけを実装しており、
-Minecraft内の操作や外部からの指示受付は行いません。詳細は
+MySQL有効時はローカルoperator entrypointから`verify_arrival`と`record_position`だけを投入でき、
+通常runtimeの読み取り専用executorが共通安全policyを通過した場合だけ実行します。Minecraftへの
+送信操作は行いません。詳細は
 [作業指示と作業キュー](docs/task-queue.md)を参照してください。
 
 ### 共通の安全制御
 
-将来の作業executorは、runtime、Minecraft接続・spawn、他player検知、停止要求、体力、空腹度を
+読み取り専用作業executorは、runtime、Minecraft接続・spawn、他player検知、停止要求、体力、空腹度を
 共通policyで検査し、安全な場合だけqueueをclaimします。未知・不正telemetryはfail-closedで
-拒否し、他player検知またはoperator停止後は再開しません。現在は判定境界だけで、Minecraft内の
+拒否し、他player検知またはoperator停止後は再開しません。Minecraft内の
 操作はありません。詳細は[共通の安全制御](docs/safety-controls.md)を参照してください。
 
 ### 移動基盤

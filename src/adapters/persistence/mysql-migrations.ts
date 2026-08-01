@@ -57,6 +57,15 @@ const migrations: readonly Migration[] = [
       import.meta.url,
     ),
   },
+  {
+    version: 5,
+    name: "task_claim_lease",
+    up: new URL("./migrations/005_task_claim_lease.sql", import.meta.url),
+    down: new URL(
+      "./migrations/005_task_claim_lease.down.sql",
+      import.meta.url,
+    ),
+  },
 ];
 
 const statements = (sql: string): readonly string[] =>

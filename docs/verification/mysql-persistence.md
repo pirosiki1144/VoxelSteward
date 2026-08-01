@@ -4,13 +4,13 @@
 
 - 実施日: 2026-07-31、2026-08-01（JST）
 - 対象: tmpfsだけを使用する隔離MySQL 8.4 Compose service
-- 結果: migrationとRepository統合試験13 test caseに合格
+- 結果: migrationとRepository統合試験15 test caseに合格
 - 外部・共有DB接続: なし
 - 実Minecraft接続、Discord実送信: なし
 
 ## 確認内容
 
-DB統合13 test caseで次の1～14を確認し、Fake runtime統合で15を確認しました。
+DB統合15 test caseで次の1～16を確認し、Fake runtime・executor統合で17を確認しました。
 
 1. 空DBへのup migrationと同一migrationの冪等再適用
 2. history、最新snapshot、作業checkpoint、通知outboxのtransaction保存
@@ -23,10 +23,12 @@ DB統合13 test caseで次の1～14を確認し、Fake runtime統合で15を確�
 9. 最大試行回数到達時のfailed終端化
 10. version 1の単一dirt配置指示の完全復元
 11. claimed指示の再起動後再claim禁止と未知instruction versionのfail-closed拒否
-12. 通知outboxの並行worker排他claim、lease回収、有限試行と終端化
-13. 通常runtime相当の接続、spawn、telemetry、作業状態、安全停止のrevision順保存
-14. 最新snapshot、checkpoint、通知outboxが同じrunの履歴と整合すること
-15. runtime永続化障害が他プレイヤー安全停止を妨げないFake統合試験
+12. `verify_arrival`・`record_position`の冪等保存、対象type限定claim、migration 005の有限lease回収
+13. 読み取り専用executorの完了結果、server観測位置、snapshot、checkpointの一貫保存
+14. 通知outboxの並行worker排他claim、lease回収、有限試行と終端化
+15. 通常runtime相当の接続、spawn、telemetry、作業状態、安全停止のrevision順保存
+16. 最新snapshot、checkpoint、通知outboxが同じrunの履歴と整合すること
+17. runtime永続化障害が他プレイヤー安全停止を妨げず、executorのDB障害もruntimeへ再投入しないFake統合試験
 
 テストdataには実在するplayer名、BOT情報、server endpoint、認証情報を使用していません。
 

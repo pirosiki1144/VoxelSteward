@@ -65,7 +65,8 @@ SIGTERMを受けた場合も、上限時間が設定された同じ停止処理�
 永続化先はMySQLです。現在はruntime run、状態、作業checkpoint、通知outboxを保存します。
 作業queueは独立したRepository portを介し、MySQL transactionでpriority付きFIFOの1件を
 排他的にclaimします。queueのclaimは作業実行を意味せず、Minecraft adapterへ接続しません。
-分散デプロイ用のDB leaseは未実装です。将来追加する場合も識別情報自体を保存せず、安全な
+読み取り専用executorのclaim leaseはmigration 005で有限化し、期限切れ時は所有権だけを回収して
+claimed taskをmanual reviewへ残します。分散デプロイ用の一般的なDB leaseは未実装です。将来追加する場合も識別情報自体を保存せず、安全な
 内部IDをlease keyに使用し、lease取得・更新失敗時は作業を実行せず安全に切断します。
 
 ## 5. 認証データ
@@ -129,6 +130,9 @@ subscriber障害は安全切断経路から隔離します。
 MySQL有効時の起動時にはtask queueを読み取り、`queued`を未開始のclaim候補、`claimed`を
 結果不明のmanual review、完了・失敗・停止・cancel済みを終端として件数だけ監査します。
 監査はtaskを変更せず、task IDや指示内容をログへ出しません。
+ローカルoperator entrypointはMySQL queueへ`verify_arrival`と`record_position`だけを冪等投入します。
+通常runtimeの読み取り専用executorは共通安全policyを通過後に対象typeだけをclaimし、server観測済み位置を
+StateStoreの作業状態とcheckpointへ反映します。Minecraft送信portは参照しません。
 スナップショットとイベントは実行時に再帰的にfreezeし、時刻は注入可能なClockから
 UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
 観測可能なエラー報告へ隔離します。詳細は[状態・進捗管理](state-management.md)を
