@@ -354,3 +354,62 @@
   明示注入する専用受入bindingだけを準備し、consumerや自動実行を追加しません。
 - 理由: crash後の二重配置と、protocol値の推測による誤操作を防ぎながら、検証可能な永続化・cleanup境界を
   実server接続前に固定するためです。
+
+## ADR-026: item registryを接続単位で検証し未定義の配置protocol値は推測しない
+
+- ステータス: 承認済み（offline実装、実adapterは保留）
+- 一次根拠: 固定`bedrock-protocol` 3.57.0の1.26.30 schemaでは、`mob_equipment`のitemは`ItemNew`、
+  item mappingは独立した`item_registry`、配置候補のheld itemは異なる`Item`形です。`ItemNew`から
+  metadata、stack ID、block runtime ID、NBTなし・制約listなしのextraだけをallow-list投影します。
+- registry: 接続generationごとに全entryの識別子とruntime IDの一意性・範囲を検証し、
+  `minecraft:dirt`のitem network IDだけを保持します。NBT、custom item名、生packetを保存せず、dimension
+  transitionとdisconnectで無効化します。item IDとblock palette runtime IDを同一視しません。
+- slot: `mob_equipment.slot`と`selected_slot`は別fieldですが、固定schemaからinventory slot対応を
+  確定できないため、両fieldの構造だけを検査し、inventory slotは`unsupported`のままにします。
+- face: `TransactionUseItem.face`は`u8`ですが方向enumが固定dependencyにありません。domain上の`up`を
+  数値へ変換せず、targetがsupport直上、整数座標、block-local click位置が0～1であることだけをoffline検証します。
+- envelope: standalone `inventory_transaction`と`player_auth_input` item-interactは両方schema上有効です。
+  `server_authoritative_inventory`、movement authority、tickからどちらを選ぶ規則はschemaにないため、
+  capability evaluatorはambiguousを`unsupported`として返し、自動fallbackや二重送信を許しません。
+- 境界: offline serializeは構文だけの検証で、server受理・face意味・配置成功を証明しません。
+  authoritative frame統合も未完了のためproduction portと通常runtimeはdisabledを維持します。
+- 理由: 接続ごとに変わり得るitem IDはserver観測から確定しつつ、一次根拠のないfaceとenvelopeを推測して
+  誤座標・重複packet・意図しないworld変更を起こすことを防ぐためです。
+
+## ADR-027: 配置acceptanceをauthoritative frame排他境界と外部副作用前preflightで隔離する
+
+- ステータス: 承認済み（offline境界のみ。実配置は保留）
+- 背景: movementとblock placementは同じPlayerAuthInput streamを共有しますが、固定schemaは配置用frameの
+  意味論、face数値、transaction envelope選択を定義しません。実serverで推測値を試すことはworld変更と
+  二重frameの危険があります。
+- 決定: 接続単位の排他所有境界でmovement／block placementを直列化し、tick単調性、観測revision、dimension、
+  reach、安全停止を検査します。専用acceptance entrypointは通常runtimeとsmokeから分離し、既定無効、normal、
+  operator確認、最大1試行を要求します。production capabilityがunsupportedの間はInstanceLock、client生成、
+  認証、接続より前に固定理由で終了します。
+- 結果: offlineで競合と誤起動を防止できますが、配置packetは生成・送信できません。face、envelope、配置frameの
+  一次根拠が揃うまで実server試験A～Eはblockedであり、runtimeへ自動consumerを追加しません。
+
+## ADR-028: 固定参照実装と匿名Golden Fixtureの一致を配置protocol採用条件とする
+
+- ステータス: 承認済み（調査・観測境界のみ。実server取得は未実施）
+- 背景: 固定`bedrock-protocol` schemaはwire構造を定義しますが、face方向、support／target／clickの意味、
+  envelope選択、item action生成、authoritative frame同期を一意に定めません。schema serialize成功だけで
+  production packetを生成することはできません。
+- 固定根拠: Geyser `3aeedfa6f207691d92d4f20106bc586b2ab883d4`、Cloudburst Protocol
+  `97fd7dce91a69e9a1f3f6bd7c1b8c790f2bbd8f7`、PrismarineJS bedrock-protocol 3.57.0の
+  `1b38211b69e44ed6abee620d995e5364967c9103`、minecraft-data 3.112.0の
+  `ee5b8c8e6e6e6af2a117d5273fce9a7096dda39f`を参照します。将来のHEADを暗黙に採用しません。
+- faceと座標: Geyserはfaceを`DOWN, UP, NORTH, SOUTH, WEST, EAST`のordinalとして検査し、受信した
+  `block_position`をsupport、face隣接位置をtarget、`click_position`をsupport-relativeとして処理します。
+  これにより参照実装上の`UP=1`を得ましたが、同じ1.26.30環境のGolden Fixtureと一致するまでは
+  production定数に昇格しません。
+- envelopeとframe: GeyserとCloudburstはstandaloneとPlayerAuthInput埋込みの両経路を扱うため、参照コード
+  だけではクライアント側選択を一意に決定できません。authority modeを含む匿名Golden Fixtureを必須とします。
+- 観測境界: fixtureはsupportを原点化し、tickを0起点へ変換します。item／stack／block runtime IDは実値を
+  保存せず、一致booleanだけを残します。player名、BOT名、server endpoint、認証情報、生packet、NBTを
+  入出力型から除外し、1回だけ取得します。
+- 採用条件: Evidence Matrixの各項目について固定参照実装と匿名fixtureが一致し、offline testと独立安全
+  reviewを通過した場合だけ、別の決定でproduction adapterをsupportedへ変更します。不一致、複数envelope、
+  不明結果では`unsupported`を維持し、自動fallbackや再試行を行いません。
+- 理由: 外部実装の慣例だけをコピーせず、対象server構成の観測と突合しながら、fixture自体から秘密情報と
+  個人情報を排除するためです。

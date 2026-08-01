@@ -65,6 +65,97 @@ describe("BedrockWorldObservationPort", () => {
     );
   });
 
+  it("maps a unique connection-scoped dirt item registry without retaining raw NBT", () => {
+    const client = new FakeClient();
+    const port = new BedrockWorldObservationPort({
+      client,
+      version: "1.26.30",
+    });
+    client.emit("start_game", { runtime_entity_id: 7n, dimension: 0 });
+    client.emit("item_registry", {
+      itemstates: [
+        {
+          name: "minecraft:negative_valid_item",
+          runtime_id: -2,
+          component_based: false,
+          version: "legacy",
+        },
+        {
+          name: "minecraft:stone",
+          runtime_id: 1,
+          component_based: false,
+          version: "legacy",
+          nbt: { private: "must-not-survive" },
+        },
+        {
+          name: "minecraft:dirt",
+          runtime_id: 3,
+          component_based: false,
+          version: "legacy",
+          nbt: { private: "must-not-survive" },
+        },
+      ],
+    });
+    client.emit("spawn");
+    expect(port.getItemNetworkId("minecraft:dirt")).toBe(3);
+    expect(port.getSnapshot().itemRegistry).toMatchObject({
+      status: "ready",
+      itemCount: 3,
+      dirt: { identifier: "minecraft:dirt", networkId: 3 },
+    });
+    expect(JSON.stringify(port.getSnapshot())).not.toContain("private");
+  });
+
+  it.each([
+    [
+      "duplicate identifier",
+      [
+        { name: "minecraft:dirt", runtime_id: 3 },
+        { name: "minecraft:dirt", runtime_id: 4 },
+      ],
+    ],
+    [
+      "duplicate network ID",
+      [
+        { name: "minecraft:dirt", runtime_id: 3 },
+        { name: "minecraft:stone", runtime_id: 3 },
+      ],
+    ],
+    ["missing dirt", [{ name: "minecraft:stone", runtime_id: 1 }]],
+    ["malformed ID", [{ name: "minecraft:dirt", runtime_id: -32769 }]],
+  ])("rejects an inconsistent item registry: %s", (_name, itemstates) => {
+    const client = new FakeClient();
+    const port = new BedrockWorldObservationPort({
+      client,
+      version: "1.26.30",
+    });
+    client.emit("start_game", { runtime_entity_id: 7n, dimension: 0 });
+    client.emit("item_registry", { itemstates });
+    client.emit("spawn");
+    expect(port.getSnapshot().itemRegistry).toEqual({ status: "inconsistent" });
+    expect(port.getItemNetworkId("minecraft:dirt")).toBeUndefined();
+  });
+
+  it("ignores registries outside a connection and clears them on disconnect", () => {
+    const client = new FakeClient();
+    const port = new BedrockWorldObservationPort({
+      client,
+      version: "1.26.30",
+    });
+    client.emit("item_registry", {
+      itemstates: [{ name: "minecraft:dirt", runtime_id: 3 }],
+    });
+    expect(port.getSnapshot().itemRegistry).toEqual({ status: "unavailable" });
+    client.emit("start_game", { runtime_entity_id: 7n, dimension: 0 });
+    client.emit("item_registry", {
+      itemstates: [{ name: "minecraft:dirt", runtime_id: 3 }],
+    });
+    client.emit("spawn");
+    expect(port.getItemNetworkId("minecraft:dirt")).toBe(3);
+    client.emit("close");
+    expect(port.getSnapshot().itemRegistry).toEqual({ status: "unavailable" });
+  });
+
   it("ignores non-primary block layers and pre-spawn block packets", () => {
     const client = new FakeClient();
     const port = new BedrockWorldObservationPort({
@@ -94,29 +185,43 @@ describe("BedrockWorldObservationPort", () => {
     spawn(client);
     client.emit("mob_equipment", {
       runtime_entity_id: 8n,
+      slot: 1,
       selected_slot: 1,
+      window_id: "inventory",
       item: { network_id: 99 },
     });
     client.emit("mob_equipment", {
       runtime_entity_id: 7n,
+      slot: 2,
       selected_slot: 2,
+      window_id: "inventory",
       item: {
         network_id: 10,
         count: 3,
+        metadata: 0,
         block_runtime_id: 40,
         has_stack_id: true,
         stack_id: { empty: 0, id: 123 },
-        extra: { nbt: { display: { Name: "private" } }, lore: ["private"] },
+        extra: {
+          has_nbt: "false",
+          can_place_on: [],
+          can_destroy: [],
+          nbt: { display: { Name: "private" } },
+          lore: ["private"],
+        },
       },
     });
     expect(port.getSnapshot().inventory).toEqual({
       selectedSlot: 2,
+      inventorySlot: "unsupported",
       heldItem: {
         status: "known",
         networkId: 10,
         count: 3,
+        metadata: 0,
         blockRuntimeId: 40,
         stackNetworkId: 123,
+        transactionExtra: "empty",
       },
       fullInventory: "unsupported",
     });
@@ -132,18 +237,28 @@ describe("BedrockWorldObservationPort", () => {
     spawn(client);
     client.emit("mob_equipment", {
       runtime_entity_id: 7n,
+      slot: 0,
       selected_slot: 0,
+      window_id: "inventory",
       item: { network_id: 0 },
     });
     expect(port.getSnapshot().inventory.heldItem.status).toBe("empty");
     client.emit("mob_equipment", {
       runtime_entity_id: 7n,
+      slot: 1,
       selected_slot: 1,
+      window_id: "inventory",
       item: {
         network_id: 10,
         count: 1,
+        metadata: 0,
         block_runtime_id: 40,
         has_stack_id: false,
+        extra: {
+          has_nbt: "false",
+          can_place_on: [],
+          can_destroy: [],
+        },
       },
     });
     expect(port.getSnapshot().inventory.heldItem).toMatchObject({
@@ -152,10 +267,109 @@ describe("BedrockWorldObservationPort", () => {
     });
     client.emit("mob_equipment", {
       runtime_entity_id: 7n,
+      slot: 2,
       selected_slot: 2,
+      window_id: "inventory",
       item: { network_id: 10, count: 0 },
     });
     expect(port.getSnapshot().inventory.heldItem.status).toBe("inconsistent");
+  });
+
+  it("invalidates a previously known item when own equipment shape is malformed", () => {
+    const client = new FakeClient();
+    const port = new BedrockWorldObservationPort({
+      client,
+      version: "1.26.30",
+    });
+    spawn(client);
+    client.emit("mob_equipment", {
+      runtime_entity_id: 7n,
+      slot: 0,
+      selected_slot: 0,
+      window_id: "hotbar",
+      item: {
+        network_id: 3,
+        count: 1,
+        metadata: 0,
+        has_stack_id: true,
+        stack_id: { empty: 0, id: 9 },
+        block_runtime_id: 10,
+        extra: {
+          has_nbt: "false",
+          can_place_on: [],
+          can_destroy: [],
+        },
+      },
+    });
+    expect(port.getSnapshot().inventory.heldItem.status).toBe("known");
+    client.emit("mob_equipment", {
+      runtime_entity_id: 7n,
+      selected_slot: 0,
+      window_id: "hotbar",
+      item: { network_id: 3 },
+    });
+    expect(port.getSnapshot().inventory).toEqual({
+      selectedSlot: "unknown",
+      inventorySlot: "unsupported",
+      heldItem: { status: "inconsistent" },
+      fullInventory: "unsupported",
+    });
+  });
+
+  it("does not promote NBT-bearing or zero-stack items to transaction-ready data", () => {
+    const client = new FakeClient();
+    const port = new BedrockWorldObservationPort({
+      client,
+      version: "1.26.30",
+    });
+    spawn(client);
+    client.emit("mob_equipment", {
+      runtime_entity_id: 7n,
+      slot: 0,
+      selected_slot: 0,
+      window_id: "inventory",
+      item: {
+        network_id: 3,
+        count: 1,
+        metadata: 0,
+        has_stack_id: true,
+        stack_id: { empty: 0, id: 8 },
+        block_runtime_id: 10,
+        extra: {
+          has_nbt: "true",
+          nbt: { private: "must-not-survive" },
+          can_place_on: [],
+          can_destroy: [],
+        },
+      },
+    });
+    expect(port.getSnapshot().inventory.heldItem).toMatchObject({
+      status: "known",
+      transactionExtra: "unsupported",
+    });
+    expect(JSON.stringify(port.getSnapshot())).not.toContain("private");
+    client.emit("mob_equipment", {
+      runtime_entity_id: 7n,
+      slot: 0,
+      selected_slot: 0,
+      window_id: "inventory",
+      item: {
+        network_id: 3,
+        count: 1,
+        metadata: 0,
+        has_stack_id: true,
+        stack_id: { empty: 0, id: 0 },
+        block_runtime_id: 10,
+        extra: {
+          has_nbt: "false",
+          can_place_on: [],
+          can_destroy: [],
+        },
+      },
+    });
+    expect(port.getSnapshot().inventory.heldItem).toEqual({
+      status: "inconsistent",
+    });
   });
 
   it("invalidates on dimension change until reconnect and on disconnect", () => {

@@ -193,6 +193,8 @@ consumer、Minecraft connectionには未接続です。詳細は[簡単なMinecr
 
 `domain/block-operation`は単一dirt配置の座標・block・事前事後条件を厳格に定義し、
 `BlockOperationPort`はserver block観測と1回の配置要求をMinecraft adapterから分離します。
+PlayerAuthInput streamは接続単位のauthoritative frame排他境界でmovementとblock placementの同時所有を防ぎます。
+この境界はtick単調性と観測鮮度を検査しますが、配置packetの未確定な意味論を補完しません。
 application coordinatorはqueue claim、StateStore、共通安全policy、reach、support、TOCTOU再評価、
 server事後観測を統合します。migration 003はversion付き指示と送信直前・検証済みphaseを保存し、
 claimed残留を自動再送しません。実packet adapterはなく、通常runtime bindingは`unsupported`かつ
@@ -209,3 +211,11 @@ inventoryの安全な最小表現を管理します。`WorldObservationPort`はw
 dimension変更とdisconnectではcacheを破棄し、spawn前と移行中をfail-closedにします。runtimeは
 既定disabled bindingのcleanupだけを持ち、自動作業やpacket送信へ接続しません。詳細は
 [Bedrock world・inventory観測基盤](world-observation.md)を参照してください。
+
+`item_registry`は接続generation単位の読み取り正本として検証し、`minecraft:dirt`だけを安全なmappingへ
+投影します。`mob_equipment`の`ItemNew`はtransactionに必要な固定fieldと空extraだけを投影しますが、
+full inventoryの`ItemV4.extra_data`はopaqueなため使用しません。block palette IDとは型と利用箇所を分離します。
+
+配置protocolのadapter層は、faceとenvelopeを別々のcapability evidenceとして扱います。固定schema内に
+`up`の数値enumおよびauthority設定からenvelopeを選択する規則がないため、両候補をoffline serializeできても
+production portは`unsupported`のままです。

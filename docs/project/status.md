@@ -2,7 +2,7 @@
 
 ## 基準
 
-- 基準コミット: `867e5ecea1dcd1cc7ee1aa919b6d9f90ec2186fc`
+- 基準コミット: `9dc2be55416a360a89d7ae27cbf2fb7538319a2c`
 - 完成マイルストーン: 単一block配置の型付き永続化と実接続前gate
 - 現在の工程: Bedrock単一block配置のprotocol不足解消
 
@@ -62,6 +62,10 @@
 - 再起動後のclaimed指示をmanual reviewとし自動再送しない復旧分類
 - 1.26.30 `inventory_transaction`候補のoffline schema serialize検証
 - 明示的な専用試験注入だけを許すblock-operation runtime binding
+- 接続generation付きitem registry検証と`minecraft:dirt`の一意なitem network ID同定
+- own `ItemNew`のmetadata・stack ID・block runtime ID・空extraのallow-list投影
+- transaction用`Item`候補への送信なし限定変換と、両envelopeのoffline構文検証
+- face数値・envelope選択規則が固定schemaにないことを明示するfail-closed capability評価
 
 実サーバー試験の詳細は
 [通常運転ランタイム検証](../verification/runtime-readonly.md)を参照してください。
@@ -76,7 +80,10 @@ MySQLの非秘密なローカル検証結果は
 
 - 実移動frame providerと有効化設定はなく、通常runtimeのmovement bindingはdisabledで読み取り専用
 - block変更packet adapter、full inventory、queue consumerはなく通常bindingもdisabled
-- dirt item registry、transaction用held item完全形、face対応、transaction envelope、authoritative frameが未確定
+- authoritative frame排他所有と専用acceptance preflightはoffline実装済み
+- Geyser・Cloudburst・PrismarineJSの固定commitを比較したProtocol Evidence Matrixと、絶対座標・tick・
+  runtime IDを残さない匿名Golden Fixture観測境界を実装済み。実fixture取得とproduction adapter有効化は未実施
+- 配置用frame意味論、face対応、transaction envelope選択が未確定で、実server試験A～Eは未実施
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない

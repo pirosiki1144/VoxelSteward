@@ -152,8 +152,14 @@ version付きMySQL指示永続化を実装しています。送信直前phaseを
 
 Bedrock 1.26.30のblock更新、own entityのheld item、dimension変更を、安全なfreeze済みsnapshotへ
 変換する読み取り専用基盤を実装しています。block cacheは最大128件で、spawn前・dimension移行中・
-切断後は利用できません。full inventory、実block操作adapter、runtime consumerは未実装です。
+切断後は利用できません。接続generation別のitem registryから`minecraft:dirt`だけを同定し、own held itemの
+transaction用固定fieldを安全に投影できます。full inventory、face数値・envelope選択、実block操作adapter、
+runtime consumerは未実装です。
 詳細は[観測基盤](docs/world-observation.md)を参照してください。
+
+movementとblock placementのPlayerAuthInput frameは排他所有し、tick逆行、stale観測、dimension・reach・安全条件を
+offlineで検査します。専用のblock placement acceptance serviceも追加済みですが、protocol capabilityが
+`unsupported`の間は認証やMinecraft接続より前に停止し、実配置を行いません。
 
 ### Dockerイメージのビルド
 

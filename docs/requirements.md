@@ -217,6 +217,10 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - schema serialize成功だけで実adapterを有効化せず、item同定、face、transaction envelope、authoritative
   frameの意味論が確定しない場合は`unsupported`を維持すること。
 - 実adapter未対応時はfail-closedとし、runtimeの既定をdisabledに保つこと。
+- movementとblock placementは同じauthoritative frame streamを排他所有し、stale観測、tick重複・逆行、
+  dimension不一致、reach超過、安全停止後のframeを拒否すること。
+- 専用配置acceptanceは既定無効、normal固定、operator確認、1 task・1座標・1試行に限定し、capability
+  unsupported時はInstanceLock・client生成・接続より前に停止すること。
 
 ## 15. Bedrock world・inventory観測要件
 
@@ -227,6 +231,12 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - held itemはown entityのselected slot、network ID、count、block runtime ID、schema上存在するstack ID
   だけを保持し、NBT、表示名、lore、player情報を保存しないこと。
 - schemaから確定できないfull inventoryとstack IDを推測せず`unsupported`としてfail-closedにすること。
+- 1.26.30の`item_registry`を接続generationごとに検証し、重複・不正・dirt欠落時は利用不能にすること。
+- registryから保持するitem mappingは`minecraft:dirt`だけとし、NBTやcustom item名を保存しないこと。
+- `ItemNew`からtransaction候補へ使う値はmetadata、stack ID、block runtime ID、空extraをallow-list検査し、
+  欠損やopaque dataがある場合は利用不能にすること。
+- item network IDとblock runtime IDを混同しないこと。
+- face数値またはtransaction envelopeの選択を固定schemaで確定できない間は実adapterを有効化しないこと。
 - snapshotとeventを実行時にも変更不能にし、同値更新と古いsequenceのeventを抑制すること。
 - subscriber障害をruntime安全動作から隔離し、unsubscribeとcloseでlistenerを解放すること。
 

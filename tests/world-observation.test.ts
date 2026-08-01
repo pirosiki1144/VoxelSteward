@@ -35,17 +35,78 @@ describe("WorldObservationStore", () => {
       updatedAt: "2026-08-01T00:00:00.000Z",
       lastSequence: -1,
       availability: "disconnected",
+      connectionGeneration: 0,
       inventory: {
         selectedSlot: "unknown",
+        inventorySlot: "unsupported",
         heldItem: { status: "unknown" },
         fullInventory: "unsupported",
       },
+      itemRegistry: { status: "unavailable" },
       blocks: [],
     });
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.inventory)).toBe(true);
     expect(Object.isFrozen(snapshot.inventory.heldItem)).toBe(true);
+    expect(Object.isFrozen(snapshot.itemRegistry)).toBe(true);
     expect(Object.isFrozen(snapshot.blocks)).toBe(true);
+  });
+
+  it("accepts only the current connection generation item registry", () => {
+    const store = readyStore();
+    const generation = store.getSnapshot().connectionGeneration;
+    const event = store.dispatch({
+      type: "item_registry_observed",
+      sequence: 3,
+      registry: {
+        status: "ready",
+        connectionGeneration: generation,
+        itemCount: 700,
+        dirt: { identifier: "minecraft:dirt", networkId: 3 },
+      },
+    });
+    expect(store.getItemNetworkId("minecraft:dirt")).toBe(3);
+    const registry = store.getSnapshot().itemRegistry;
+    expect(Object.isFrozen(registry)).toBe(true);
+    if (registry.status !== "ready") throw new Error("registry not ready");
+    expect(Object.isFrozen(registry.dirt)).toBe(true);
+    expect(Object.isFrozen(event)).toBe(true);
+    expect(Object.isFrozen(event?.before)).toBe(true);
+    expect(Object.isFrozen(event?.after)).toBe(true);
+    expect(() =>
+      store.dispatch({
+        type: "item_registry_observed",
+        sequence: 4,
+        registry: {
+          status: "ready",
+          connectionGeneration: generation + 1,
+          itemCount: 700,
+          dirt: { identifier: "minecraft:dirt", networkId: 3 },
+        },
+      }),
+    ).toThrowError(WorldObservationError);
+    expect(store.getItemNetworkId("minecraft:dirt")).toBe(3);
+  });
+
+  it("invalidates registry and held item at dimension transition", () => {
+    const store = readyStore();
+    store.dispatch({
+      type: "item_registry_observed",
+      sequence: 3,
+      registry: {
+        status: "ready",
+        connectionGeneration: store.getSnapshot().connectionGeneration,
+        itemCount: 1,
+        dirt: { identifier: "minecraft:dirt", networkId: 3 },
+      },
+    });
+    store.dispatch({
+      type: "dimension_changing",
+      sequence: 4,
+      dimension: "nether",
+    });
+    expect(store.getSnapshot().itemRegistry).toEqual({ status: "unavailable" });
+    expect(store.getItemNetworkId("minecraft:dirt")).toBeUndefined();
   });
 
   it("records UTC revisions and immutable before/after events", () => {
@@ -101,18 +162,23 @@ describe("WorldObservationStore", () => {
         status: "known",
         networkId: 12,
         count: 1,
+        metadata: 0,
         blockRuntimeId: 44,
         stackNetworkId: "unsupported",
+        transactionExtra: "unsupported",
       },
     });
     expect(store.getSnapshot().inventory).toEqual({
       selectedSlot: 0,
+      inventorySlot: "unsupported",
       heldItem: {
         status: "known",
         networkId: 12,
         count: 1,
+        metadata: 0,
         blockRuntimeId: 44,
         stackNetworkId: "unsupported",
+        transactionExtra: "unsupported",
       },
       fullInventory: "unsupported",
     });
@@ -237,8 +303,10 @@ describe("WorldObservationStore", () => {
           status: "known",
           networkId: -1,
           count: Number.NaN,
+          metadata: 0,
           blockRuntimeId: 0,
           stackNetworkId: "unsupported",
+          transactionExtra: "unsupported",
           secret: "not retained",
         } as never,
       }),
@@ -252,13 +320,31 @@ describe("WorldObservationStore", () => {
         status: "known",
         networkId: 1,
         count: 1,
+        metadata: 0,
         blockRuntimeId: 0,
         stackNetworkId: "unsupported",
+        transactionExtra: "unsupported",
         secret: "not retained",
       } as never,
     });
     expect(event).toBeDefined();
     expect(JSON.stringify(store.getSnapshot())).not.toContain("secret");
+    expect(() =>
+      store.dispatch({
+        type: "held_item_observed",
+        sequence: 4,
+        selectedSlot: 0,
+        heldItem: {
+          status: "known",
+          networkId: 1,
+          count: 65_536,
+          metadata: 0,
+          blockRuntimeId: 0,
+          stackNetworkId: 1,
+          transactionExtra: "empty",
+        },
+      }),
+    ).toThrowError(WorldObservationError);
   });
 
   it("rejects an invalid air marker without consuming its sequence", () => {

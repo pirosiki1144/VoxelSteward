@@ -205,6 +205,16 @@ world・inventory観測bindingも通常runtimeでは既定disabledです。実�
 明示承認を得ます。観測logへraw packet、NBT、player/BOT情報、接続先を出力しません。
 timeoutや結果不明時は再送せず、自動採掘によるrollbackも行いません。
 
+item registryとheld itemのoffline検証では、registryのNBT、custom item名、生packetをログへ出しません。
+registry不整合、dimension変更、disconnect、transaction用extra不足では配置資格を失います。face数値と
+transaction envelopeの選択根拠が未解決のため、既存runtimeを実配置試験へ流用してはいけません。
+
+専用`block-placement-acceptance` serviceはprofileで隔離し、通常runtimeやsmokeの代用を禁止します。現在は
+protocol capabilityがunsupportedのため起動対象ではなく、起動してもMinecraft関連の外部副作用より前に
+停止するpreflightだけが実装済みです。実server試験は
+[単一dirt配置の受入計画](verification/block-placement-acceptance-plan.md)のgateとoperator checklistを満たし、
+段階ごとの承認を得た後だけ実施します。
+
 1. buildを実行し、すべての自動チェックを実行します。
 2. テスト用データベースへマイグレーションを適用します。
 3. 専用のテストサーバー設定を使用してデプロイします。

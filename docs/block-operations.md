@@ -1,5 +1,10 @@
 # 最初のブロック操作
 
+配置protocolの固定commit調査とproduction採用条件は、
+[Protocol Evidence Matrix](verification/block-placement-protocol-evidence.md)に記録しています。参照実装上は
+`UP=1`、`block_position`はsupport、`click_position`はsupport-relativeという根拠を得ましたが、匿名
+Golden Fixtureと一致するまで実adapterは`unsupported`を維持します。
+
 ## 選択した操作
 
 最初のブロック変更は、専用テスト区域で空気と確認された1座標へ`dirt`を1個だけ配置する
@@ -35,14 +40,40 @@ portへ配置を要求するのは最大1回で、timeout、disconnect、Abort�
 安全停止はportを一度だけ停止し、後続送信を禁止します。StateStoreとqueueの終端化が
 失敗しても2回目の配置は行いません。
 
+## protocol前提の確認結果
+
+1.26.30の`mob_equipment`が持つ`ItemNew`からmetadata、stack ID、block runtime ID、空のextraを
+allow-list投影し、同じ接続generationの`item_registry`から`minecraft:dirt`を一意に同定できるように
+しました。条件が完全に揃う場合だけ、送信を行わないoffline helperがtransaction用`Item`候補へ変換します。
+
+固定schemaではstandalone `inventory_transaction`と`player_auth_input`内のitem-interact transactionの
+両方を構文上serializeできます。しかし、support上面`up`の数値enumと、authority設定からどちらのenvelopeを
+選ぶかという規則は固定dependency内にありません。authority flagを選択規則として推測せず、capabilityは
+常に`unsupported`です。offline round-tripはserver受理や配置意味論を証明しません。
+
 ## 未実装
 
-- inventory/hotbar/stack IDとblock palette/runtime IDの安全な取得
-- item registryによるdirt同定とtransaction用held itemの完全な再構成
-- face数値対応、standalone transactionとPlayerAuthInput埋込みの選択、authoritative frameとの合成
+- full inventory/hotbar対応と、opaqueな`ItemV4.extra_data`の意味解析
+- face数値対応、standalone transactionとPlayerAuthInput埋込みの選択、配置用frameの意味論
 - 視点、face、support位置を実serverで検証するadapter
 - queue consumer、runtime executor
 - 実Minecraft配置、rollback、自動再試行
+
+## authoritative frame排他境界
+
+movementとblock placementが同じPlayerAuthInput streamへ同時送信しないよう、接続単位の排他所有境界を
+追加しました。movementは送信前にtickをclaimし、実際にqueueした場合だけcommitします。block placement
+候補は最新観測revision、同一dimension、3 block以内、安全policy許可、tick単調増加を満たす場合だけ同じ
+境界をclaimできます。重複・逆行tick、stale観測、movement中、停止後は拒否します。
+
+この境界は送信順序の安全性だけを提供し、配置用tick・rotation・head yaw・position、face数値、envelopeを
+決定しません。そのためproduction配置adapterは引き続き`unsupported`です。
+
+## 専用acceptance preflight
+
+通常runtimeとsmokeから分離したprofile付きentrypointを追加しました。既定はdisabledで、enabled時もnormal、
+operator確認、1回上限、1.26.30を厳格に要求します。現在はprotocol capabilityがunsupportedのため、
+InstanceLock取得、Minecraft client生成、認証、接続より前に固定された安全な理由で終了します。
 
 実adapterは[単一dirt配置の受入計画](verification/block-placement-acceptance-plan.md)を段階ごとに
 レビューし、実接続とgame操作の承認を得るまで有効化しません。

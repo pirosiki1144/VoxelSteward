@@ -9,6 +9,7 @@ import type {
   WorldObservationEvent,
   WorldObservationListener,
   WorldObservationSnapshot,
+  SupportedItemIdentifier,
 } from "./types.js";
 
 const systemClock: ObservationClock = { now: () => new Date() };
@@ -35,6 +36,10 @@ const validPosition = (position: ObservedBlockPosition): boolean =>
 const validDimension = (value: unknown): boolean =>
   value === "overworld" || value === "nether" || value === "end";
 
+const UINT16_MAX = 65_535;
+const UINT32_MAX = 4_294_967_295;
+const INT32_MAX = 2_147_483_647;
+
 const projectHeldItem = (value: ObservedHeldItem): ObservedHeldItem => {
   if (value.status === "unknown") return freeze({ status: "unknown" });
   if (value.status === "empty") return freeze({ status: "empty" });
@@ -43,13 +48,24 @@ const projectHeldItem = (value: ObservedHeldItem): ObservedHeldItem => {
   }
   if (
     !Number.isSafeInteger(value.networkId) ||
-    value.networkId <= 0 ||
+    value.networkId === 0 ||
+    value.networkId < -32768 ||
+    value.networkId > 32767 ||
     !Number.isSafeInteger(value.count) ||
     value.count <= 0 ||
+    value.count > UINT16_MAX ||
+    !Number.isSafeInteger(value.metadata) ||
+    value.metadata < 0 ||
+    value.metadata > UINT32_MAX ||
     !Number.isSafeInteger(value.blockRuntimeId) ||
     value.blockRuntimeId < 0 ||
+    value.blockRuntimeId > UINT32_MAX ||
     (value.stackNetworkId !== "unsupported" &&
-      (!Number.isSafeInteger(value.stackNetworkId) || value.stackNetworkId < 0))
+      (!Number.isSafeInteger(value.stackNetworkId) ||
+        value.stackNetworkId < 1 ||
+        value.stackNetworkId > INT32_MAX)) ||
+    (value.transactionExtra !== "empty" &&
+      value.transactionExtra !== "unsupported")
   ) {
     throw new WorldObservationError("INVALID_OBSERVATION");
   }
@@ -57,8 +73,10 @@ const projectHeldItem = (value: ObservedHeldItem): ObservedHeldItem => {
     status: "known",
     networkId: value.networkId,
     count: value.count,
+    metadata: value.metadata,
     blockRuntimeId: value.blockRuntimeId,
     stackNetworkId: value.stackNetworkId,
+    transactionExtra: value.transactionExtra,
   });
 };
 
@@ -95,11 +113,14 @@ export class WorldObservationStore {
       updatedAt,
       lastSequence: -1,
       availability: "disconnected",
+      connectionGeneration: 0,
       inventory: {
         selectedSlot: "unknown",
+        inventorySlot: "unsupported",
         heldItem: { status: "unknown" },
         fullInventory: "unsupported",
       },
+      itemRegistry: { status: "unavailable" },
       blocks: [],
     });
   }
@@ -121,6 +142,21 @@ export class WorldObservationStore {
     );
   }
 
+  getItemNetworkId(identifier: SupportedItemIdentifier): number | undefined {
+    if (
+      this.#closed ||
+      this.#snapshot.availability !== "ready" ||
+      this.#snapshot.itemRegistry.status !== "ready" ||
+      this.#snapshot.itemRegistry.connectionGeneration !==
+        this.#snapshot.connectionGeneration
+    ) {
+      return undefined;
+    }
+    return identifier === "minecraft:dirt"
+      ? this.#snapshot.itemRegistry.dirt.networkId
+      : undefined;
+  }
+
   dispatch(
     command: WorldObservationCommand,
   ): WorldObservationEvent | undefined {
@@ -140,8 +176,10 @@ export class WorldObservationStore {
         next = {
           lastSequence: command.sequence,
           availability: "pre_spawn",
+          connectionGeneration: before.connectionGeneration + 1,
           dimension: command.dimension,
           inventory: this.#emptyInventory(),
+          itemRegistry: freeze({ status: "unavailable" as const }),
           blocks: [],
         };
         break;
@@ -155,11 +193,16 @@ export class WorldObservationStore {
         next = {
           lastSequence: command.sequence,
           availability: "ready",
+          connectionGeneration: before.connectionGeneration,
           dimension: command.dimension,
           inventory:
             before.dimension === command.dimension
               ? before.inventory
               : this.#emptyInventory(),
+          itemRegistry:
+            before.dimension === command.dimension
+              ? before.itemRegistry
+              : freeze({ status: "unavailable" as const }),
           blocks: before.dimension === command.dimension ? before.blocks : [],
         };
         break;
@@ -173,10 +216,12 @@ export class WorldObservationStore {
         next = {
           lastSequence: command.sequence,
           availability: "dimension_transition",
+          connectionGeneration: before.connectionGeneration,
           ...(command.dimension === undefined
             ? {}
             : { dimension: command.dimension }),
           inventory: this.#emptyInventory(),
+          itemRegistry: freeze({ status: "unavailable" as const }),
           blocks: [],
         };
         break;
@@ -184,7 +229,9 @@ export class WorldObservationStore {
         next = {
           lastSequence: command.sequence,
           availability: "disconnected",
+          connectionGeneration: before.connectionGeneration,
           inventory: this.#emptyInventory(),
+          itemRegistry: freeze({ status: "unavailable" as const }),
           blocks: [],
         };
         break;
@@ -199,6 +246,7 @@ export class WorldObservationStore {
         }
         const inventory = freeze({
           selectedSlot: command.selectedSlot,
+          inventorySlot: "unsupported" as const,
           heldItem: projectHeldItem(command.heldItem),
           fullInventory: "unsupported" as const,
         });
@@ -209,6 +257,66 @@ export class WorldObservationStore {
           return undefined;
         }
         next = { ...before, lastSequence: command.sequence, inventory };
+        break;
+      }
+      case "inventory_invalidated": {
+        this.#assertReady();
+        const inventory = freeze({
+          selectedSlot: "unknown" as const,
+          inventorySlot: "unsupported" as const,
+          heldItem: { status: "inconsistent" as const },
+          fullInventory: "unsupported" as const,
+        });
+        if (JSON.stringify(before.inventory) === JSON.stringify(inventory)) {
+          this.#lastAcceptedSequence = command.sequence;
+          return undefined;
+        }
+        next = { ...before, lastSequence: command.sequence, inventory };
+        break;
+      }
+      case "item_registry_observed": {
+        if (
+          before.availability !== "pre_spawn" &&
+          before.availability !== "ready"
+        ) {
+          throw new WorldObservationError("OBSERVATION_UNAVAILABLE");
+        }
+        let itemRegistry;
+        if (command.registry.status === "ready") {
+          if (
+            command.registry.connectionGeneration !==
+              before.connectionGeneration ||
+            !Number.isSafeInteger(command.registry.itemCount) ||
+            command.registry.itemCount < 1 ||
+            command.registry.dirt.identifier !== "minecraft:dirt" ||
+            !Number.isSafeInteger(command.registry.dirt.networkId) ||
+            command.registry.dirt.networkId === 0 ||
+            command.registry.dirt.networkId < -32768 ||
+            command.registry.dirt.networkId > 32767
+          ) {
+            throw new WorldObservationError("INVALID_OBSERVATION");
+          }
+          itemRegistry = freeze({
+            status: "ready" as const,
+            connectionGeneration: command.registry.connectionGeneration,
+            itemCount: command.registry.itemCount,
+            dirt: {
+              identifier: "minecraft:dirt" as const,
+              networkId: command.registry.dirt.networkId,
+            },
+          });
+        } else if (command.registry.status === "inconsistent") {
+          itemRegistry = freeze({ status: "inconsistent" as const });
+        } else {
+          throw new WorldObservationError("INVALID_OBSERVATION");
+        }
+        if (
+          JSON.stringify(before.itemRegistry) === JSON.stringify(itemRegistry)
+        ) {
+          this.#lastAcceptedSequence = command.sequence;
+          return undefined;
+        }
+        next = { ...before, lastSequence: command.sequence, itemRegistry };
         break;
       }
       case "block_observed": {
@@ -286,6 +394,7 @@ export class WorldObservationStore {
   #emptyInventory() {
     return freeze({
       selectedSlot: "unknown" as const,
+      inventorySlot: "unsupported" as const,
       heldItem: { status: "unknown" as const },
       fullInventory: "unsupported" as const,
     });

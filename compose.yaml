@@ -66,6 +66,27 @@ services:
       - /tmp:size=16m,mode=1777
     stop_grace_period: 20s
 
+  block-placement-acceptance:
+    profiles: ["acceptance"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward-block-placement-acceptance:local
+    command: ["node", "dist/src/block-placement-acceptance.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    environment:
+      BOT_MODE: normal
+      MINECRAFT_VERSION: ${MINECRAFT_VERSION:-}
+      BLOCK_PLACEMENT_ACCEPTANCE_ENABLED: ${BLOCK_PLACEMENT_ACCEPTANCE_ENABLED:-false}
+      BLOCK_PLACEMENT_OPERATOR_CONFIRMED: ${BLOCK_PLACEMENT_OPERATOR_CONFIRMED:-false}
+      BLOCK_PLACEMENT_MAX_ATTEMPTS: "1"
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
+
   mysql-test:
     image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
     profiles: ["test"]

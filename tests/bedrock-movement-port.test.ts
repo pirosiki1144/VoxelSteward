@@ -49,9 +49,11 @@ class FakeTransport implements BedrockMovementTransport {
     (observation: BedrockMovementObservation) => void
   >();
   readonly disconnects = new Set<() => void>();
+  queueError = false;
 
   queuePlayerAuthInput(payload: PlayerAuthInputPayload): void {
     this.payloads.push(payload);
+    if (this.queueError) throw new Error("synthetic queue failure");
   }
 
   subscribeObservation(
@@ -149,6 +151,20 @@ describe("BedrockMovementPort", () => {
     const first = port.move(step, new AbortController().signal);
     transport.observe({ kind: "position", position: step.target });
     await first;
+    await expect(
+      port.move(step, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "INVALID_MOVEMENT_FRAME" });
+    expect(transport.payloads).toHaveLength(1);
+  });
+
+  it("queueが同期throwしても送信済みtickを再利用しない", async () => {
+    const transport = new FakeTransport();
+    transport.queueError = true;
+    const port = new BedrockMovementPort(transport, () => draft(7n));
+    await expect(
+      port.move(step, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "MOVEMENT_DISCONNECTED" });
+    transport.queueError = false;
     await expect(
       port.move(step, new AbortController().signal),
     ).rejects.toMatchObject({ code: "INVALID_MOVEMENT_FRAME" });

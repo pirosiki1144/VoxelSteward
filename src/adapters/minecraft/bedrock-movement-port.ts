@@ -11,6 +11,7 @@ import {
   type PlayerAuthInputFrameDraft,
   type PlayerAuthInputPayload,
 } from "./player-auth-input-frame.js";
+import { BedrockAuthoritativeFrameOwnership } from "./bedrock-authoritative-frame-ownership.js";
 
 export type BedrockMovementObservation =
   | { readonly kind: "position"; readonly position: MovementPosition }
@@ -203,6 +204,7 @@ const validateObservation = (
 export class BedrockMovementPort implements MovementPort {
   readonly #transport: BedrockMovementTransport;
   readonly #frameProvider: MovementFrameProvider;
+  readonly #frameOwnership: BedrockAuthoritativeFrameOwnership;
   #lastSentTick: bigint | undefined;
   #active: AbortController | undefined;
   #closed = false;
@@ -210,10 +212,12 @@ export class BedrockMovementPort implements MovementPort {
   constructor(
     transport: BedrockMovementTransport,
     frameProvider: MovementFrameProvider,
+    frameOwnership = new BedrockAuthoritativeFrameOwnership(),
   ) {
     assertSupportedMovementProtocolVersion(transport.version);
     this.#transport = transport;
     this.#frameProvider = frameProvider;
+    this.#frameOwnership = frameOwnership;
   }
 
   async move(
@@ -234,6 +238,12 @@ export class BedrockMovementPort implements MovementPort {
       this.#lastSentTick !== undefined &&
       payload.tick <= this.#lastSentTick
     ) {
+      throw new MovementError("INVALID_MOVEMENT_FRAME");
+    }
+    let frameLease;
+    try {
+      frameLease = this.#frameOwnership.acquireMovement(payload.tick);
+    } catch {
       throw new MovementError("INVALID_MOVEMENT_FRAME");
     }
 
@@ -306,15 +316,20 @@ export class BedrockMovementPort implements MovementPort {
             return;
           }
           sent = true;
-          this.#transport.queuePlayerAuthInput(payload);
+          // Consume the tick before crossing the synchronous transport boundary.
+          // If queue throws or re-enters stop(), this frame must never be reused.
+          frameLease.commit();
           this.#lastSentTick = payload.tick;
+          this.#transport.queuePlayerAuthInput(payload);
         } catch {
+          frameLease.release();
           finish({ error: new MovementError("MOVEMENT_DISCONNECTED") });
         }
       });
     } finally {
       signal.removeEventListener("abort", abort);
       controller.abort();
+      frameLease.release();
       if (this.#active === controller) this.#active = undefined;
     }
   }
@@ -323,5 +338,6 @@ export class BedrockMovementPort implements MovementPort {
     if (this.#closed) return;
     this.#closed = true;
     this.#active?.abort();
+    this.#frameOwnership.close();
   }
 }

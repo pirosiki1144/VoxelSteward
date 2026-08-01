@@ -1,17 +1,26 @@
 # 単一dirt配置の実サーバー受入計画
 
+protocol根拠と匿名fixtureの取得手順は、
+[Bedrockブロック配置 Protocol Evidence Matrix](block-placement-protocol-evidence.md)および
+[ブロック配置 Golden Fixture取得計画](block-placement-golden-fixture-plan.md)を参照してください。
+
 ## 現在のgate判定
 
-**実配置試験はnot readyです。** 固定1.26.30 schemaで候補packetのoffline serializeは確認済みですが、
-次を一次根拠とfixtureで確定するまで、実adapterは`unsupported`のままです。
+**実配置試験はnot readyです。** 固定1.26.30 schemaで候補packetのoffline serializeを確認し、item
+registryとtransaction用held itemの限定変換もofflineで確定しました。ただし、次を一次根拠とfixtureで
+確定するまで、実adapterは`unsupported`のままです。
 
-- item registryから`minecraft:dirt`を一意に同定すること
-- `ItemNew`観測からtransaction用`Item`を欠損なく構成できること
 - support上面に対応するface数値の一次根拠
 - standalone `inventory_transaction`とPlayerAuthInput埋込みの選択根拠
-- authoritative tick・rotation・frameへ原子的に統合する境界
+- authoritative frameの排他所有境界はoffline実装済みだが、配置用tick・rotation・head yaw・positionの意味論
 
-以下はgate解消後の段階計画です。段階C以降を実行してはなりません。
+固定1.26.30 schemaで`minecraft:dirt`の接続generation別同定、own `ItemNew`のmetadata・stack ID・
+block runtime ID・空extra検査、両envelopeのoffline serializeを確認済みです。schemaにはfaceの方向enumと
+envelope選択規則がないため、serialize成功を実送信の根拠にはしません。
+
+排他境界はtick単調性、stale観測、dimension、reach、安全停止を検査しますが、未確定な配置frameの意味論を
+補完しません。以下はgate解消後の段階計画です。現時点ではAを含めて実serverへ接続せず、C以降を実行しては
+なりません。
 
 ## 共通前提
 
@@ -21,13 +30,13 @@
 
 - 他playerがいない隔離区域を用意する。
 - targetは手の届く隣接空間1座標、事前状態はair、直下supportは既知のsolid blockとする。
-- inventoryには試験用dirtを手動で1個以上準備し、slot・stack・runtime IDをログや文書へ記録しない。
+- inventoryには試験用dirtを手動で1個だけ準備し、slot・stack・runtime IDをログや文書へ記録しない。
 - movement、jump、攻撃、採掘、chat、commandを同じ試験へ混在させない。
 - player/BOT名、server endpoint、認証情報、実座標を検証記録へ残さない。
 
 ## 段階A: 読み取り専用観測
 
-- runtime/smokeではなく、将来追加する専用acceptance entrypointだけを使用する。
+- runtime/smokeではなく、専用acceptance entrypointだけを使用する。
 - targetのair、直下supportのsolid、同一dimension、reach、selected slot、dirt同定を読み取り専用で確認する。
 - packet送信、movement、item選択、block変更は0回とする。
 - 期待logは座標やIDを含めず、`block_acceptance.observation_ready`相当を1件だけ記録する。
@@ -58,11 +67,21 @@
 - 送信前中断はsend 0、送信後中断はsend 1以下で、どちらも再接続・再送0とする。
 - signal/player安全停止は正常終了、内部・設定・永続化異常は非0とし、listenerとtimerを残さない。
 
+## operator準備checklist
+
+- 専用test serverとrollback可能な隔離区域であることを確認する。
+- 他playerが不在であることを確認する（段階Eの専用runを除く）。
+- target 1座標がair、直下supportがsolid、同一dimension、3 block以内であることを確認する。
+- selected hotbar slotへ試験用dirtを手動で1個だけ用意する。
+- 認証volumeを変更・初期化・再作成・削除しない。
+- rollbackはBOTではなく、試験終了後にユーザーが手動で判断する。
+- timeout、disconnect、結果不明、観測不一致では再試行しない。
+
 ## 実行コマンドgate
 
-専用acceptance entrypointとCompose serviceは未実装です。既存`runtime`を代用して実行してはなりません。
-実装後は空の表示用envを使うoffline検証と、秘密を表示しない専用service起動コマンドをこの節へ固定し、
-段階ごとに送信上限をコードとlogで確認します。現在実行可能なのは次のoffline検証だけです。
+専用acceptance entrypointとprofile付きCompose serviceは追加済みですが、production capabilityが
+`unsupported`の間はInstanceLock、Minecraft client生成、認証、接続より前に固定理由で失敗します。
+既存`runtime`を代用してはなりません。現在実行可能なのは次のoffline検証だけです。
 
 ```bash
 npm test -- --run tests/bedrock-block-placement-schema.test.ts tests/block-operation.test.ts

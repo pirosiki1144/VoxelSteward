@@ -46,16 +46,35 @@ const safeInteger = (value: unknown, minimum = 0): number | undefined =>
     ? value
     : undefined;
 
+const signedInt16 = (value: unknown): number | undefined =>
+  typeof value === "number" &&
+  Number.isSafeInteger(value) &&
+  value >= -32768 &&
+  value <= 32767
+    ? value
+    : undefined;
+
+const unsignedInt32 = (value: unknown): number | undefined =>
+  typeof value === "number" &&
+  Number.isSafeInteger(value) &&
+  value >= 0 &&
+  value <= 4_294_967_295
+    ? value
+    : undefined;
+
 const heldItemFrom = (value: unknown): ObservedHeldItem => {
   const item = record(value);
   if (item === undefined) return Object.freeze({ status: "inconsistent" });
-  const networkId = safeInteger(item.network_id);
+  const networkId = signedInt16(item.network_id);
   if (networkId === 0) return Object.freeze({ status: "empty" });
   const count = safeInteger(item.count, 1);
-  const blockRuntimeId = safeInteger(item.block_runtime_id);
+  const metadata = unsignedInt32(item.metadata);
+  const blockRuntimeId = unsignedInt32(item.block_runtime_id);
   if (
     networkId === undefined ||
     count === undefined ||
+    count > 65_535 ||
+    metadata === undefined ||
     blockRuntimeId === undefined
   ) {
     return Object.freeze({ status: "inconsistent" });
@@ -63,18 +82,77 @@ const heldItemFrom = (value: unknown): ObservedHeldItem => {
   let stackNetworkId: number | "unsupported" = "unsupported";
   if (item.has_stack_id === true) {
     const stack = record(item.stack_id);
-    const id = safeInteger(stack?.id);
-    if (id === undefined) return Object.freeze({ status: "inconsistent" });
+    const empty = safeInteger(stack?.empty);
+    const id = safeInteger(stack?.id, 1);
+    if (empty !== 0 || id === undefined) {
+      return Object.freeze({ status: "inconsistent" });
+    }
+    if (id > 2_147_483_647) {
+      return Object.freeze({ status: "inconsistent" });
+    }
     stackNetworkId = id;
   } else if (item.has_stack_id !== false) {
     return Object.freeze({ status: "inconsistent" });
   }
+  const extra = record(item.extra);
+  const canPlaceOn = extra?.can_place_on;
+  const canDestroy = extra?.can_destroy;
+  const transactionExtra =
+    extra !== undefined &&
+    (extra.has_nbt === "false" || extra.has_nbt === false) &&
+    Array.isArray(canPlaceOn) &&
+    canPlaceOn.length === 0 &&
+    Array.isArray(canDestroy) &&
+    canDestroy.length === 0
+      ? "empty"
+      : "unsupported";
   return Object.freeze({
     status: "known",
     networkId,
     count,
+    metadata,
     blockRuntimeId,
     stackNetworkId,
+    transactionExtra,
+  });
+};
+
+const itemRegistryFrom = (value: unknown, connectionGeneration: number) => {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 8192) {
+    return Object.freeze({ status: "inconsistent" as const });
+  }
+  const identifiers = new Set<string>();
+  const networkIds = new Set<number>();
+  let dirtNetworkId: number | undefined;
+  for (const raw of value) {
+    const item = record(raw);
+    const identifier = item?.name;
+    const networkId = signedInt16(item?.runtime_id);
+    if (
+      typeof identifier !== "string" ||
+      !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(identifier) ||
+      networkId === undefined ||
+      networkId === 0 ||
+      identifiers.has(identifier) ||
+      networkIds.has(networkId)
+    ) {
+      return Object.freeze({ status: "inconsistent" as const });
+    }
+    identifiers.add(identifier);
+    networkIds.add(networkId);
+    if (identifier === "minecraft:dirt") dirtNetworkId = networkId;
+  }
+  if (dirtNetworkId === undefined) {
+    return Object.freeze({ status: "inconsistent" as const });
+  }
+  return Object.freeze({
+    status: "ready" as const,
+    connectionGeneration,
+    itemCount: value.length,
+    dirt: Object.freeze({
+      identifier: "minecraft:dirt" as const,
+      networkId: dirtNetworkId,
+    }),
   });
 };
 
@@ -115,6 +193,12 @@ export class BedrockWorldObservationPort implements WorldObservationPort {
 
   getBlock(position: Parameters<WorldObservationPort["getBlock"]>[0]) {
     return this.#store.getBlock(position);
+  }
+
+  getItemNetworkId(
+    identifier: Parameters<WorldObservationPort["getItemNetworkId"]>[0],
+  ) {
+    return this.#store.getItemNetworkId(identifier);
   }
 
   subscribe(listener: WorldObservationListener): () => void {
@@ -181,6 +265,28 @@ export class BedrockWorldObservationPort implements WorldObservationPort {
         dimension: this.#dimension,
       });
     });
+    this.#listen("item_registry", (raw) => {
+      const packet = record(raw);
+      const snapshot = this.#store.getSnapshot();
+      if (
+        snapshot.availability !== "pre_spawn" &&
+        snapshot.availability !== "ready"
+      ) {
+        return;
+      }
+      try {
+        this.#store.dispatch({
+          type: "item_registry_observed",
+          sequence: this.#nextSequence(),
+          registry: itemRegistryFrom(
+            packet?.itemstates,
+            snapshot.connectionGeneration,
+          ),
+        });
+      } catch {
+        // Malformed or stale registries never become usable observations.
+      }
+    });
     this.#listen("change_dimension", (raw) => {
       const dimension = dimensionFrom(record(raw)?.dimension);
       this.#dimension = dimension;
@@ -224,7 +330,29 @@ export class BedrockWorldObservationPort implements WorldObservationPort {
       const packet = record(raw);
       if (entityId(packet?.runtime_entity_id) !== this.#ownRuntimeId) return;
       const selectedSlot = safeInteger(packet?.selected_slot);
-      if (selectedSlot === undefined) return;
+      const slot = safeInteger(packet?.slot);
+      const validWindow =
+        packet?.window_id === "inventory" ||
+        packet?.window_id === "hotbar" ||
+        packet?.window_id === 0 ||
+        packet?.window_id === 122;
+      if (
+        selectedSlot === undefined ||
+        selectedSlot > 8 ||
+        slot === undefined ||
+        slot > 255 ||
+        !validWindow
+      ) {
+        try {
+          this.#store.dispatch({
+            type: "inventory_invalidated",
+            sequence: this.#nextSequence(),
+          });
+        } catch {
+          // Invalid equipment outside a ready session remains unusable.
+        }
+        return;
+      }
       try {
         this.#store.dispatch({
           type: "held_item_observed",
