@@ -126,6 +126,9 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 各runtime runをUUIDで分離し、history、最新snapshot、作業checkpoint、通知outboxを
 単一transactionで保存します。Minecraft adapterとRuntimeSupervisorはSQLを知りません。
 subscriber障害は安全切断経路から隔離します。
+MySQL有効時の起動時にはtask queueを読み取り、`queued`を未開始のclaim候補、`claimed`を
+結果不明のmanual review、完了・失敗・停止・cancel済みを終端として件数だけ監査します。
+監査はtaskを変更せず、task IDや指示内容をログへ出しません。
 スナップショットとイベントは実行時に再帰的にfreezeし、時刻は注入可能なClockから
 UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と非同期rejectionを
 観測可能なエラー報告へ隔離します。詳細は[状態・進捗管理](state-management.md)を

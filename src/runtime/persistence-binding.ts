@@ -5,9 +5,11 @@ import type { Pool } from "mysql2/promise";
 
 import { MySqlStatePersistenceRepository } from "../adapters/persistence/mysql-state-persistence-repository.js";
 import { MySqlNotificationOutboxRepository } from "../adapters/persistence/mysql-notification-outbox-repository.js";
+import { MySqlTaskQueueRepository } from "../adapters/persistence/mysql-task-queue-repository.js";
 import { migrate } from "../adapters/persistence/mysql-migrations.js";
 import type { StatePersistenceRepository } from "../ports/state-persistence-repository.js";
 import type { NotificationOutboxRepository } from "../ports/notification-outbox-repository.js";
+import type { TaskQueueRepository } from "../ports/task-queue-repository.js";
 import { PersistenceError } from "../ports/state-persistence-repository.js";
 import type { PersistenceConfig } from "./persistence-config.js";
 
@@ -28,6 +30,7 @@ export interface RuntimePersistenceBinding {
   readonly runId: string;
   readonly repository: StatePersistenceRepository;
   readonly outboxRepository?: NotificationOutboxRepository;
+  readonly taskQueueRepository?: TaskQueueRepository;
   close(): Promise<void>;
 }
 
@@ -77,6 +80,7 @@ export const createRuntimePersistenceBinding = async (
     runId,
     repository,
     outboxRepository: new MySqlNotificationOutboxRepository(pool),
+    taskQueueRepository: new MySqlTaskQueueRepository(pool),
     close: () => repository.close(),
   };
 };

@@ -10,6 +10,8 @@ describe("createRuntimePersistenceBinding", () => {
       "2026-07-31T00:00:00.000Z",
     );
     expect(binding.enabled).toBe(false);
+    expect(binding.taskQueueRepository).toBeUndefined();
+    expect(binding.outboxRepository).toBeUndefined();
     await expect(
       binding.repository.initialize(binding.runId, "2026-07-31T00:00:00.000Z"),
     ).resolves.toBeUndefined();

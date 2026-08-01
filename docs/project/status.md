@@ -3,8 +3,8 @@
 ## 基準
 
 - 基準コミット: `899c100b722c664b2504f745551845edb67bdc1b`
-- 完成マイルストーン: 通知outbox dispatcherと永続at-least-once配送管理
-- 現在の工程: MySQL稼働記録の通常runtime統合と、読み取り専用運用loopへ進むための検証
+- 完成マイルストーン: MySQL稼働記録の通常runtime統合と再起動復旧監査
+- 現在の工程: 承認済み専用test serverでのMySQL有効・読み取り専用runtime検証待ち
 
 ## 完成済み
 
@@ -40,6 +40,10 @@
 - 30秒leaseのcrash回収、最大5試行、1秒起点・60秒上限のbackoff、上限後の終端化
 - MySQL有効時のoutbox dispatcherと無効時のprocess内subscriberの排他的なruntime経路
 - 並行dispatcherの重複claim抑制、再起動相当の配送再開、lease回収を含むFake・隔離MySQL検証
+- 通常runtime相当の接続、spawn、telemetry、作業状態、安全停止をrevision順に保存する隔離MySQL検証
+- runtime起動時にqueued・claimed・終端済みtaskを変更せず集計する復旧監査
+- 完了済みtaskの再実行抑止と、claimed残留をmanual reviewとするFake・隔離MySQL検証
+- 永続化の恒久障害と有限retry失敗を他player安全切断から隔離するFake runtime検証
 - 型付き作業指示とpriority付きFIFO queue
 - cancel、終端化、最大試行回数による有限の再キュー
 - TaskQueue Repository portとMySQL transactionによる排他的claim
@@ -101,11 +105,11 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1. 通常runtimeのrun、状態snapshot、履歴、checkpoint、通知outboxをMySQLへ確実に保存する
-2. 接続、spawn、telemetry、作業状態、安全停止をrevision順に追跡できることをFakeと隔離MySQLで検証する
-3. DB障害がruntimeの安全停止とMinecraft切断を妨げず、無制限再試行を起こさないことを検証する
-4. runtime再起動後に完了済み作業を再実行せず、未完了作業をmanual reviewへ分類できることを確認する
-5. 次段階として、承認済み専用test serverでMySQL有効状態の読み取り専用接続を検証できる状態にする
+1. 承認済み専用test serverと隔離MySQLを用意し、実接続承認を得る
+2. `MYSQL_PERSISTENCE_ENABLED=true`でBOT 1体の読み取り専用runtimeを1回だけ起動する
+3. 接続、spawn、telemetry、安全停止のrevision順履歴を秘密情報なしで確認する
+4. normal modeの他player安全停止、SIGTERM、二重起動防止を維持する
+5. 実接続を伴わない次工程としてローカルoperator向け読み取り専用指示入力の設計を進める
 
 Capture関連コードはmainへ取り込まず、production block配置adapterとruntime consumerは
 `unsupported`／disabledのまま維持します。face、envelope、item action、authoritative frameを推測値で

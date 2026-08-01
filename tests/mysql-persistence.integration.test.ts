@@ -10,6 +10,7 @@ import { MySqlStatePersistenceRepository } from "../src/adapters/persistence/mys
 import { MySqlNotificationOutboxRepository } from "../src/adapters/persistence/mysql-notification-outbox-repository.js";
 import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task-queue-repository.js";
 import { TaskQueueService } from "../src/application/task-queue/index.js";
+import { StatePersistenceSubscriber } from "../src/application/persistence/index.js";
 import { mapStateChangeToNotification } from "../src/application/notifications/index.js";
 import { createStateStore } from "../src/domain/state/index.js";
 import type { PlaceSingleBlockInstruction } from "../src/domain/block-operation/index.js";
@@ -35,6 +36,10 @@ interface OutboxDeliveryRow extends RowDataPacket {
   readonly delivery_status: string;
   readonly delivery_attempts: number;
   readonly last_error_code: string | null;
+}
+interface RuntimeTraceRow extends RowDataPacket {
+  readonly revision: number;
+  readonly cause: string;
 }
 
 suite("MySqlStatePersistenceRepository", () => {
@@ -110,6 +115,92 @@ suite("MySqlStatePersistenceRepository", () => {
       { revision: event.revision, task_state: "running" },
     ]);
     expect(outbox[0]?.count).toBe(1);
+  });
+
+  it("通常runtime相当の接続から安全停止までをrevision順に一貫保存する", async () => {
+    const runId = "00000000-0000-4000-8000-000000000030";
+    await repository.initialize(runId, "2026-08-01T00:00:00.000Z");
+    const store = createStateStore();
+    const subscriber = new StatePersistenceSubscriber(repository, runId);
+    subscriber.subscribe(store);
+    store.dispatch({ type: "runtime.transition", to: "connecting" });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connecting",
+    });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "connected",
+    });
+    store.dispatch({ type: "minecraft.spawn.update", completed: true });
+    store.dispatch({
+      type: "minecraft.telemetry.update",
+      telemetry: {
+        position: { x: 0, y: 64, z: 0 },
+        dimension: "overworld",
+        health: 20,
+        hunger: 20,
+      },
+    });
+    store.dispatch({
+      type: "task.prepare",
+      taskId: "runtime-trace",
+      taskType: "verification",
+    });
+    store.dispatch({ type: "task.transition", to: "running" });
+    store.dispatch({ type: "runtime.stop_reason.record", reason: "operator" });
+    store.dispatch({ type: "task.transition", to: "stopped" });
+    store.dispatch({ type: "runtime.transition", to: "stopping" });
+    store.dispatch({
+      type: "minecraft.connection.transition",
+      to: "disconnected",
+    });
+    store.dispatch({ type: "runtime.transition", to: "stopped" });
+    await subscriber.flush();
+    subscriber.close();
+
+    const [history] = await pool.query<RuntimeTraceRow[]>(
+      `SELECT revision, cause FROM state_history
+       WHERE run_id = ? ORDER BY revision`,
+      [runId],
+    );
+    expect(history.map(({ revision }) => revision)).toEqual(
+      Array.from({ length: history.length }, (_, index) => index + 1),
+    );
+    expect(history.map(({ cause }) => cause)).toEqual([
+      "runtime.transition",
+      "minecraft.connection.transition",
+      "minecraft.connection.transition",
+      "minecraft.spawn.update",
+      "minecraft.telemetry.update",
+      "task.prepare",
+      "task.transition",
+      "runtime.stop_reason.record",
+      "task.transition",
+      "runtime.transition",
+      "minecraft.connection.transition",
+      "runtime.transition",
+    ]);
+    const [snapshots] = await pool.query<RevisionRow[]>(
+      "SELECT revision FROM state_snapshots WHERE run_id = ?",
+      [runId],
+    );
+    const [checkpoints] = await pool.query<CheckpointRow[]>(
+      `SELECT revision, task_state FROM task_checkpoints
+       WHERE run_id = ? AND task_id = ?`,
+      [runId, "runtime-trace"],
+    );
+    const [outbox] = await pool.query<RevisionRow[]>(
+      `SELECT source_revision AS revision FROM notification_outbox
+       WHERE run_id = ? ORDER BY source_revision`,
+      [runId],
+    );
+    expect(snapshots).toEqual([{ revision: 12 }]);
+    expect(checkpoints).toEqual([{ revision: 12, task_state: "stopped" }]);
+    expect(outbox.map(({ revision }) => revision)).toEqual(
+      [...outbox.map(({ revision }) => revision)].sort((a, b) => a - b),
+    );
+    expect(outbox.length).toBeGreaterThan(0);
   });
 
   it("古いrevisionで最新snapshotとcheckpointを後退させない", async () => {

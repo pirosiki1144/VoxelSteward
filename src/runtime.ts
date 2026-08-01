@@ -6,6 +6,7 @@ import {
   OutboxDispatcher,
 } from "./application/notifications/index.js";
 import { StatePersistenceSubscriber } from "./application/persistence/index.js";
+import { auditTaskRecovery } from "./application/task-queue/index.js";
 import { toSafeNotificationDeliveryFailure } from "./adapters/notifications/discord-webhook-notification-port.js";
 import { toSafePersistenceFailure } from "./adapters/persistence/mysql-state-persistence-repository.js";
 import { createStateStore } from "./domain/state/index.js";
@@ -80,6 +81,17 @@ const main = async (): Promise<void> => {
     await lock.acquire();
     persistenceBinding =
       await createRuntimePersistenceBinding(persistenceConfig);
+    if (persistenceBinding.taskQueueRepository !== undefined) {
+      const recovery = await auditTaskRecovery(
+        persistenceBinding.taskQueueRepository,
+      );
+      logger.log("info", {
+        event: "persistence.task_recovery_audited",
+        claimable: recovery.claimable,
+        manualReview: recovery.manualReview,
+        terminal: recovery.terminal,
+      });
+    }
 
     const stateStore = createStateStore({
       onSubscriberError: () => {

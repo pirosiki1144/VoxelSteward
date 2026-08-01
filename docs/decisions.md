@@ -434,3 +434,15 @@
   Repositoryとportをcloseします。
 - 理由: 状態変更と配送候補の原子性、再起動後の再開、並行workerの排他を得ながら、
   外部通知障害をMinecraftの安全制御から切り離すためです。
+
+## ADR-030: runtime起動時のtask復旧監査は読み取り専用で分類する
+
+- ステータス: 承認済み（Fake・隔離MySQL検証）
+- 決定: MySQL有効時の通常runtimeはMinecraft接続前にtask queueをRepository経由で読み取り、
+  `queued`を未開始のclaim候補、`claimed`を結果不明のmanual review、その他を終端として集計します。
+- 安全境界: 監査はstatus、phase、attemptsを変更しません。特に`claimed`を自動release・再claimせず、
+  完了済みtaskをqueuedへ戻しません。ログは区分ごとの件数だけとし、task IDと指示内容を含めません。
+- 障害時: 起動時監査に失敗した場合はMinecraft client生成・接続前に起動を失敗させます。稼働中の状態保存失敗は
+  subscriber内の有限retryと安全なerror callbackへ隔離し、他player検知やsignalによる切断を妨げません。
+- 理由: crash後の実行結果を推測せずoperator判断へ送り、永続化障害時もworld操作と安全停止の双方を
+  fail-closedに保つためです。

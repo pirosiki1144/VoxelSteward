@@ -67,6 +67,9 @@ worker crash相当のlease切れ回収、再起動相当の配送再開、最大
 database、user、passwordを秘密管理された環境から注入します。既定の`false`では他のMySQL
 設定を検証せずDB接続もしません。`persistence.write_failed`はcode、retryable、revision、
 attemptsだけを記録し、生のDB errorや接続情報を出力しません。
+起動時の`persistence.task_recovery_audited`は`claimable`、`manualReview`、`terminal`の件数だけを
+記録します。`claimed`は自動でqueuedへ戻さず、operator確認までmanual reviewとします。終端済みtaskは
+再実行対象に戻しません。
 
 ## 通常運転
 

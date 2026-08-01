@@ -16,6 +16,8 @@ MySQLへ稼働記録を保存
 
 ### 1. MySQL稼働記録（最優先）
 
+通常runtime統合、revision順の隔離MySQL検証、障害隔離、起動時復旧監査まで完了しました。
+
 - 既存のruntime run、状態snapshot、履歴、checkpoint、通知outboxを通常runtimeから確実に保存する
 - 接続、spawn、telemetry、作業指示、claim、開始、完了、失敗、安全停止をrevision順に追跡できるようにする
 - DBアクセスをRepository境界に限定し、schema変更をmigrationで管理する
