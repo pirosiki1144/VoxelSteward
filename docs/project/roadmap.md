@@ -27,6 +27,8 @@ MySQLへ稼働記録を保存
 
 ### 2. MySQL有効状態での読み取り専用Minecraft接続
 
+専用test serverと隔離MySQLによる1回限りの受入試験を完了しました。
+
 - `MYSQL_PERSISTENCE_ENABLED=true`の構成をローカルの隔離MySQLで検証する
 - その後、別途承認を得た専用test serverへBOT 1体で接続する
 - login、spawn、位置、体力、空腹度、dimension、他player検知、切断理由を、取得できた範囲で状態へ反映する
@@ -47,14 +49,17 @@ MySQLへ稼働記録を保存
 ### 4. 読み取り専用task executor
 
 対象type限定claim、共通安全policy、server観測位置、queue・StateStore・checkpoint終端化、有限lease回収まで
-Fakeと隔離MySQLで実装済みです。実server受入は未実施です。
+Fakeと隔離MySQLで実装し、専用test serverでの読み取り専用受入も完了しました。
+
+専用test serverでは`verify_arrival`と`record_position`を各1件実行し、task終端状態、checkpoint、
+revision順履歴、SIGTERM安全停止を確認済みです。
 
 - executorは共通安全policyが許可した場合だけqueueをclaimする
 - `verify_arrival`と`record_position`だけを実行し、移動、block操作、攻撃、chat、commandを送信しない
 - claim、実行、完了、失敗、停止、checkpointをMySQLへ保存する
 - 他player、operator停止、接続喪失、体力・空腹度の危険、SIGINT、SIGTERMでは作業を停止して安全に切断する
 - claim leaseを有限時間で回収し、crash後に同じ作業を無条件で再実行しない
-- Fake接続と隔離MySQLの自動テスト後、承認済み専用test serverで1指示ずつ受入確認する
+- Fake接続、隔離MySQL、承認済み専用test serverで1指示ずつ受入確認する（完了）
 
 ### 5. 読み取り専用loop完成後
 

@@ -3,8 +3,8 @@
 ## 基準
 
 - 基準コミット: `24d423205a55610e921746b47a7e23d1b8fe02b7`
-- 完成マイルストーン: ローカルoperator指示入力と読み取り専用task executorのoffline統合
-- 現在の工程: 承認済み専用test serverでのMySQL有効・読み取り専用運用loop検証待ち
+- 完成マイルストーン: MySQL有効・読み取り専用operator task loopの実サーバー受入
+- 現在の工程: 読み取り専用loop完成後の移動機能安全化
 
 ## 完成済み
 
@@ -51,6 +51,7 @@
 - schema version 1の`verify_arrival`・`record_position`永続化とローカルoperator entrypoint
 - 対象type限定claim、30秒lease、期限切れ所有権回収とmanual review維持
 - 共通安全policy下でserver観測位置だけを使う読み取り専用executor
+- 専用test serverと隔離MySQLによる`verify_arrival`・`record_position`の読み取り専用受入試験
 - StateSnapshotだけを入力とするfail-closedな作業安全policy
 - runtime、接続・spawn、他player、停止要求、体力・空腹度による開始・継続判定
 - 安全判定後だけclaimする`SafetyControlledTaskQueue`
@@ -87,6 +88,8 @@ Discord実送信の計画は
 [Discord Incoming Webhook受入結果](../verification/discord-webhook.md)を参照してください。
 MySQLの非秘密なローカル検証結果は
 [MySQL状態・履歴保存のローカル検証](../verification/mysql-persistence.md)を参照してください。
+読み取り専用operator task loopの非秘密な実サーバー検証結果は
+[読み取り専用operator task loopの実サーバー検証](../verification/read-only-operator-loop.md)を参照してください。
 
 ## 現在の制約
 
@@ -108,11 +111,10 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1. 承認済み専用test serverと隔離MySQLを用意し、実接続承認を得る
-2. `MYSQL_PERSISTENCE_ENABLED=true`でBOT 1体の読み取り専用runtimeを1回だけ起動する
-3. 接続、spawn、telemetry、安全停止のrevision順履歴を秘密情報なしで確認する
-4. normal modeの他player安全停止、SIGTERM、二重起動防止を維持する
-5. `verify_arrival`と`record_position`を各1件ずつ実行し、結果とcheckpointをMySQLで確認する
+1. 実frame providerと障害物検知の安全境界を完成させる
+2. packet送信前後で共通安全policyを再評価し、停止後の送信を禁止する
+3. Fake transportで補正、timeout、disconnect、他player停止を回帰検証する
+4. 実移動試験は別途承認を得た専用test serverで段階的に実施する
 
 Capture関連コードはmainへ取り込まず、production block配置adapterとruntime consumerは
 `unsupported`／disabledのまま維持します。face、envelope、item action、authoritative frameを推測値で
