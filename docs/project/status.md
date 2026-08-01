@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `8b79c013ed5ce295f0c1a24fa2df4f0cd9fe94ec`
+- 基準コミット: `899c100b722c664b2504f745551845edb67bdc1b`
 - 完成マイルストーン: 通知outbox dispatcherと永続at-least-once配送管理
-- 現在の工程: CaptureとMinecraft操作に依存しない読み取り専用task executorの設計候補
+- 現在の工程: MySQL稼働記録の通常runtime統合と、読み取り専用運用loopへ進むための検証
 
 ## 完成済み
 
@@ -34,7 +34,7 @@
 - MySQL Repository portと状態イベント起点の直列永続化subscriber
 - run ID・revisionによるsnapshot、履歴、作業checkpoint、通知outboxの冪等保存
 - version管理されたMySQL migrationとtransaction rollback
-- 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験8件
+- 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験
 - `pending`・`delivering`・`delivered`・`failed`を持つ通知outbox migration 004
 - Repository portとMySQL transactionによるrevision順の排他claim、配送成功・失敗の永続化
 - 30秒leaseのcrash回収、最大5試行、1秒起点・60秒上限のbackoff、上限後の終端化
@@ -101,14 +101,15 @@ MySQLの非秘密なローカル検証結果は
 
 ## 次の完了条件
 
-1. Capture関連コードをmainへ取り込まず、通常runtimeとsmokeの読み取り専用動作を維持する
-2. production block配置adapterとruntime consumerを`unsupported`／disabledのまま維持する
-3. face、envelope、item action、authoritative frameを推測値で実装しない
-4. Capture再検討時は`spike/golden-capture-investigation`を起点に、一次根拠と安全性を改めてレビューする
-5. `verify_arrival`と`record_position`に限定した読み取り専用task executorの契約を設計する
+1. 通常runtimeのrun、状態snapshot、履歴、checkpoint、通知outboxをMySQLへ確実に保存する
+2. 接続、spawn、telemetry、作業状態、安全停止をrevision順に追跡できることをFakeと隔離MySQLで検証する
+3. DB障害がruntimeの安全停止とMinecraft切断を妨げず、無制限再試行を起こさないことを検証する
+4. runtime再起動後に完了済み作業を再実行せず、未完了作業をmanual reviewへ分類できることを確認する
+5. 次段階として、承認済み専用test serverでMySQL有効状態の読み取り専用接続を検証できる状態にする
 
-実fixture取得、Minecraft接続、game操作は引き続き承認必須です。Captureを見送っている間もproduction block配置
-adapterとruntime consumerは有効化しません。
+Capture関連コードはmainへ取り込まず、production block配置adapterとruntime consumerは
+`unsupported`／disabledのまま維持します。face、envelope、item action、authoritative frameを推測値で
+実装しません。実fixture取得、Minecraft接続、game操作は引き続き承認必須です。
 
 ## 未決定事項
 
