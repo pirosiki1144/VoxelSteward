@@ -212,6 +212,10 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - target、直下support、同一dimension、整数座標、最大3 blockのreach、有限timeoutを検証すること。
 - 配置要求は1回だけとし、timeout、disconnect、Abort、結果不明時に自動再試行しないこと。
 - server観測した同一座標のdirtだけを成功とし、client申告値やinventory変化だけで完了しないこと。
+- 指示はversion付きstrict codecで完全復元し、未知version、余分なfield、ID・type不一致を拒否すること。
+- 世界変更要求の直前を永続化し、claimedまたは送信結果不明の指示を再起動後に自動再送しないこと。
+- schema serialize成功だけで実adapterを有効化せず、item同定、face、transaction envelope、authoritative
+  frameの意味論が確定しない場合は`unsupported`を維持すること。
 - 実adapter未対応時はfail-closedとし、runtimeの既定をdisabledに保つこと。
 
 ## 15. Bedrock world・inventory観測要件

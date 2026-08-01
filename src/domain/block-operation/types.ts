@@ -18,6 +18,7 @@ export interface BlockObservation {
 }
 
 export interface PlaceSingleBlockInstruction {
+  readonly schemaVersion: 1;
   readonly taskId: string;
   readonly taskType: "place_single_dirt";
   readonly operation: "place";

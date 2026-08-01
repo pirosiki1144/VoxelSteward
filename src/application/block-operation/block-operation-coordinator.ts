@@ -1,5 +1,6 @@
 import {
   blockDistance,
+  blockOperationInstructionEquals,
   BlockOperationError,
   validateBlockObservation,
   validateBlockOperationInstruction,
@@ -61,6 +62,7 @@ export class BlockOperationCoordinator {
     | undefined;
   #portStopped = false;
   #safetyStopped = false;
+  #closed = false;
 
   constructor(options: BlockOperationCoordinatorOptions) {
     this.#port = options.port;
@@ -74,6 +76,9 @@ export class BlockOperationCoordinator {
     instruction: BlockOperationInstruction,
     onProgress?: BlockOperationProgressListener,
   ): Promise<BlockOperationResult> {
+    if (this.#closed) {
+      throw new BlockOperationError("BLOCK_OPERATION_CLOSED");
+    }
     if (this.#active !== undefined) {
       throw new BlockOperationError("BLOCK_OPERATION_ALREADY_ACTIVE");
     }
@@ -130,7 +135,11 @@ export class BlockOperationCoordinator {
         claimed?.status !== "claimed" ||
         claimed.taskType !== command.taskType ||
         claimed.maxAttempts !== 1 ||
-        claimed.attempts !== 1
+        claimed.attempts !== 1 ||
+        claimed.executionPhase !== "not_started" ||
+        claimed.details?.version !== 1 ||
+        claimed.details.kind !== "place_single_dirt" ||
+        !blockOperationInstructionEquals(claimed.details.instruction, command)
       ) {
         return Object.freeze({ outcome: "failed", reason: "task_not_claimed" });
       }
@@ -259,6 +268,12 @@ export class BlockOperationCoordinator {
       });
       this.#stateStore.dispatch({ type: "task.transition", to: "running" });
       report({ phase: "placing", progress: 0.5 });
+      // Persist the point of no automatic return before the only send. A crash
+      // from here leaves the task claimed for manual server-state review.
+      await this.#taskQueue.dispatch({
+        type: "task.mark_delivery_started",
+        taskId: command.taskId,
+      });
       const placed = await this.#invoke(
         async (signal) => {
           if (signal.aborted || controller.signal.aborted) {
@@ -321,6 +336,10 @@ export class BlockOperationCoordinator {
         await finalize("failed");
         return Object.freeze({ outcome: "failed", reason: "unexpected_after" });
       }
+      await this.#taskQueue.dispatch({
+        type: "task.mark_verified",
+        taskId: command.taskId,
+      });
       await finalize("completed");
       report({ phase: "completed", progress: 1 });
       return Object.freeze({
@@ -361,6 +380,16 @@ export class BlockOperationCoordinator {
     const active = this.#active;
     if (active === undefined || active.controller.signal.aborted) return;
     active.controller.abort();
+    this.#stopPortOnce();
+  }
+
+  close(): void {
+    if (this.#closed) return;
+    this.#closed = true;
+    const active = this.#active;
+    if (active !== undefined && !active.controller.signal.aborted) {
+      active.controller.abort();
+    }
     this.#stopPortOnce();
   }
 

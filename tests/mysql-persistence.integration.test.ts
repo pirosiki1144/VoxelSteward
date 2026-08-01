@@ -11,6 +11,8 @@ import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task
 import { TaskQueueService } from "../src/application/task-queue/index.js";
 import { mapStateChangeToNotification } from "../src/application/notifications/index.js";
 import { createStateStore } from "../src/domain/state/index.js";
+import type { PlaceSingleBlockInstruction } from "../src/domain/block-operation/index.js";
+import { taskRecoveryDisposition } from "../src/domain/task-queue/index.js";
 
 const enabled = process.env.MYSQL_INTEGRATION_TEST === "true";
 const suite = enabled ? describe : describe.skip;
@@ -56,7 +58,7 @@ suite("MySqlStatePersistenceRepository", () => {
     const [rows] = await pool.query<VersionRow[]>(
       "SELECT version FROM schema_migrations ORDER BY version",
     );
-    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(rows).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
   });
 
   it("history、snapshot、checkpoint、outboxを同一revisionで保存し重複を抑制する", async () => {
@@ -261,5 +263,90 @@ suite("MySqlStatePersistenceRepository", () => {
       taskId: "mysql-bounded",
     });
     expect(released.item).toMatchObject({ status: "failed", attempts: 1 });
+  });
+
+  it("単一block指示を完全復元しclaimedを再起動後に再claimしない", async () => {
+    const operation: PlaceSingleBlockInstruction = {
+      schemaVersion: 1,
+      taskId: "mysql-place-one",
+      taskType: "place_single_dirt",
+      operation: "place",
+      target: { x: 1, y: 71, z: 0, dimension: "overworld" },
+      blockType: "dirt",
+      expectedBefore: "air",
+      expectedAfter: "dirt",
+      support: {
+        position: { x: 1, y: 70, z: 0, dimension: "overworld" },
+        expected: "solid",
+        face: "up",
+      },
+      maxReach: 3,
+      timeoutMs: 5_000,
+    };
+    const queue = new TaskQueueService(queueRepository);
+    await queue.dispatch({
+      type: "task.enqueue",
+      instruction: {
+        taskId: operation.taskId,
+        taskType: operation.taskType,
+        priority: 50,
+        maxAttempts: 1,
+        details: {
+          version: 1,
+          kind: "place_single_dirt",
+          instruction: operation,
+        },
+      },
+    });
+    const claimed = (await queue.dispatch({ type: "task.claim_next" })).item;
+    expect(claimed?.details?.instruction).toEqual(operation);
+    expect(
+      claimed === undefined ? undefined : taskRecoveryDisposition(claimed),
+    ).toBe("manual_review");
+    const concurrent = await Promise.allSettled([
+      queue.dispatch({
+        type: "task.mark_delivery_started",
+        taskId: operation.taskId,
+      }),
+      new TaskQueueService(queueRepository).dispatch({
+        type: "task.mark_delivery_started",
+        taskId: operation.taskId,
+      }),
+    ]);
+    expect(
+      concurrent.filter(({ status }) => status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      concurrent.filter(({ status }) => status === "rejected"),
+    ).toHaveLength(1);
+    const restarted = new TaskQueueService(queueRepository);
+    const next = await restarted.dispatch({ type: "task.claim_next" });
+    expect(next.item?.taskId).not.toBe(operation.taskId);
+  });
+
+  it("未知instruction versionを復元せずfail-closedにする", async () => {
+    const now = new Date("2026-08-01T00:00:00.000Z");
+    await pool.execute(
+      `INSERT INTO task_queue
+       (task_id, task_type, priority, status, attempts, max_attempts,
+        instruction_version, instruction_json, execution_phase, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        "mysql-invalid-version",
+        "place_single_dirt",
+        1,
+        "queued",
+        0,
+        1,
+        99,
+        JSON.stringify({ version: 99 }),
+        "not_started",
+        now,
+        now,
+      ],
+    );
+    await expect(
+      queueRepository.find("mysql-invalid-version"),
+    ).rejects.toMatchObject({ code: "INVALID_PERSISTED_TASK_INSTRUCTION" });
   });
 });

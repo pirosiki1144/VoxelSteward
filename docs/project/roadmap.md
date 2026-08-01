@@ -30,10 +30,12 @@
 7. 簡単なMinecraft内作業（domain/application最小境界完了）
    - navigate、到達確認、位置記録の型・検証・Fake境界（完了）
    - runtime consumer、queue終端化統合、実移動による受入（後続・承認必須）
-8. 最初のブロック操作（offline安全境界完了）
+8. 最初のブロック操作（型付き永続化と実接続前gateまで完了）
    - 単一dirt配置の型、port、Fake、安全coordinator、既定unsupported binding（完了）
    - selected held item・block runtime ID・dimensionの有界読み取り観測基盤（offline完了）
-   - full inventory、実配置adapter、専用server受入（後続・承認必須）
+   - version付き指示のMySQL永続化、送信直前phase、再起動後の自動再送禁止（完了）
+   - 1.26.30 transaction schemaのoffline serialize確認（完了、意味論未確定のためadapterはunsupported）
+   - dirt registry同定、face対応、authoritative frame統合、専用server受入（後続・承認必須）
    - 単一block採掘、自動rollback、複数block操作（未実装）
 9. 道路作成、探索、整地などの個別作業
 10. 運用スケジュール制御

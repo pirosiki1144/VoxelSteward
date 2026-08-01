@@ -4,8 +4,8 @@
 
 最初のブロック変更は、専用テスト区域で空気と確認された1座標へ`dirt`を1個だけ配置する
 `place_single_dirt`に限定します。現段階はdomain、application coordinator、port、Fake、runtimeの
-既定無効bindingまでであり、Bedrock packetを送る実adapter、inventory選択、queue consumer、実配置は
-未実装です。
+既定無効binding、version付き指示のMySQL永続化、専用試験からだけ注入できるruntime bindingまでです。
+Bedrock packetを送る実adapter、inventory選択、queue consumer、実配置は未実装です。
 
 採掘は既存blockの不可逆な消失、drop entity、tool適合、server-authoritative breakingの複数tick操作を
 伴います。配置もinventory slot、stack ID、block runtime ID、support faceの実測が必要ですが、空気と
@@ -18,7 +18,7 @@ supportを事前観測し、配置後に同じ座標のdirtをserver観測でき
 - targetとsupportはdimension付き整数座標で、既存world境界内に限定します。
 - supportはtarget直下、faceは上面、targetの期待状態はair、配置後はdirtへ固定します。
 - player位置と同じdimensionで最大3 block以内だけを許可します。
-- timeoutは1～30秒、queueの`maxAttempts`は実運用接続時に1へ固定します。
+- timeoutは1～30秒、schema versionは1、queueの`maxAttempts`は1へ固定します。
 - task IDは内部照合にだけ使用し、player/BOT名、server endpoint、credentialをinstructionや観測へ
   格納しません。
 
@@ -28,17 +28,20 @@ Coordinatorはclaimed済みの同一task type、StateStoreのidle、normal runti
 有効telemetry、体力・空腹度、他playerなし、停止要求なしを要求します。targetとsupportの事前観測後、
 世界変更を要求する直前にも最新snapshotへ共通安全policyを適用します。
 
+世界変更要求の直前にqueueを`delivery_started`へ永続化し、事後観測後に`verified`へ進めます。
 portへ配置を要求するのは最大1回で、timeout、disconnect、Abort、結果不明、観測不一致を自動再試行
 しません。申告成功やinventory減少ではなく、serverから観測した同一座標のdirtだけを成功の正本に
-します。cancelと安全停止はportを一度だけ停止し、後続送信を禁止します。StateStoreとqueueの終端化が
+します。process crashで`claimed`が残った場合は自動回収・再送せずmanual reviewとします。cancelと
+安全停止はportを一度だけ停止し、後続送信を禁止します。StateStoreとqueueの終端化が
 失敗しても2回目の配置は行いません。
 
 ## 未実装
 
 - inventory/hotbar/stack IDとblock palette/runtime IDの安全な取得
-- 1.26.30の`TransactionUseItem` payloadとserver block updateの相関
+- item registryによるdirt同定とtransaction用held itemの完全な再構成
+- face数値対応、standalone transactionとPlayerAuthInput埋込みの選択、authoritative frameとの合成
 - 視点、face、support位置を実serverで検証するadapter
-- typed instructionの永続化、queue consumer、runtime executor
+- queue consumer、runtime executor
 - 実Minecraft配置、rollback、自動再試行
 
 実adapterは[単一dirt配置の受入計画](verification/block-placement-acceptance-plan.md)を段階ごとに

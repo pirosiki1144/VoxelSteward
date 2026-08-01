@@ -24,6 +24,7 @@ const observation = (
 const instruction = (
   overrides: Partial<PlaceSingleBlockInstruction> = {},
 ): PlaceSingleBlockInstruction => ({
+  schemaVersion: 1,
   taskId: "block-1",
   taskType: "place_single_dirt",
   operation: "place",
@@ -50,6 +51,7 @@ async function setup(
     observation(target, "dirt"),
   ]),
   taskType = "place_single_dirt",
+  persistedInstruction = instruction(),
 ) {
   const state = createStateStore();
   state.dispatch({ type: "runtime.transition", to: "connecting" });
@@ -70,7 +72,20 @@ async function setup(
   const queue = new TaskQueueService(repository);
   await queue.dispatch({
     type: "task.enqueue",
-    instruction: { taskId: "block-1", taskType, priority: 1, maxAttempts: 1 },
+    instruction:
+      taskType === "place_single_dirt"
+        ? {
+            taskId: "block-1",
+            taskType,
+            priority: 1,
+            maxAttempts: 1,
+            details: {
+              version: 1,
+              kind: "place_single_dirt",
+              instruction: persistedInstruction,
+            },
+          }
+        : { taskId: "block-1", taskType, priority: 1, maxAttempts: 1 },
   });
   await queue.dispatch({ type: "task.claim_next" });
   const coordinator = new BlockOperationCoordinator({
@@ -152,22 +167,25 @@ describe("BlockOperationCoordinator", () => {
       { ...target, dimension: "nether" as const },
       { ...target, x: 4 },
     ]) {
-      const context = await setup();
       const supportOverride = {
         ...targetOverride,
         y: targetOverride.y - 1,
       };
+      const persistedInstruction = instruction({
+        target: targetOverride,
+        support: {
+          position: supportOverride,
+          expected: "solid",
+          face: "up",
+        },
+      });
+      const context = await setup(
+        undefined,
+        "place_single_dirt",
+        persistedInstruction,
+      );
       expect(
-        await context.coordinator.execute(
-          instruction({
-            target: targetOverride,
-            support: {
-              position: supportOverride,
-              expected: "solid",
-              face: "up",
-            },
-          }),
-        ),
+        await context.coordinator.execute(persistedInstruction),
       ).toMatchObject({ outcome: "failed", reason: "out_of_reach" });
       expect(context.port.placements).toHaveLength(0);
     }
@@ -377,6 +395,51 @@ describe("BlockOperationCoordinator", () => {
     expect(port.observations.length).toBeLessThanOrEqual(2);
   });
 
+  it("closeはactive operationを有限中断しportを一度だけ停止する", async () => {
+    const port = new FakeBlockOperationPort([
+      observation(),
+      observation(support, "solid_other"),
+    ]);
+    port.placeHandler = (_instruction, signal) =>
+      new Promise((_resolve, reject) =>
+        signal.addEventListener("abort", () => reject(new Error("abort")), {
+          once: true,
+        }),
+      );
+    const context = await setup(port);
+    const running = context.coordinator.execute(instruction());
+    for (
+      let index = 0;
+      index < 50 && port.placements.length === 0;
+      index += 1
+    ) {
+      await Promise.resolve();
+    }
+    context.coordinator.close();
+    context.coordinator.close();
+    expect(await running).toMatchObject({
+      outcome: "stopped",
+      reason: "cancelled",
+    });
+    expect(port.stopCalls).toBe(1);
+    expect(port.observations).toHaveLength(2);
+  });
+
+  it("close後は新しい操作を受け付けずqueueとstateを変更しない", async () => {
+    const context = await setup();
+    const beforeTask = await context.repository.find("block-1");
+    const beforeState = context.state.getSnapshot();
+    context.coordinator.close();
+    await expect(
+      context.coordinator.execute(instruction()),
+    ).rejects.toMatchObject({ code: "BLOCK_OPERATION_CLOSED" });
+    expect(context.port.observations).toHaveLength(0);
+    expect(context.port.placements).toHaveLength(0);
+    expect(context.port.stopCalls).toBe(1);
+    expect(await context.repository.find("block-1")).toEqual(beforeTask);
+    expect(context.state.getSnapshot()).toBe(beforeState);
+  });
+
   it("重複開始を拒否する", async () => {
     const port = new FakeBlockOperationPort([observation()]);
     port.observe = (_position, signal) =>
@@ -397,7 +460,7 @@ describe("BlockOperationCoordinator", () => {
     await first;
   });
 
-  it("別taskのStateStoreを終端化せずqueue finalization failureを有限化する", async () => {
+  it("別taskのStateStoreを終端化せずqueue永続化failureでは送信しない", async () => {
     const context = await setup();
     context.state.dispatch({
       type: "task.prepare",
@@ -422,7 +485,7 @@ describe("BlockOperationCoordinator", () => {
       outcome: "failed",
       reason: "finalization_error",
     });
-    expect(finalized.port.placements).toHaveLength(1);
+    expect(finalized.port.placements).toHaveLength(0);
   });
 
   it("progress listenerの例外を隔離する", async () => {

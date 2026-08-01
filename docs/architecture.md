@@ -194,7 +194,9 @@ consumer、Minecraft connectionには未接続です。詳細は[簡単なMinecr
 `domain/block-operation`は単一dirt配置の座標・block・事前事後条件を厳格に定義し、
 `BlockOperationPort`はserver block観測と1回の配置要求をMinecraft adapterから分離します。
 application coordinatorはqueue claim、StateStore、共通安全policy、reach、support、TOCTOU再評価、
-server事後観測を統合します。実packet adapterはなく、runtime bindingは`unsupported`かつdisabledです。
+server事後観測を統合します。migration 003はversion付き指示と送信直前・検証済みphaseを保存し、
+claimed残留を自動再送しません。実packet adapterはなく、通常runtime bindingは`unsupported`かつ
+disabledです。専用試験bindingはsupported portの明示注入時だけ生成できます。
 詳細は[最初のブロック操作](block-operations.md)を参照してください。
 
 ## 16. Bedrock world・inventory観測

@@ -336,3 +336,21 @@
   接続しません。
 - 理由: 世界変更前にserver観測の正本と寿命を固定し、不明なinventory情報や古いdimension cacheによる
   誤配置を防ぐためです。
+
+## ADR-025: 単一block指示をversion付きで永続化しprotocol不足時は実送信しない
+
+- ステータス: 承認済み（offline実装。実server受入は未開始）
+- 永続化: `place_single_dirt`はschema version 1の完全な指示をstrict codecで`task_queue`へ保存します。
+  任意payloadを許可せず、未知version、余分なfield、task ID・type不一致、`maxAttempts`が1以外の指示は
+  enqueue時と復元時にfail-closedで拒否します。
+- 結果不明境界: 世界変更要求の直前に`delivery_started`、server事後観測後に`verified`を永続化します。
+  process crashで`claimed`が残った場合は送信有無を推測せずmanual review対象とし、自動release、再claim、
+  再送を行いません。
+- protocol判断: 固定1.26.30 schemaで`inventory_transaction`候補の構造的serializeは確認しました。ただし
+  item registryによるdirt同定、transaction用held item完全形、faceの数値意味、standalone transactionと
+  PlayerAuthInput埋込みの選択、authoritative frameとの合成は一次根拠が不足しています。serialize成功を
+  server受理の根拠にせず、production adapterは`unsupported`を維持します。
+- runtime: 通常runtimeはdisabledのままです。supported port、共通安全policy、StateStore、永続queueを
+  明示注入する専用受入bindingだけを準備し、consumerや自動実行を追加しません。
+- 理由: crash後の二重配置と、protocol値の推測による誤操作を防ぎながら、検証可能な永続化・cleanup境界を
+  実server接続前に固定するためです。

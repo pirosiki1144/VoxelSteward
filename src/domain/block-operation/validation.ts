@@ -49,6 +49,7 @@ export function validateBlockOperationInstruction(
   if (
     !exactKeys(instruction, [
       "taskId",
+      "schemaVersion",
       "taskType",
       "operation",
       "target",
@@ -59,6 +60,7 @@ export function validateBlockOperationInstruction(
       "maxReach",
       "timeoutMs",
     ]) ||
+    instruction.schemaVersion !== 1 ||
     typeof instruction.taskId !== "string" ||
     !TASK_ID_PATTERN.test(instruction.taskId) ||
     instruction.taskType !== "place_single_dirt" ||
@@ -115,3 +117,27 @@ export const blockDistance = (a: BlockPosition, b: BlockPosition): number =>
   a.dimension === b.dimension
     ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
     : Number.POSITIVE_INFINITY;
+
+export const blockOperationInstructionEquals = (
+  left: BlockOperationInstruction,
+  right: BlockOperationInstruction,
+): boolean =>
+  left.schemaVersion === right.schemaVersion &&
+  left.taskId === right.taskId &&
+  left.taskType === right.taskType &&
+  left.operation === right.operation &&
+  left.blockType === right.blockType &&
+  left.expectedBefore === right.expectedBefore &&
+  left.expectedAfter === right.expectedAfter &&
+  left.maxReach === right.maxReach &&
+  left.timeoutMs === right.timeoutMs &&
+  left.support.expected === right.support.expected &&
+  left.support.face === right.support.face &&
+  left.target.x === right.target.x &&
+  left.target.y === right.target.y &&
+  left.target.z === right.target.z &&
+  left.target.dimension === right.target.dimension &&
+  left.support.position.x === right.support.position.x &&
+  left.support.position.y === right.support.position.y &&
+  left.support.position.z === right.support.position.z &&
+  left.support.position.dimension === right.support.position.dimension;

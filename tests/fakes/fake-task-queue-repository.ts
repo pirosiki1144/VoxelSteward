@@ -2,6 +2,7 @@ import {
   claimTask,
   type TaskQueueItem,
 } from "../../src/domain/task-queue/index.js";
+import { blockOperationInstructionEquals } from "../../src/domain/block-operation/index.js";
 import type { TaskQueueRepository } from "../../src/ports/task-queue-repository.js";
 
 export class FakeTaskQueueRepository implements TaskQueueRepository {
@@ -12,7 +13,25 @@ export class FakeTaskQueueRepository implements TaskQueueRepository {
   insert(item: TaskQueueItem): Promise<TaskQueueItem> {
     this.#ensureOpen();
     const existing = this.#items.get(item.taskId);
-    if (existing !== undefined) return Promise.resolve(existing);
+    if (existing !== undefined) {
+      if (
+        (existing.details !== undefined || item.details !== undefined) &&
+        (existing.taskType !== item.taskType ||
+          existing.priority !== item.priority ||
+          existing.maxAttempts !== item.maxAttempts ||
+          existing.details?.version !== item.details?.version ||
+          existing.details?.kind !== item.details?.kind ||
+          existing.details === undefined ||
+          item.details === undefined ||
+          !blockOperationInstructionEquals(
+            existing.details.instruction,
+            item.details.instruction,
+          ))
+      ) {
+        return Promise.reject(new Error("task instruction conflict"));
+      }
+      return Promise.resolve(existing);
+    }
     this.#items.set(item.taskId, item);
     return Promise.resolve(item);
   }
@@ -38,15 +57,16 @@ export class FakeTaskQueueRepository implements TaskQueueRepository {
     return Promise.resolve(claimed);
   }
 
-  replace(
-    expectedStatus: TaskQueueItem["status"],
-    item: TaskQueueItem,
-  ): Promise<void> {
+  replace(expected: TaskQueueItem, item: TaskQueueItem): Promise<void> {
     this.#ensureOpen();
     if (this.replaceError !== undefined)
       return Promise.reject(this.replaceError);
     const current = this.#items.get(item.taskId);
-    if (current?.status !== expectedStatus)
+    if (
+      current?.status !== expected.status ||
+      current.executionPhase !== expected.executionPhase ||
+      current.updatedAt !== expected.updatedAt
+    )
       return Promise.reject(new Error("queue conflict"));
     this.#items.set(item.taskId, item);
     return Promise.resolve();

@@ -2,6 +2,8 @@ import {
   cancelTask,
   createQueuedTask,
   finishTask,
+  markTaskDeliveryStarted,
+  markTaskVerified,
   releaseTask,
   TaskQueueError,
   type TaskQueueClock,
@@ -42,19 +44,31 @@ export class TaskQueueService {
       case "task.cancel": {
         const current = await this.#required(command.taskId);
         item = cancelTask(current, () => new Date(occurredAt));
-        await this.#repository.replace(current.status, item);
+        await this.#repository.replace(current, item);
         break;
       }
       case "task.release": {
         const current = await this.#required(command.taskId);
         item = releaseTask(current, () => new Date(occurredAt));
-        await this.#repository.replace(current.status, item);
+        await this.#repository.replace(current, item);
+        break;
+      }
+      case "task.mark_delivery_started": {
+        const current = await this.#required(command.taskId);
+        item = markTaskDeliveryStarted(current, () => new Date(occurredAt));
+        await this.#repository.replace(current, item);
+        break;
+      }
+      case "task.mark_verified": {
+        const current = await this.#required(command.taskId);
+        item = markTaskVerified(current, () => new Date(occurredAt));
+        await this.#repository.replace(current, item);
         break;
       }
       case "task.finish": {
         const current = await this.#required(command.taskId);
         item = finishTask(current, command.outcome, () => new Date(occurredAt));
-        await this.#repository.replace(current.status, item);
+        await this.#repository.replace(current, item);
         break;
       }
     }

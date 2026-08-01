@@ -1,3 +1,4 @@
+import { validateBlockOperationInstruction } from "../block-operation/index.js";
 import { TaskQueueError } from "./errors.js";
 import type {
   TaskInstruction,
@@ -19,11 +20,55 @@ const allowedTransitions: Readonly<
   cancelled: [],
 };
 
-const freeze = <T extends object>(value: T): Readonly<T> =>
-  Object.freeze(value);
+const freezeInstruction = (instruction: TaskInstruction): TaskInstruction => {
+  if (instruction.details === undefined)
+    return Object.freeze({ ...instruction });
+  const operation = instruction.details.instruction;
+  return Object.freeze({
+    ...instruction,
+    details: Object.freeze({
+      ...instruction.details,
+      instruction: Object.freeze({
+        ...operation,
+        target: Object.freeze({ ...operation.target }),
+        support: Object.freeze({
+          ...operation.support,
+          position: Object.freeze({ ...operation.support.position }),
+        }),
+      }),
+    }),
+  });
+};
+
+const freezeItem = (item: TaskQueueItem): TaskQueueItem => {
+  const instruction = freezeInstruction(item);
+  return Object.freeze({
+    taskId: instruction.taskId,
+    taskType: instruction.taskType,
+    priority: instruction.priority,
+    maxAttempts: instruction.maxAttempts,
+    ...(instruction.details === undefined
+      ? {}
+      : { details: instruction.details }),
+    status: item.status,
+    attempts: item.attempts,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    executionPhase: item.executionPhase,
+    ...(item.claimedAt === undefined ? {} : { claimedAt: item.claimedAt }),
+    ...(item.finishedAt === undefined ? {} : { finishedAt: item.finishedAt }),
+  });
+};
 
 export const validateTaskInstruction = (instruction: TaskInstruction): void => {
+  const keys = Object.keys(instruction);
   if (
+    !keys.every((key) =>
+      ["taskId", "taskType", "priority", "maxAttempts", "details"].includes(
+        key,
+      ),
+    ) ||
+    keys.length !== (instruction.details === undefined ? 4 : 5) ||
     !identifier.test(instruction.taskId) ||
     !identifier.test(instruction.taskType) ||
     !Number.isSafeInteger(instruction.priority) ||
@@ -35,6 +80,30 @@ export const validateTaskInstruction = (instruction: TaskInstruction): void => {
   ) {
     throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
   }
+  if (instruction.details !== undefined) {
+    const details = instruction.details;
+    const detailKeys = Object.keys(details);
+    try {
+      validateBlockOperationInstruction(details.instruction);
+    } catch {
+      throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+    }
+    if (
+      details.version !== 1 ||
+      details.kind !== "place_single_dirt" ||
+      detailKeys.length !== 3 ||
+      !detailKeys.every((key) =>
+        ["version", "kind", "instruction"].includes(key),
+      ) ||
+      instruction.taskType !== "place_single_dirt" ||
+      instruction.taskId !== details.instruction.taskId ||
+      instruction.maxAttempts !== 1
+    ) {
+      throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+    }
+  } else if (instruction.taskType === "place_single_dirt") {
+    throw new TaskQueueError("INVALID_TASK_INSTRUCTION");
+  }
 };
 
 export const createQueuedTask = (
@@ -43,12 +112,13 @@ export const createQueuedTask = (
 ): TaskQueueItem => {
   validateTaskInstruction(instruction);
   const now = clock().toISOString();
-  return freeze({
-    ...instruction,
+  return freezeItem({
+    ...freezeInstruction(instruction),
     status: "queued",
     attempts: 0,
     createdAt: now,
     updatedAt: now,
+    executionPhase: "not_started",
   });
 };
 
@@ -62,8 +132,50 @@ const transition = (
     throw new TaskQueueError("INVALID_TASK_TRANSITION");
   }
   const now = clock().toISOString();
-  return freeze({ ...item, ...fields, status, updatedAt: now });
+  return freezeItem({ ...item, ...fields, status, updatedAt: now });
 };
+
+export const markTaskDeliveryStarted = (
+  item: TaskQueueItem,
+  clock: TaskQueueClock,
+): TaskQueueItem => {
+  if (
+    item.status !== "claimed" ||
+    item.executionPhase !== "not_started" ||
+    item.details?.kind !== "place_single_dirt" ||
+    item.maxAttempts !== 1
+  ) {
+    throw new TaskQueueError("INVALID_TASK_TRANSITION");
+  }
+  return freezeItem({
+    ...item,
+    executionPhase: "delivery_started",
+    updatedAt: clock().toISOString(),
+  });
+};
+
+export const markTaskVerified = (
+  item: TaskQueueItem,
+  clock: TaskQueueClock,
+): TaskQueueItem => {
+  if (item.status !== "claimed" || item.executionPhase !== "delivery_started") {
+    throw new TaskQueueError("INVALID_TASK_TRANSITION");
+  }
+  return freezeItem({
+    ...item,
+    executionPhase: "verified",
+    updatedAt: clock().toISOString(),
+  });
+};
+
+export const taskRecoveryDisposition = (
+  item: TaskQueueItem,
+): "claimable" | "manual_review" | "terminal" =>
+  item.status === "queued"
+    ? "claimable"
+    : item.status === "claimed"
+      ? "manual_review"
+      : "terminal";
 
 export const claimTask = (
   item: TaskQueueItem,

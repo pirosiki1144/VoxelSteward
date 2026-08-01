@@ -142,8 +142,9 @@ block変更を伴わないnavigate・到達確認・位置記録のdomainもrunt
 
 ### 最初のブロック操作基盤
 
-空気と確認された隣接1座標へdirtを1個だけ配置する、厳格なdomain、port、Fake、安全coordinatorを
-実装しています。実Bedrock packet adapterはinventory・runtime ID・server観測の根拠が不足するため
+空気と確認された隣接1座標へdirtを1個だけ配置する、厳格なdomain、port、Fake、安全coordinator、
+version付きMySQL指示永続化を実装しています。送信直前phaseを保存し、crash後は自動再送しません。
+実Bedrock packet adapterはitem registry・face・authoritative frameの根拠が不足するため
 `unsupported`で、通常runtimeのbindingも既定無効です。実Minecraftへの配置、採掘、queue consumerは
 ありません。詳細は[最初のブロック操作](docs/block-operations.md)を参照してください。
 

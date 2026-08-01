@@ -1,3 +1,5 @@
+import type { PlaceSingleBlockInstruction } from "../block-operation/index.js";
+
 export type TaskQueueStatus =
   "queued" | "claimed" | "completed" | "failed" | "stopped" | "cancelled";
 
@@ -6,7 +8,17 @@ export interface TaskInstruction {
   readonly taskType: string;
   readonly priority: number;
   readonly maxAttempts: number;
+  readonly details?:
+    | {
+        readonly version: 1;
+        readonly kind: "place_single_dirt";
+        readonly instruction: PlaceSingleBlockInstruction;
+      }
+    | undefined;
 }
+
+export type TaskExecutionPhase =
+  "not_started" | "delivery_started" | "verified";
 
 export interface TaskQueueItem extends TaskInstruction {
   readonly status: TaskQueueStatus;
@@ -15,6 +27,7 @@ export interface TaskQueueItem extends TaskInstruction {
   readonly updatedAt: string;
   readonly claimedAt?: string | undefined;
   readonly finishedAt?: string | undefined;
+  readonly executionPhase: TaskExecutionPhase;
 }
 
 export type TaskQueueTerminalStatus = Extract<
@@ -27,6 +40,8 @@ export type TaskQueueCommand =
   | { readonly type: "task.claim_next" }
   | { readonly type: "task.cancel"; readonly taskId: string }
   | { readonly type: "task.release"; readonly taskId: string }
+  | { readonly type: "task.mark_delivery_started"; readonly taskId: string }
+  | { readonly type: "task.mark_verified"; readonly taskId: string }
   | {
       readonly type: "task.finish";
       readonly taskId: string;

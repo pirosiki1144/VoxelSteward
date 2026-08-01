@@ -196,6 +196,9 @@ disabledで、実frame providerもありません。通常runtimeへmovement exe
 
 block操作は現在offline Fake検証だけで、通常runtimeから有効化できません。将来の単一dirt配置試験は
 [受入計画](verification/block-placement-acceptance-plan.md)に従い、専用区域と個別承認を必要とします。
+型付き配置指示が`claimed`で残った場合は、送信前か送信後かを推測してqueuedへ戻しません。
+`execution_phase`とserverの対象blockをoperatorが照合するまでmanual reviewとし、新しいtask IDでの
+再投入も行いません。
 
 world・inventory観測bindingも通常runtimeでは既定disabledです。実観測試験では
 [観測受入計画](verification/world-observation-acceptance-plan.md)に従い、接続とgame内での変更ごとに
