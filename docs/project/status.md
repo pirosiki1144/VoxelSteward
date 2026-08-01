@@ -2,9 +2,9 @@
 
 ## 基準
 
-- 基準コミット: `c9c6363dde93b940a22ab6556e53b25d4c9f4446`
-- 完成マイルストーン: 単一block配置のprotocol evidenceと匿名Golden Fixture観測境界
-- 現在の工程: Golden Capture機能を見送り、次の安全な開発工程を選定中
+- 基準コミット: `8b79c013ed5ce295f0c1a24fa2df4f0cd9fe94ec`
+- 完成マイルストーン: 通知outbox dispatcherと永続at-least-once配送管理
+- 現在の工程: CaptureとMinecraft操作に依存しない読み取り専用task executorの設計候補
 
 ## 完成済み
 
@@ -35,6 +35,11 @@
 - run ID・revisionによるsnapshot、履歴、作業checkpoint、通知outboxの冪等保存
 - version管理されたMySQL migrationとtransaction rollback
 - 隔離されたtmpfs MySQL 8.4によるmigration・Repository統合試験8件
+- `pending`・`delivering`・`delivered`・`failed`を持つ通知outbox migration 004
+- Repository portとMySQL transactionによるrevision順の排他claim、配送成功・失敗の永続化
+- 30秒leaseのcrash回収、最大5試行、1秒起点・60秒上限のbackoff、上限後の終端化
+- MySQL有効時のoutbox dispatcherと無効時のprocess内subscriberの排他的なruntime経路
+- 並行dispatcherの重複claim抑制、再起動相当の配送再開、lease回収を含むFake・隔離MySQL検証
 - 型付き作業指示とpriority付きFIFO queue
 - cancel、終端化、最大試行回数による有限の再キュー
 - TaskQueue Repository portとMySQL transactionによる排他的claim
@@ -90,8 +95,8 @@ MySQLの非秘密なローカル検証結果は
 - 汎用作業executor、外部指示入力、claim lease回収、スケジュール制御はない
 - 体力・空腹度低下時の食事、退避、切断などの回復動作はない
 - MySQL無効時は状態イベントを永続化しない
-- Discord通知は設定時だけ有効で、再起動後の重複防止や永続配送はない
-- 通知outbox dispatcherと配送済み状態の更新はなく、Discordはoutboxをまだconsumeしない
+- MySQL無効時のDiscord通知はprocess内best effortで、再起動後の配送はない
+- MySQL outbox配送はat-least-onceであり、送信成功後・配送済み更新前のcrash windowには重複し得る
 - runtime用のreadinessエンドポイントはない
 
 ## 次の完了条件
@@ -100,14 +105,14 @@ MySQLの非秘密なローカル検証結果は
 2. production block配置adapterとruntime consumerを`unsupported`／disabledのまま維持する
 3. face、envelope、item action、authoritative frameを推測値で実装しない
 4. Capture再検討時は`spike/golden-capture-investigation`を起点に、一次根拠と安全性を改めてレビューする
-5. 次の開発対象は、既存ロードマップからCaptureや未確定配置protocolに依存しない工程を選定する
+5. `verify_arrival`と`record_position`に限定した読み取り専用task executorの契約を設計する
 
 実fixture取得、Minecraft接続、game操作は引き続き承認必須です。Captureを見送っている間もproduction block配置
 adapterとruntime consumerは有効化しません。
 
 ## 未決定事項
 
-- 停止直前通知をbest effortのまま扱う期間と、将来outboxで永続保証を開始する時点
+- outboxのat-least-once重複をDiscord受信側で表示または抑制するか
 - Webhook URLの本番secret管理方式
 - 作業IDの生成責務と外部指示の形式
 - JST表示をアプリケーション、通知アダプター、UIのどこで担当するか

@@ -59,6 +59,10 @@ priority付きFIFO、冪等enqueue、並行claim、有限試行を検証し、�
 除去します。`docker compose down`や`--remove-orphans`は同じprojectのruntimeへ影響し得るため、
 この局所cleanupには使用しません。
 
+通知outboxの統合testはmigration 004の適用・rollback、並行dispatcherの排他claim、
+worker crash相当のlease切れ回収、再起動相当の配送再開、最大試行回数後の`failed`終端化を
+検証します。実Webhookは使わずFake portだけを注入します。
+
 通常runtimeで永続化する場合は`MYSQL_PERSISTENCE_ENABLED`を厳密に`true`とし、host、port、
 database、user、passwordを秘密管理された環境から注入します。既定の`false`では他のMySQL
 設定を検証せずDB接続もしません。`persistence.write_failed`はcode、retryable、revision、
@@ -113,6 +117,21 @@ Webhook URLを秘密値として注入し、フラグを厳密に`true`としま
 `status`（存在時）、`attempts`と通知IDだけを記録します。応答本文や生Errorは記録しません。
 1試行5秒、最大3試行、レート制限待機を含む総15秒が上限です。runtime停止時は未完了の
 配送と待機を中断し、Minecraftの安全切断を待たせません。
+
+MySQL有効時は通知をprocess内subscriberから直接送らず、状態eventと同じtransactionで
+outboxへ保存します。dispatcherは250ms間隔でrevision順に1件ずつclaimし、30秒lease、
+最大5試行、1秒起点・60秒上限のbackoffで配送します。これらは運用環境から無制限に
+拡張できない内部既定値です。SIGINT・SIGTERMで新規claimを停止し、取得済み配送の後に
+RepositoryとWebhook bindingをcloseします。
+
+運用中は`delivery_status`、`delivery_attempts`、`next_attempt_at`、`lease_expires_at`、
+`last_error_code`の秘密を含まなfieldだけを確認します。`delivered`と`failed`は終端です。
+`delivering`が30秒を超えて残っても手動でSQL更新せず、次のdispatcherによるlease回収を確認します。
+`failed`の無制限な再投入は行わず、安全なcodeとDiscord側障害の解消を調査します。
+
+配送はat-least-onceです。Webhook送信成功後にDBへ`delivered`を書く前にプロセスが失われた
+場合は重複し得るため、Discord上の`Notification ID`を用いて同一通知を識別します。
+MySQL無効時は従来のprocess内best effortであり、再起動後の配送再開はありません。
 
 設定済みWebhookと既存の固定templateを使う開発・テスト・受入送信は、事前に回数を限定し、
 既存timeout・retry上限を維持する場合に自律実行できます。URLや`.env`の値を表示せず、

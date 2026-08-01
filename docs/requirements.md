@@ -16,7 +16,7 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 - 自律的な判断またはゲーム内での行動
 - 本番環境へのデプロイおよび本番環境の認証情報
 - 作業executorと外部からの作業指示入力
-- Discordの定時報告、永続配送、再起動をまたぐ重複防止、Bot APIによる双方向操作
+- Discordの定時報告、Bot APIによる双方向操作、厳密なexactly-once配送
 
 ## 1.1 長期的な製品範囲
 
@@ -146,6 +146,15 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - Discord配送は1試行5秒、最大3試行、総15秒を上限とし、429の待機指定と限定した一時障害
   だけを再試行すること。
 - 通知配送と待機はruntime終了時に中断し、安全切断やプロセス終了を待たせないこと。
+- MySQL有効時は永続outboxから未配送通知をrevision順にclaimし、複数workerが同じ
+  通知を同時にclaimしないこと。
+- outbox配送状態は`pending`、`delivering`、`delivered`、`failed`とし、`delivered`と
+  `failed`を終端とすること。配送成功は配送時刻、失敗はallow-list済みcodeだけを保存すること。
+- claimは有限leaseを持ち、worker crash後のlease切れを回収できること。再試行回数と
+  backoffを有限にし、上限到達時は`failed`へ終端化すること。
+- dispatcherはSIGINT・SIGTERMによる終了開始後に新規claimせず、取得済みの1件を有限の
+  配送境界で終えてからportをcloseすること。
+- MySQL無効時は従来のprocess内subscriberを使い、永続配送を保証するように表示しないこと。
 
 ## 10. 作業指示と作業キュー要件
 
@@ -160,7 +169,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - 実Webhook資格情報は実行環境だけで管理すること。設定済みWebhookと固定templateによる
   開発・テスト・受入送信は、回数、timeout、retryを制限し、秘密情報を送信せず、
   Minecraftの安全処理から隔離すること。
-- Discordの定時報告、再起動後の重複防止、永続配送保証は別工程とすること。
+- Discordの定時報告、受信側の重複抑制、厳密なexactly-once配送は別工程とすること。
 
 ## 11. 共通安全制御要件
 

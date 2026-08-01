@@ -121,8 +121,8 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 
 状態管理はMinecraft、Discord、MySQLから独立したdomainモジュールとし、コマンドによる
 検証済み遷移、読み取り専用スナップショット、プロセス内の変更イベントを提供します。
-`RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。Discord通知は現在、
-同じイベントを購読しており、MySQL Repositoryも同じイベントを直列購読します。
+`RuntimeSupervisor`は接続イベントを状態コマンドへ変換します。MySQL Repositoryは同じイベントを
+直列購読します。Discord通知はMySQL無効時だけ直接購読し、有効時はoutbox経由で配送します。
 各runtime runをUUIDで分離し、history、最新snapshot、作業checkpoint、通知outboxを
 単一transactionで保存します。Minecraft adapterとRuntimeSupervisorはSQLを知りません。
 subscriber障害は安全切断経路から隔離します。
@@ -135,8 +135,8 @@ UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と�
 
 通知は`StateChangeEvent`だけを起点とし、MinecraftアダプターやRuntimeSupervisorから
 送信ポートを直接呼びません。application層のmapperが変更前後の状態を固定テンプレートの
-`NotificationMessage`へ変換し、`NotificationSubscriber`がrevision順に
-`NotificationPort`へ直列配送します。
+`NotificationMessage`へ変換します。MySQL無効時は`NotificationSubscriber`、有効時は
+永続outboxの`OutboxDispatcher`がrevision順に`NotificationPort`へ直列配送します。
 
 通常runtimeは起動時に通知設定を一度だけ検証し、無効時は`NoopNotificationPort`、
 有効時はNode標準`fetch`を用いる`DiscordWebhookNotificationPort`を共有StateStoreへ
@@ -144,11 +144,14 @@ UTCで取得します。subscriberはmicrotaskで呼び出し、同期例外と�
 テストから差し替えられます。送信例外とPromise rejectionは安全な分類へ変換して通知エラー
 callbackへ隔離し、安全切断や状態dispatchを待たせません。
 
-runtime終了時はsubscriberの新規受付を止めた後、別のruntime bindingが進行中HTTPと
-レート制限・再試行待機をAbortします。`NotificationPort`の既存契約には終了責務を
-追加しません。Webhook URLは状態、通知本文、ログへ渡しません。Discord Bot API、
-通知outboxへの書込みは実装済みですが、outbox配送worker、定時報告、配送済み状態の更新、
-再起動後の配送保証は未実装です。詳細は[通知基盤](notifications.md)を参照してください。
+MySQL有効時は状態eventと通知候補を同一transactionで保存し、Repository portが1件ずつ
+排他claimします。`pending`、`delivering`、`delivered`、`failed`の状態、有限lease、最大
+試行回数、次回試行時刻をMySQLに保持し、並行workerの重複claimとcrash後の放置を防ぎます。
+送信成功後のDB更新前crash windowは残るため、契約はat-least-onceです。
+
+runtime終了時はsubscriberまたはdispatcherの新規受付・claimを止め、取得済み配送の終了後に
+bindingをcloseします。Webhook URLは状態、通知本文、ログへ渡しません。Discord Bot APIと定時報告は
+未実装です。詳細は[通知基盤](notifications.md)を参照してください。
 
 ## 12. 共通の安全制御
 

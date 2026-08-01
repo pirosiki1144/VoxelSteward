@@ -5,7 +5,7 @@
 状態イベントから安全な通知内容を生成し、外部送信を抽象化するプロセス内基盤です。
 通常runtimeは既定で`NoopNotificationPort`を使用します。明示的に有効化し、起動時の
 厳格なURL検証を通過した場合だけ、Discord Incoming Webhookアダプターを使用します。
-Discord SDK、Bot API、認証・チャンネル作成、定時報告、outbox配送workerは含みません。
+Discord SDK、Bot API、認証・チャンネル作成、定時報告は含みません。
 自動テストは注入したFake HTTP transportだけを使用します。設定済みWebhookと既存の固定
 templateを使う回数限定の開発・テスト・受入送信は、[開発権限と承認ゲート](project/governance.md)
 の条件を満たす場合に自律実行できます。
@@ -28,7 +28,7 @@ NotificationPort
 ```
 
 - mapperは`StateChangeEvent.before`と`after`の実値を比較します。
-- subscriberは通知対象をrevisionの昇順で直列配送します。
+- MySQL無効時はsubscriber、有効時はoutbox dispatcherが通知対象をrevisionの昇順で直列配送します。
 - portは外部配送方式を抽象化し、状態domainやRuntimeSupervisorから分離します。
 - Minecraftイベントからportを直接呼び出しません。
 
@@ -91,9 +91,24 @@ channel ID、Cookie、認証キャッシュ、生のError、stackは含めませ
 - `flush()`で受理済み配送の完了をテストでき、`unsubscribe()`または`close()`で新規受付を
   停止できます。
 
-この保証は同一プロセス内だけです。MySQLへ通知outboxを状態イベントと同じtransactionで
-保存しますが、現在のDiscord配送はoutboxをconsumeしません。配送済み状態の更新、
-再起動後の再送、永続的な重複防止は未実装です。
+このプロセス内保証はMySQL無効時のfallbackです。MySQL有効時は状態イベントと同じ
+transactionでoutboxへ保存し、dispatcherだけが配送します。直接subscriberとの二重配送は行いません。
+
+## 永続outbox dispatcher
+
+- 状態は`pending`、`delivering`、`delivered`、`failed`で、後ろ2つは終端です。
+- MySQL transactionで対象を1件claimし、並行dispatcherが同じ行を取得しないようにします。
+- 並び順は元revisionと決定的IDで安定化し、1workerは1件ずつ配送します。
+- claim leaseは30秒です。worker crash等で残った`delivering`はlease切れ後に回収します。
+- 最大5回まで試行し、1秒から最大60秒の指数backoff後に`pending`へ戻します。上限で
+  `failed`へ終端化します。poll間隔は250msで、これらは外部から安全性を弱められない固定値です。
+- 成功時は配送時刻、失敗時は試行回数、次回試行時刻、allow-list済みの最終エラーcodeを
+  保存します。生Error、stack、URL、HTTP応答本文は保存しません。
+- 終了開始後は新規claimを停止し、取得済みの1件をWebhook port自身の有限timeout内で終え、
+  dispatcherとportをcloseします。
+
+`delivered`はportが成功を返したことを示します。送信成功後にDB更新前でプロセスが失われる
+crash windowまで厳密なexactly-onceにはできないため、配送契約はat-least-onceです。
 
 ## 障害隔離
 
@@ -128,8 +143,8 @@ runtimeはsubscriberを閉じて新規受付を停止した後、通知binding�
 `NotificationPort`の公開契約にはcloseを追加していません。
 
 実Webhook URL、token、channel IDは設定境界で管理し、状態、通知本文、ログ、テストfixture、
-Gitへ保存しません。MySQL outboxは記録済みですが、プロセス再起動後の重複防止・永続配送には
-outbox dispatcherと配送結果更新が別途必要です。専用テスト環境で実Discord送信を含む
+Gitへ保存しません。MySQL有効時はoutbox dispatcherと配送結果更新を使い、再起動後も
+未配送の処理を再開します。専用テスト環境で実Discord送信を含む
 受入試験1～3が完了しています。非秘密な
 結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)を参照してください。
 

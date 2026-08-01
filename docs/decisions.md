@@ -112,7 +112,7 @@
   `notificationId`を既定256件の有界履歴で重複排除します。古いrevisionは送信しません。
 - 障害境界: 状態dispatchは配送を待たず、同期例外とPromise rejectionは
   `onNotificationError`へ隔離します。通知失敗はruntimeやMinecraftの安全切断を妨げません。
-- この段階での未実装範囲: プロセス再起動後の重複防止と永続配送、Discord実アダプター、
+- この段階での未実装範囲（後にADR-014・ADR-029で解消）: プロセス再起動後の配送とDiscord実アダプター、
   認証、定時報告。Discord実アダプターの後続判断と現在の実装状態はADR-014に記録します。
 - 将来方針: 429の`Retry-After`、一時的な5xx・通信失敗だけの上限付き指数バックオフと
   jitter、認証・不正リクエストの再試行禁止を実アダプターで実装します。永続保証が
@@ -140,8 +140,8 @@
 - 検証: 承認済みの専用テスト環境で実Discord送信を含む受入試験1～3が完了しています。
   非秘密な結果は[Discord Incoming Webhook受入結果](verification/discord-webhook.md)に
   記録します。
-- 未実装: Bot API、双方向操作、定時報告、outbox dispatcher、再起動後の重複防止、永続的な
-  配送保証。outbox記録はADR-016で追加します。
+- この決定時の未実装: Bot API、双方向操作、定時報告、outbox dispatcher。outbox記録は
+  ADR-016、dispatcherとat-least-once配送はADR-029で後に追加しました。
 - 理由: 現在は一方向通知だけが必要であり、既存ポートへ小さなHTTPアダプターとして接続し、
   Discord障害を安全制御から分離できるためです。
 
@@ -193,8 +193,8 @@
   `mysql2` 3.23.2を固定使用します。
 - 秘密境界: snapshot、history、checkpoint、outbox、fixtureへplayer名、BOT情報、server endpoint、
   credentialを含めません。DB errorや接続設定をログへ渡しません。
-- 未実装: outbox dispatcher、配送済み更新、再起動後のDiscord再送、外部・共有・本番DBへの
-  migration、永続dataのbackup/restore運用。
+- この決定時の未実装: outbox dispatcherと配送結果更新はADR-029で後に追加しました。
+  外部・共有・本番DBへのmigrationと永続dataのbackup/restore運用は未実装です。
 - 理由: 状態変更と通知候補を原子的かつ再現可能に保存しながら、DB障害をMinecraftの安全制御から
   隔離するためです。
 
@@ -413,3 +413,24 @@
   不明結果では`unsupported`を維持し、自動fallbackや再試行を行いません。
 - 理由: 外部実装の慣例だけをコピーせず、対象server構成の観測と突合しながら、fixture自体から秘密情報と
   個人情報を排除するためです。
+
+## ADR-029: MySQL outboxを有限leaseでclaimしat-least-once配送する
+
+- ステータス: 承認済み（offline・隔離MySQL実装）
+- 経路: MySQL有効時は状態event起点のoutbox保存とdispatcherだけを使い、プロセス内
+  `NotificationSubscriber`の直接配送は行いません。MySQL無効時は従来のprocess内経路を保ちます。
+- 状態: `pending`、`delivering`、`delivered`、`failed`の4状態とし、後ろ2つを終端とします。
+  migration 004で最大試行回数、次回試行時刻、lease owner・期限を追加します。
+- claim: DB advisory lockでclaim操作を直列化し、MySQL transaction内の`FOR UPDATE`で未終端の
+  最古1件を排他claimします。先頭がretry待ちまたは有効lease中なら後続を追い越しません。leaseは30秒で、
+  crash後の期限切れ`delivering`を回収します。worker IDとleaseが一致するclaimだけが結果を更新できます。
+- 有限性: 最大5試行、250ms poll、1秒起点・60秒上限の指数backoffを内部既定値とします。
+  上限到達後は`failed`へ終端化し、無限再試行しません。
+- エラー境界: 最終エラーは`[A-Z0-9_]{1,64}`の安全なcodeだけを保存し、生Error、stack、
+  URL、HTTP応答本文を保存・ログ出力しません。通知障害はruntimeとMinecraftの安全停止から隔離します。
+- 配送契約: 送信成功後、`delivered`更新前のcrash windowは回避できないためat-least-onceです。
+  `notificationId`による受信側の識別はできますが、exactly-onceとは表示しません。
+- 終了: SIGINT・SIGTERM後は新規claimを停止し、取得済みの1件をportの有限timeout境界で終えて
+  Repositoryとportをcloseします。
+- 理由: 状態変更と配送候補の原子性、再起動後の再開、並行workerの排他を得ながら、
+  外部通知障害をMinecraftの安全制御から切り離すためです。

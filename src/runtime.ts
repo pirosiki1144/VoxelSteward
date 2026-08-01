@@ -1,7 +1,10 @@
 import { pathToFileURL } from "node:url";
 
 import { BedrockReadonlyConnection } from "./adapters/minecraft/bedrock-connection.js";
-import { NotificationSubscriber } from "./application/notifications/index.js";
+import {
+  NotificationSubscriber,
+  OutboxDispatcher,
+} from "./application/notifications/index.js";
 import { StatePersistenceSubscriber } from "./application/persistence/index.js";
 import { toSafeNotificationDeliveryFailure } from "./adapters/notifications/discord-webhook-notification-port.js";
 import { toSafePersistenceFailure } from "./adapters/persistence/mysql-state-persistence-repository.js";
@@ -54,6 +57,7 @@ const flushPersistence = async (
 const main = async (): Promise<void> => {
   let lock: InstanceLock | undefined;
   let notifications: NotificationSubscriber | undefined;
+  let outboxDispatcher: OutboxDispatcher | undefined;
   let notificationBinding: RuntimeNotificationBinding | undefined;
   let persistence: StatePersistenceSubscriber | undefined;
   let persistenceBinding: RuntimePersistenceBinding | undefined;
@@ -82,26 +86,38 @@ const main = async (): Promise<void> => {
         logger.log("error", { event: "runtime.state_subscriber_failed" });
       },
     });
+    const reportNotificationError = (
+      error: unknown,
+      message:
+        | {
+            readonly notificationId: string;
+            readonly sourceRevision: number;
+            readonly type: string;
+          }
+        | undefined,
+    ): void => {
+      const failure = toSafeNotificationDeliveryFailure(error);
+      logger.log("error", {
+        event: "notification.delivery_failed",
+        code: failure.code,
+        classification: failure.classification,
+        attempts: failure.attempts,
+        ...(failure.status === undefined ? {} : { status: failure.status }),
+        ...(message === undefined
+          ? {}
+          : {
+              notificationId: message.notificationId,
+              sourceRevision: message.sourceRevision,
+              notificationType: message.type,
+            }),
+      });
+    };
     notifications = new NotificationSubscriber(notificationBinding.port, {
       onNotificationError: (error, message) => {
-        const failure = toSafeNotificationDeliveryFailure(error);
-        logger.log("error", {
-          event: "notification.delivery_failed",
-          code: failure.code,
-          classification: failure.classification,
-          attempts: failure.attempts,
-          ...(failure.status === undefined ? {} : { status: failure.status }),
-          ...(message === undefined
-            ? {}
-            : {
-                notificationId: message.notificationId,
-                sourceRevision: message.sourceRevision,
-                notificationType: message.type,
-              }),
-        });
+        reportNotificationError(error, message);
       },
     });
-    notifications.subscribe(stateStore);
+    if (!persistenceBinding.enabled) notifications.subscribe(stateStore);
     persistence = new StatePersistenceSubscriber(
       persistenceBinding.repository,
       persistenceBinding.runId,
@@ -119,6 +135,20 @@ const main = async (): Promise<void> => {
       },
     );
     persistence.subscribe(stateStore);
+    if (persistenceBinding.outboxRepository !== undefined) {
+      outboxDispatcher = new OutboxDispatcher(
+        persistenceBinding.outboxRepository,
+        notificationBinding.port,
+        {
+          workerId: persistenceBinding.runId,
+          toSafeErrorCode: (error) =>
+            toSafeNotificationDeliveryFailure(error).code,
+          onError: (error, record) =>
+            reportNotificationError(error, record?.message),
+        },
+      );
+      outboxDispatcher.start();
+    }
     const supervisor = new RuntimeSupervisor(
       config,
       () => new BedrockReadonlyConnection(config, logger),
@@ -128,10 +158,12 @@ const main = async (): Promise<void> => {
     );
     const onSigint = () => {
       logger.log("info", { event: "signal.received", signal: "SIGINT" });
+      void outboxDispatcher?.stop();
       supervisor.requestStop("signal_sigint");
     };
     const onSigterm = () => {
       logger.log("info", { event: "signal.received", signal: "SIGTERM" });
+      void outboxDispatcher?.stop();
       supervisor.requestStop("signal_sigterm");
     };
     process.once("SIGINT", onSigint);
@@ -162,6 +194,7 @@ const main = async (): Promise<void> => {
   } finally {
     await runCleanupSteps(
       [
+        { name: "outbox_dispatcher", run: () => outboxDispatcher?.stop() },
         { name: "notifications", run: () => notifications?.close() },
         {
           name: "notification_binding",

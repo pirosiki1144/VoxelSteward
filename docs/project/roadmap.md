@@ -12,7 +12,8 @@
 3. MySQLへの状態・履歴保存（最小実装完了）
    - Repository port、状態snapshot・履歴・checkpoint・通知outbox（完了）
    - version管理migration、transaction、revision冪等性、隔離MySQL検証（完了）
-   - outbox dispatcherと永続配送保証（後続工程）
+   - outbox dispatcher、排他claim、有限lease回収、配送結果更新（完了）
+   - 複数dispatcher・再起動相当の隔離MySQL検証と有限再試行（完了）
 4. 作業指示と作業キュー（最小実装完了）
    - 型付き指示、priority付きFIFO、cancel、終端化、有限回の再キュー（完了）
    - Repository port、MySQL migration、transaction claim、冪等enqueue（完了）

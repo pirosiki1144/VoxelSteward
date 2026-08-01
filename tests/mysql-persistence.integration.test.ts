@@ -7,6 +7,7 @@ import {
   rollbackAll,
 } from "../src/adapters/persistence/mysql-migrations.js";
 import { MySqlStatePersistenceRepository } from "../src/adapters/persistence/mysql-state-persistence-repository.js";
+import { MySqlNotificationOutboxRepository } from "../src/adapters/persistence/mysql-notification-outbox-repository.js";
 import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task-queue-repository.js";
 import { TaskQueueService } from "../src/application/task-queue/index.js";
 import { mapStateChangeToNotification } from "../src/application/notifications/index.js";
@@ -30,6 +31,11 @@ interface CheckpointRow extends RowDataPacket {
   readonly revision: number;
   readonly task_state: string;
 }
+interface OutboxDeliveryRow extends RowDataPacket {
+  readonly delivery_status: string;
+  readonly delivery_attempts: number;
+  readonly last_error_code: string | null;
+}
 
 suite("MySqlStatePersistenceRepository", () => {
   const pool = mysql.createPool({
@@ -42,6 +48,7 @@ suite("MySqlStatePersistenceRepository", () => {
   });
   const repository = new MySqlStatePersistenceRepository(pool);
   const queueRepository = new MySqlTaskQueueRepository(pool);
+  const outboxRepository = new MySqlNotificationOutboxRepository(pool);
 
   beforeAll(async () => {
     await rollbackAll(pool);
@@ -58,7 +65,12 @@ suite("MySqlStatePersistenceRepository", () => {
     const [rows] = await pool.query<VersionRow[]>(
       "SELECT version FROM schema_migrations ORDER BY version",
     );
-    expect(rows).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    expect(rows).toEqual([
+      { version: 1 },
+      { version: 2 },
+      { version: 3 },
+      { version: 4 },
+    ]);
   });
 
   it("history、snapshot、checkpoint、outboxを同一revisionで保存し重複を抑制する", async () => {
@@ -348,5 +360,104 @@ suite("MySqlStatePersistenceRepository", () => {
     await expect(
       queueRepository.find("mysql-invalid-version"),
     ).rejects.toMatchObject({ code: "INVALID_PERSISTED_TASK_INSTRUCTION" });
+  });
+
+  it("outboxを複数workerから排他的claimし配送成功を冪等に確定する", async () => {
+    await pool.query("DELETE FROM notification_outbox");
+    const runId = "00000000-0000-4000-8000-000000000020";
+    await repository.initialize(runId, "2026-08-01T00:00:00.000Z");
+    const store = createStateStore();
+    store.dispatch({
+      type: "task.prepare",
+      taskId: "outbox-concurrent",
+      taskType: "verification",
+    });
+    const event = store.dispatch({ type: "task.transition", to: "running" });
+    if (event === undefined) throw new Error("fixture event missing");
+    await repository.persist(runId, event, mapStateChangeToNotification(event));
+    const claims = await Promise.all([
+      outboxRepository.claimNext(
+        "worker-a",
+        "2026-08-01T00:01:00.000Z",
+        30_000,
+        5,
+      ),
+      outboxRepository.claimNext(
+        "worker-b",
+        "2026-08-01T00:01:00.000Z",
+        30_000,
+        5,
+      ),
+    ]);
+    const claimed = claims.filter((item) => item !== undefined);
+    expect(claimed).toHaveLength(1);
+    const item = claimed[0];
+    if (item === undefined) throw new Error("fixture claim missing");
+    const owner = item.leaseOwner;
+    if (owner === undefined) throw new Error("fixture lease owner missing");
+    await expect(
+      outboxRepository.markDelivered(item, owner, "2026-08-01T00:01:01.000Z"),
+    ).resolves.toBe(true);
+    await expect(
+      outboxRepository.markDelivered(item, owner, "2026-08-01T00:01:01.000Z"),
+    ).resolves.toBe(false);
+  });
+
+  it("outbox leaseを回収し再試行上限でfailedへ終端化する", async () => {
+    await pool.query("DELETE FROM notification_outbox");
+    const runId = "00000000-0000-4000-8000-000000000021";
+    await repository.initialize(runId, "2026-08-01T00:00:00.000Z");
+    const store = createStateStore();
+    store.dispatch({
+      type: "task.prepare",
+      taskId: "outbox-bounded",
+      taskType: "verification",
+    });
+    const event = store.dispatch({ type: "task.transition", to: "running" });
+    if (event === undefined) throw new Error("fixture event missing");
+    await repository.persist(runId, event, mapStateChangeToNotification(event));
+    const first = await outboxRepository.claimNext(
+      "worker-a",
+      "2026-08-01T00:01:00.000Z",
+      1_000,
+      2,
+    );
+    const reclaimed = await outboxRepository.claimNext(
+      "worker-b",
+      "2026-08-01T00:01:01.000Z",
+      1_000,
+      2,
+    );
+    if (first === undefined || reclaimed === undefined)
+      throw new Error("fixture claim missing");
+    expect(reclaimed.attempts).toBe(2);
+    await expect(
+      outboxRepository.markDelivered(
+        first,
+        "worker-a",
+        "2026-08-01T00:01:01.000Z",
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      outboxRepository.markFailed(
+        reclaimed,
+        "worker-b",
+        "2026-08-01T00:01:01.000Z",
+        undefined,
+        "DELIVERY_FAILED",
+      ),
+    ).resolves.toBe("failed");
+    const [rows] = await pool.query<OutboxDeliveryRow[]>(
+      `SELECT delivery_status, delivery_attempts, last_error_code
+       FROM notification_outbox WHERE run_id = ? AND notification_id = ?`,
+      [runId, reclaimed.notificationId],
+    );
+    expect(rows).toEqual([
+      {
+        delivery_status: "failed",
+        delivery_attempts: 2,
+        last_error_code: "DELIVERY_FAILED",
+      },
+    ]);
   });
 });

@@ -4,8 +4,10 @@ import mysql from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
 
 import { MySqlStatePersistenceRepository } from "../adapters/persistence/mysql-state-persistence-repository.js";
+import { MySqlNotificationOutboxRepository } from "../adapters/persistence/mysql-notification-outbox-repository.js";
 import { migrate } from "../adapters/persistence/mysql-migrations.js";
 import type { StatePersistenceRepository } from "../ports/state-persistence-repository.js";
+import type { NotificationOutboxRepository } from "../ports/notification-outbox-repository.js";
 import { PersistenceError } from "../ports/state-persistence-repository.js";
 import type { PersistenceConfig } from "./persistence-config.js";
 
@@ -25,6 +27,7 @@ export interface RuntimePersistenceBinding {
   readonly enabled: boolean;
   readonly runId: string;
   readonly repository: StatePersistenceRepository;
+  readonly outboxRepository?: NotificationOutboxRepository;
   close(): Promise<void>;
 }
 
@@ -46,8 +49,9 @@ export const createRuntimePersistenceBinding = async (
     };
   }
   let repository: MySqlStatePersistenceRepository | undefined;
+  let pool: Pool | undefined;
   try {
-    const pool = createPool({
+    pool = createPool({
       host: config.host,
       port: config.port,
       database: config.database,
@@ -66,7 +70,13 @@ export const createRuntimePersistenceBinding = async (
     if (error instanceof PersistenceError) throw error;
     throw new PersistenceError("PERSISTENCE_FATAL", false);
   }
-  if (repository === undefined)
+  if (repository === undefined || pool === undefined)
     throw new PersistenceError("PERSISTENCE_FATAL", false);
-  return { enabled: true, runId, repository, close: () => repository.close() };
+  return {
+    enabled: true,
+    runId,
+    repository,
+    outboxRepository: new MySqlNotificationOutboxRepository(pool),
+    close: () => repository.close(),
+  };
 };

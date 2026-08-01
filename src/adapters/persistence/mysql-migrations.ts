@@ -45,6 +45,18 @@ const migrations: readonly Migration[] = [
       import.meta.url,
     ),
   },
+  {
+    version: 4,
+    name: "notification_outbox_delivery",
+    up: new URL(
+      "./migrations/004_notification_outbox_delivery.sql",
+      import.meta.url,
+    ),
+    down: new URL(
+      "./migrations/004_notification_outbox_delivery.down.sql",
+      import.meta.url,
+    ),
+  },
 ];
 
 const statements = (sql: string): readonly string[] =>
