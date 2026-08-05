@@ -1,7 +1,8 @@
 # 開発権限と承認ゲート
 
 この文書は、VoxelStewardでエージェントが実行できる操作の正式な情報源です。
-ロードマップ、要件、既存設計、またはユーザーから割り当てられた作業範囲内で適用します。
+driving GitHub Issue、ロードマップ、要件、既存設計、またはユーザーから割り当てられた
+作業範囲内で適用します。
 Codexの上位ポリシー、sandbox、実行環境の制約がこの文書より厳しい場合は、上位制約を
 回避しません。ただし、この文書で自律実行可能な操作について、Docker socket、localhost通信、
 Git index書込み、networkその他のsandbox権限が必要という理由だけで、会話上のユーザー許可を
@@ -28,8 +29,9 @@ volume、実Minecraft接続、外部DB、production、remote Gitはこの規則�
 
 次の方針を、主担当とsub-agentを含む全エージェントの共通ルールとします。
 
-- 完了済み工程はchat履歴から再構成せず、`docs/project/status.md`、
-  `docs/project/roadmap.md`、既存の検証記録を正本として参照する
+- 現在のscope、受入条件、依存関係、進捗はdriving GitHub Issueを正本とする。実装済み機能と
+  制約は`docs/project/status.md`、長期的な工程順序は`docs/project/roadmap.md`、完了済みの
+  evidenceは既存の検証記録を参照する
 - 現在の作業に関係するfileだけを対象に検索・読取りし、repository全体や成功logの全文を
   繰り返し出力しない
 - 途中報告と完了報告は、結果、変更file、失敗、未解決riskを中心に簡潔にし、依頼文や
@@ -43,7 +45,7 @@ volume、実Minecraft接続、外部DB、production、remote Gitはこの規則�
 - 成功したcommandは要約し、詳細なdiagnosticはfailureまたは保存すべき根拠がある場合に限定する
 
 節約を理由に、安全確認、必須検証、文書整合、秘密情報保護、承認ゲートを省略してはいけません。
-現在工程の正本は`docs/project/status.md`、工程順序の正本は`docs/project/roadmap.md`とします。
+現在作業の正本はGitHub Issue、長期的な工程順序の正本は`docs/project/roadmap.md`とします。
 
 ## 自律実行可能
 

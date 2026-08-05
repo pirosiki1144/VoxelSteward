@@ -61,9 +61,12 @@ authority are in:
 
 These rules apply to every agent and sub-agent working in this repository.
 
-- Treat `docs/project/status.md`, `docs/project/roadmap.md`, and committed
-  verification records as the source of truth. Do not reconstruct completed
-  work from chat history when the repository already records it.
+- Treat the driving GitHub Issue as the source of truth for active scope,
+  acceptance criteria, dependencies, and progress. Use
+  `docs/project/status.md` for implemented capabilities and constraints,
+  `docs/project/roadmap.md` for durable sequencing, and committed verification
+  records for completed evidence. Do not reconstruct completed work from chat
+  history when these sources already record it.
 - Inspect only files relevant to the current task. Use targeted searches and
   bounded command output instead of repeatedly reading the whole repository or
   printing full successful logs.
@@ -86,9 +89,10 @@ These rules apply to every agent and sub-agent working in this repository.
 
 ## Current development phase
 
-Read `docs/project/status.md` for the current baseline, constraints, and next
-completion criteria, and `docs/project/roadmap.md` for sequencing. Do not copy a
-potentially stale phase description into agent-specific configuration.
+Read `docs/project/status.md` for implemented capabilities and constraints, and
+`docs/project/roadmap.md` for durable sequencing. Read the driving GitHub Issue
+for the current task, acceptance criteria, dependencies, and progress. Do not
+copy a potentially stale phase description into agent-specific configuration.
 
 ## GitHub issue and pull request workflow
 
