@@ -129,6 +129,20 @@ suite("MySqlStatePersistenceRepository", () => {
     const store = createStateStore();
     const subscriber = new StatePersistenceSubscriber(repository, runId);
     subscriber.subscribe(store);
+    store.dispatch({
+      type: "schedule.intent.record",
+      phase: "morning",
+      intent: {
+        type: "schedule.start_requested",
+        evaluatedAt: "2026-08-03T00:00:00.000Z",
+        window: {
+          id: "2026-08-03:morning",
+          slot: "morning",
+          startsAt: "2026-08-03T00:00:00.000Z",
+          endsAt: "2026-08-03T02:59:00.000Z",
+        },
+      },
+    });
     store.dispatch({ type: "runtime.transition", to: "connecting" });
     store.dispatch({
       type: "minecraft.connection.transition",
@@ -155,8 +169,22 @@ suite("MySqlStatePersistenceRepository", () => {
     });
     store.dispatch({ type: "task.transition", to: "running" });
     store.dispatch({
+      type: "schedule.intent.record",
+      phase: "handoff",
+      intent: {
+        type: "schedule.stop_requested",
+        evaluatedAt: "2026-08-03T02:59:00.000Z",
+        window: {
+          id: "2026-08-03:morning",
+          slot: "morning",
+          startsAt: "2026-08-03T00:00:00.000Z",
+          endsAt: "2026-08-03T02:59:00.000Z",
+        },
+      },
+    });
+    store.dispatch({
       type: "runtime.stop_reason.record",
-      reason: "stop_requested",
+      reason: "schedule_window_ended",
     });
     store.dispatch({ type: "task.transition", to: "stopped" });
     store.dispatch({ type: "runtime.transition", to: "stopping" });
@@ -177,6 +205,7 @@ suite("MySqlStatePersistenceRepository", () => {
       Array.from({ length: history.length }, (_, index) => index + 1),
     );
     expect(history.map(({ cause }) => cause)).toEqual([
+      "schedule.intent.record",
       "runtime.transition",
       "minecraft.connection.transition",
       "minecraft.connection.transition",
@@ -184,6 +213,7 @@ suite("MySqlStatePersistenceRepository", () => {
       "minecraft.telemetry.update",
       "task.prepare",
       "task.transition",
+      "schedule.intent.record",
       "runtime.stop_reason.record",
       "task.transition",
       "runtime.transition",
@@ -204,8 +234,8 @@ suite("MySqlStatePersistenceRepository", () => {
        WHERE run_id = ? ORDER BY source_revision`,
       [runId],
     );
-    expect(snapshots).toEqual([{ revision: 12 }]);
-    expect(checkpoints).toEqual([{ revision: 12, task_state: "stopped" }]);
+    expect(snapshots).toEqual([{ revision: 14 }]);
+    expect(checkpoints).toEqual([{ revision: 14, task_state: "stopped" }]);
     expect(outbox.map(({ revision }) => revision)).toEqual(
       [...outbox.map(({ revision }) => revision)].sort((a, b) => a - b),
     );
@@ -214,21 +244,28 @@ suite("MySqlStatePersistenceRepository", () => {
     const status = await operationalLog.findRun(runId);
     expect(status).toMatchObject({
       runId,
-      revision: 12,
+      revision: 14,
       runtime: "stopped",
       minecraftConnection: "disconnected",
       spawnCompleted: false,
       telemetryStatus: "unknown",
-      stopReason: "stop_requested",
+      stopReason: "schedule_window_ended",
       task: {
         id: "runtime-trace",
         type: "verification",
         state: "stopped",
       },
+      schedule: {
+        phase: "handoff",
+        intent: "schedule.stop_requested",
+        windowId: "2026-08-03:morning",
+        slot: "morning",
+        evaluatedAt: "2026-08-03T02:59:00.000Z",
+      },
     });
     const safeHistory = await operationalLog.listHistory(runId, 0, 100);
     expect(safeHistory.map(({ revision }) => revision)).toEqual(
-      Array.from({ length: 12 }, (_, index) => index + 1),
+      Array.from({ length: 14 }, (_, index) => index + 1),
     );
     expect(safeHistory.map(({ cause }) => cause)).toEqual(
       history.map(({ cause }) => cause),
@@ -246,7 +283,7 @@ suite("MySqlStatePersistenceRepository", () => {
     expect(safeCheckpoints).toEqual([
       expect.objectContaining({
         taskId: "runtime-trace",
-        revision: 12,
+        revision: 14,
         taskType: "verification",
         taskState: "stopped",
       }),

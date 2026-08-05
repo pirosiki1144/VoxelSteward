@@ -5,6 +5,7 @@ import type {
 } from "../domain/state/index.js";
 
 export type OperationalCause =
+  | "schedule.intent.record"
   | "runtime.transition"
   | "minecraft.connection.transition"
   | "minecraft.spawn.update"
@@ -36,6 +37,13 @@ export interface OperationalStateSummary {
     type: string;
     state: TaskState;
     updatedAt: string;
+  }>;
+  readonly schedule?: Readonly<{
+    phase: "morning" | "handoff" | "afternoon" | "outside_hours";
+    intent: "schedule.start_requested" | "schedule.stop_requested";
+    windowId: string;
+    slot: "morning" | "afternoon";
+    evaluatedAt: string;
   }>;
   readonly stopReason?: string;
   readonly lastErrorCode?: string;

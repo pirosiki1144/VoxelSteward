@@ -121,24 +121,26 @@ describe("notification mapper", () => {
     expect(mapType(reconnecting)).toBe("reconnect_started");
   });
 
-  it.each([["signal_sigint"], ["signal_sigterm"], ["stop_requested"]] as const)(
-    "停止要求%sと正常停止を通知する",
-    (reason) => {
-      const { clock, store } = setup();
-      const requestEvent = dispatch(store, clock, {
-        type: "runtime.stop_reason.record",
-        reason,
-      });
-      dispatch(store, clock, { type: "runtime.transition", to: "stopping" });
-      const stopped = dispatch(store, clock, {
-        type: "runtime.transition",
-        to: "stopped",
-      });
+  it.each([
+    ["signal_sigint"],
+    ["signal_sigterm"],
+    ["stop_requested"],
+    ["schedule_window_ended"],
+  ] as const)("停止要求%sと正常停止を通知する", (reason) => {
+    const { clock, store } = setup();
+    const requestEvent = dispatch(store, clock, {
+      type: "runtime.stop_reason.record",
+      reason,
+    });
+    dispatch(store, clock, { type: "runtime.transition", to: "stopping" });
+    const stopped = dispatch(store, clock, {
+      type: "runtime.transition",
+      to: "stopped",
+    });
 
-      expect(mapType(requestEvent)).toBe("stop_requested");
-      expect(mapType(stopped)).toBe("runtime_stopped");
-    },
-  );
+    expect(mapType(requestEvent)).toBe("stop_requested");
+    expect(mapType(stopped)).toBe("runtime_stopped");
+  });
 
   it.each([
     ["connection_error", "runtime_failed"],

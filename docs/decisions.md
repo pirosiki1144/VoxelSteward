@@ -533,5 +533,25 @@
 - 重複境界: 前回評価時刻以前への巻戻りではintentを生成しません。同じwindowは再開始せず、飛越し時は
   通過境界を全再生せず、旧window停止と現在window開始だけを順に返します。
 - 分離: domainはMinecraft、MySQL、process signal、timerを知りません。runtimeが旧runの切断完了前に
-  新runを開始しない制御、他player・operator停止後の非再開、intent履歴保存はIssue #7以降で実装します。
+  新runを開始しない制御、他player・operator停止後の非再開、intent履歴保存はapplication/runtime層で
+  実装します。
 - 理由: 時刻判定と副作用を分離し、境界の正しさと多重開始防止をFake Clockで先に固定するためです。
+
+## ADR-036: schedulerは再利用可能なruntime sessionを直列制御する
+
+- ステータス: 承認済み（offline・隔離MySQL実装）
+- 背景: 午前・午後runで既存の通知、MySQL、task executor、安全停止を維持しつつ、旧runの切断完了前に
+  次runを開始しない必要があります。別runtime実装や子process起動は安全境界を重複させます。
+- 決定: one-shot runtimeの資源管理を`RuntimeSession`へ抽出し、通常entrypointとscheduled entrypointで
+  共用します。controllerはscheduler intentを順に処理し、停止時は`reason: schedule_window_ended`を記録、
+  supervisor終了、task checkpoint、永続化flush、全adapter cleanup、InstanceLock解放をawaitしてから
+  次sessionを作成します。
+- 非再接続: schedulerは1windowにつき開始intentを1件だけ生成します。sessionが他player、operator停止、
+  接続上限、回復不能エラーで終了しても同じwindowでは再生成しません。process signalはpoll待機とactive
+  sessionの両方を停止します。
+- 永続化: schedule intentをStateStore commandへ変換し、接続・spawn・telemetry・停止理由と同じrun IDと
+  revisionで保存します。DB初期化失敗はconnection factory実行前に失敗し、書込み障害は安全切断から隔離します。
+- InstanceLock: session作成ごとに既存のaccount別lockを取得し、cleanupの最後に解放します。二重scheduler、
+  通常runtime、smokeとの同一identity競合を新しい無効化経路なしで防ぎます。
+- Compose: `scheduled-runtime`は明示profile、normal固定、`restart: "no"`、read-only、非root、既存認証volumeを
+  使用します。実Minecraft接続とproduction deployはこのoffline決定に含めません。

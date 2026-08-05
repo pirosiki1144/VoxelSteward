@@ -185,10 +185,20 @@ SIGINT、SIGTERMでは再接続しません。
 
 ### 平日schedulerの現在の運用境界
 
-平日09:00～17:00（JST）の枠判定と開始・停止intent生成はdomainとして実装済みです。ただし、通常runtime
-への接続、常駐timer、Compose serviceによる自動起動はまだ有効化していません。現時点で時刻到達だけを
-理由にMinecraftへ自動接続することはありません。境界と後続統合条件は
-[平日運用スケジューラー](scheduling.md)を参照してください。
+平日09:00～17:00（JST）の枠判定は`scheduled-runtime`から既存の読み取り専用runtimeへ接続されています。
+このserviceは`scheduled` profileのため、通常のCompose起動では開始されません。実Minecraft接続の承認後に
+対象serviceだけを明示します。
+
+```bash
+docker compose --profile scheduled up scheduled-runtime
+docker compose --profile scheduled logs -f scheduled-runtime
+docker compose --profile scheduled stop scheduled-runtime
+```
+
+午前枠終了は`reason: "schedule_window_ended"`で正常終了し、11:59～12:00は接続しません。12:00の新runは
+旧runのcleanupとInstanceLock解放後だけ開始します。SIGINT・SIGTERM、他player検知、operator停止後は
+同じ枠で再接続しません。Composeは`restart: "no"`です。実接続を伴わない構成検査は空env fileで
+`npm run verify:runtime-compose`を使用します。詳細は[平日運用スケジューラー](scheduling.md)を参照してください。
 
 ### Discord Incoming Webhook通知
 

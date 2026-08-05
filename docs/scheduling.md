@@ -26,15 +26,23 @@ intentを生成するdomainです。Minecraft、MySQL、Docker、process signal�
 - 時計が境界を飛び越した場合、通過した全境界を再生せず、旧枠停止と現在枠開始の最小遷移だけを返します。
 - 日付と枠を組み合わせたwindow IDにより、翌営業日の同じ午前・午後枠を別の枠として扱います。
 
-この重複防止は単一scheduler instance内の判断です。実際のMinecraft接続・切断の一度だけの実行、
-旧runの切断完了待ち、他player検知・operator停止後の非再開はIssue #7のruntime統合で実装します。
+`ScheduledRuntimeController`はintentを既存の読み取り専用runtime sessionへ接続します。停止intentでは
+schedule状態を記録して`reason: "schedule_window_ended"`を発行し、runtime終了とsession cleanupを
+awaitしてから次の開始intentを処理します。午前・午後は別のStateStore、MySQL run ID、InstanceLock取得とし、
+同時接続を防ぎます。
+
+他player検知、operator停止、回復不能エラー、再接続上限到達でsessionが終了しても、schedulerは同じwindowの
+開始intentを再生成しません。SIGINT・SIGTERMはpoll待機を解除し、active sessionへ同じ停止理由を伝えて
+安全終了します。通知・DB障害はruntimeの切断完了を妨げません。
+
+Composeの`scheduled-runtime`は`scheduled` profileに隔離し、明示した場合だけ起動します。通常`runtime`と
+同じ認証volumeを使いますが、各sessionのInstanceLockを取得できた場合だけ接続を開始します。
 
 ## 未実装
 
-- scheduler intentと通常runtimeの接続
-- 自動的なprocess起動や常駐timer
 - 祝日判定
 - 永続化されたscheduler checkpoint
-- 実Minecraft接続
+- 実Minecraft serverでのスケジュール受入試験
 
-Fake Clockによる境界、再起動相当、重複、巻戻り、飛越しの検証は`tests/scheduler.test.ts`で行います。
+Fake Clockによる境界、再起動相当、重複、巻戻り、飛越しは`tests/scheduler.test.ts`、Fake sessionによる
+接続順序、停止、非再接続、signalは`tests/scheduled-runtime-controller.test.ts`で検証します。

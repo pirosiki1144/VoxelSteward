@@ -52,6 +52,14 @@ const copySnapshot = (snapshot: StateSnapshot): StateSnapshot => ({
       : { position: { ...snapshot.minecraft.position } }),
   },
   task: { ...snapshot.task },
+  ...(snapshot.schedule === undefined
+    ? {}
+    : {
+        schedule: {
+          ...snapshot.schedule,
+          window: { ...snapshot.schedule.window },
+        },
+      }),
   ...(snapshot.lastError === undefined
     ? {}
     : { lastError: { ...snapshot.lastError } }),
@@ -160,6 +168,44 @@ export class InMemoryStateStore implements StateStore {
 
   #apply(draft: StateSnapshot, command: StateCommand): string[] {
     switch (command.type) {
+      case "schedule.intent.record": {
+        const { intent } = command;
+        const parsed = new Date(intent.evaluatedAt);
+        const startsAt = new Date(intent.window.startsAt);
+        const endsAt = new Date(intent.window.endsAt);
+        if (
+          Number.isNaN(parsed.getTime()) ||
+          parsed.toISOString() !== intent.evaluatedAt ||
+          Number.isNaN(startsAt.getTime()) ||
+          startsAt.toISOString() !== intent.window.startsAt ||
+          Number.isNaN(endsAt.getTime()) ||
+          endsAt.toISOString() !== intent.window.endsAt ||
+          startsAt.getTime() >= endsAt.getTime() ||
+          !/^\d{4}-\d{2}-\d{2}:(morning|afternoon)$/.test(intent.window.id) ||
+          !["morning", "afternoon"].includes(intent.window.slot) ||
+          !intent.window.id.endsWith(`:${intent.window.slot}`)
+        ) {
+          throw new InvalidStateCommandError("Schedule intent is invalid");
+        }
+        if (
+          draft.schedule?.phase === command.phase &&
+          draft.schedule.intent === intent.type &&
+          draft.schedule.window.id === intent.window.id &&
+          draft.schedule.evaluatedAt === intent.evaluatedAt
+        ) {
+          return [];
+        }
+        Object.assign(draft, {
+          schedule: {
+            phase: command.phase,
+            intent: intent.type,
+            window: { ...intent.window },
+            evaluatedAt: intent.evaluatedAt,
+          },
+        });
+        return ["schedule"];
+      }
+
       case "runtime.transition":
         if (draft.runtime === command.to) return [];
         if (
