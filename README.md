@@ -117,6 +117,17 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 [状態管理](docs/state-management.md)を参照してください。MySQL有効時はoutbox配送workerが
 有限leaseと再試行でat-least-once配送し、MySQL無効時はprocess内best effortです。
 
+検証環境では`compose.verification.yaml`を重ねることで、通常runtimeを`normal`かつ
+`MYSQL_PERSISTENCE_ENABLED=true`へ固定できます。構成だけを非秘密な空環境で検査するには
+次を実行します。この検査とimage buildはMinecraftへ接続しません。
+
+```bash
+npm run verify:runtime-compose
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+```
+
+実際の起動・停止方法と承認境界は[運用手順](docs/operations.md)を参照してください。
+
 ### 作業指示と作業キュー
 
 型付き作業指示をpriority付きFIFOで管理するdomain、application service、Repository port、

@@ -72,6 +72,42 @@ attemptsだけを記録し、生のDB errorや接続情報を出力しません�
 operator確認までmanual reviewとします。終端済みtaskは
 再実行対象に戻しません。
 
+### 検証環境向け通常runtime
+
+`compose.verification.yaml`は通常`runtime`へ重ねる検証環境専用overrideです。`BOT_MODE=normal`、
+`MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`を固定し、基底serviceのread-only filesystem、
+非root user、認証volume、MySQL・通知設定境界をそのまま継承します。認証volumeを初期化・再作成
+せず、`smoke`や他のMinecraft接続serviceを依存関係として起動しません。
+
+構成検査は`.env`を読ませず、値を表示しない次のcommandで行います。
+
+```bash
+npm run verify:runtime-compose
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml config --quiet
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+```
+
+実接続は専用test serverへの接続承認後だけ、設定済み`.env`を使ってruntime 1 serviceを明示します。
+`--no-deps`により不要serviceを起動しません。
+
+```bash
+docker compose -f compose.yaml -f compose.verification.yaml up -d --no-deps runtime
+docker compose -f compose.yaml -f compose.verification.yaml logs --no-log-prefix runtime
+docker compose -f compose.yaml -f compose.verification.yaml stop runtime
+docker compose -f compose.yaml -f compose.verification.yaml ps runtime
+```
+
+logではevent名、reason、outcome、exitCode、revision、件数だけを確認し、環境変数、接続先、
+player名、BOT情報、task内容を転載しません。起動時はmigration、task復旧監査、InstanceLock取得後に
+Minecraftへ接続します。SIGTERMでは新規task・outbox claimを止め、StateStoreの停止eventとtask
+checkpointを有限時間で永続化し、Minecraftを一度だけ切断します。`runtime.finished`の後も
+`restart: "no"`により再起動しません。
+
+状態確認では`runtime.started`、`minecraft.spawn_completed`、`persistence.task_recovery_audited`、
+`runtime.finished`を使用します。`claimed`残留は件数だけをmanual reviewとして扱い、自動再実行や
+手動SQL更新をしません。DB・通知障害は安全切断を妨げません。停止後も認証volumeを削除しないで
+ください。
+
 ### ローカルoperator指示
 
 `npm run build`後、MySQL設定を秘密管理された環境から注入し、`npm run operator-task --`に続けて
