@@ -37,6 +37,13 @@
 - 完了済みtaskの非再実行と、claimed残留taskのmanual review分類
 - 専用test serverと隔離MySQLによる読み取り専用loop受入
 
+### 時刻制御
+
+- Fake Clock対応の平日JST運用枠scheduler domain
+- 09:00、11:59、12:00、17:00境界の開始・停止intent
+- 同一枠の重複抑止、process再起動時の現在枠判定、時計巻戻り・飛越しの安全側処理
+- schedulerと通常runtimeの接続・切断統合は未実装
+
 ### 後続機能のoffline境界
 
 - 有限stepのmovement plan、`MovementPort`、`MovementCoordinator`、Fake
@@ -52,6 +59,7 @@
 - block配置のface、transaction envelope、item action、authoritative frameの意味論は未確定
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
+- scheduler intentを通常runtimeへ接続する常駐制御は未実装
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装

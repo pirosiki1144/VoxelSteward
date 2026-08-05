@@ -518,6 +518,20 @@
   DB例外は固定`OPERATIONAL_LOG_UNAVAILABLE`へ変換します。
 - 実行境界: `operator-log` entrypointは厳格なUUID、revision、件数上限だけを受理します。MySQLを
   SELECTするだけで、migration、task claim、outbox配送、Minecraft接続、認証volume mountを行いません。
-- scheduler: scheduler判断と運用枠はIssue #6で状態eventへ追加した後、同じrun ID・revision経路で保存・
-  照会します。本決定では未実装のscheduler状態を推測・保存しません。
+- scheduler: Issue #6のdomain intentはMySQLへ直接接続しません。Issue #7で状態eventへ接続した後、同じ
+  run ID・revision経路で保存・照会します。本決定では未統合のscheduler状態を推測・保存しません。
 - 理由: 永続化の完全性を保ちながら、operatorへ必要最小限の監査情報だけを安定した型で提供するためです。
+
+## ADR-035: 平日運用枠を純粋なscheduler domainで判定する
+
+- ステータス: 承認済み（domain・Fake Clock実装）
+- 背景: 検証環境で定時運用する前に、JST境界、process再起動、時計変動をMinecraft接続や実時間sleepなしで
+  決定論的に検証する必要があります。
+- 決定: 平日午前を09:00以上11:59未満、切替を11:59以上12:00未満、午後を12:00以上17:00未満と
+  します。注入Clockから得たUTC時刻を一箇所でJST判定し、日付付きwindowの開始・停止intentだけを返す
+  `domain/scheduler`を採用します。土日と時間外は運用枠を持たず、祝日は判定しません。
+- 重複境界: 前回評価時刻以前への巻戻りではintentを生成しません。同じwindowは再開始せず、飛越し時は
+  通過境界を全再生せず、旧window停止と現在window開始だけを順に返します。
+- 分離: domainはMinecraft、MySQL、process signal、timerを知りません。runtimeが旧runの切断完了前に
+  新runを開始しない制御、他player・operator停止後の非再開、intent履歴保存はIssue #7以降で実装します。
+- 理由: 時刻判定と副作用を分離し、境界の正しさと多重開始防止をFake Clockで先に固定するためです。
