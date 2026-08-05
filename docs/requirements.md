@@ -83,6 +83,12 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`が成功すること。
 - build済みのプログラムを起動すると、`GET /health`を提供し、構造化ログを出力すること。
 - SIGTERMによってヘルスチェックサーバーが正常に終了すること。
+- 検証環境の通常runtimeは`normal`とMySQL永続化を固定し、安全停止後にcontainerを自動再起動
+  しないこと。
+- 検証環境構成は既存のaccount別認証volumeとInstanceLockを共有し、runtime以外のMinecraft
+  接続serviceを暗黙に起動しないこと。
+- Compose構成を`.env`や秘密値なしで検査でき、接続先、credential、player名、BOT情報を
+  検査出力や運用記録へ含めないこと。
 - 本番環境の秘密情報を埋め込まずに、Docker Composeでスモークテストと永続的な
   認証volumeを定義できること。
 

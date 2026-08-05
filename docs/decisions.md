@@ -486,3 +486,21 @@
   書換えを禁止します。branch protectionとrulesetの変更は別途承認を必要とします。
 - 参考: [Git ブランチの命名規則](https://qiita.com/Hashimoto-Noriaki/items/5d990e21351b331d2aa1)の
   `master`をVoxelStewardの`main`として適用します。
+
+## ADR-033: 検証環境runtimeは基底Composeへの安全固定overrideとする
+
+- ステータス: 承認済み（構成・offline検証）
+- 背景: 通常runtimeの汎用既定値を変更せず、検証環境ではnormal modeとMySQL永続化を再現可能に
+  固定する必要があります。別serviceへ実装を複製すると、安全設定や認証volumeの差異が生じます。
+- 決定: `compose.verification.yaml`を`compose.yaml`へ重ね、既存`runtime`の`BOT_MODE=normal`、
+  `MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`だけを固定します。image、read-only filesystem、
+  非root user、InstanceLock、account別認証volume、有限再接続、通知・MySQL設定境界は基底serviceから
+  継承します。
+- 起動境界: 構成検査とimage buildは空のenv fileで行います。実起動は接続承認後に`--no-deps runtime`
+  だけを指定し、smokeその他のMinecraft接続serviceを起動しません。安全停止後はComposeから再起動
+  しません。
+- 検証: 機械検査は解決後Compose modelの固定値、read-only user、既存認証volumeを確認します。
+  Fake runtimeと隔離MySQLでは接続、spawn、telemetry、停止のrevision順保存、checkpoint、復旧監査、
+  完了済みtaskの非再実行、claimed残留のmanual reviewを既存統合testで検証します。
+- 秘密境界: 検査は`.env`を読まず、接続先、credential、player名、BOT情報を表示・保存しません。
+  実接続と認証volume変更はこの決定では承認しません。

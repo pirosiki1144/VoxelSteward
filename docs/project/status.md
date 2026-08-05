@@ -14,6 +14,7 @@
 - normal modeでの他player検知時の即時停止と非再接続
 - debug smokeでの参加・退出観測継続
 - runtime、smoke、operator serviceのDocker imageとCompose構成
+- normal・MySQL有効・非再起動を固定する検証環境向けCompose overrideと非秘密な構成検査
 
 ### 状態・通知・永続化
 
@@ -69,6 +70,7 @@ Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本�
 
 ## 検証記録
 
+- [検証環境向け通常runtime構成](../verification/verification-runtime.md)
 - [通常運転runtime](../verification/runtime-readonly.md)
 - [読み取り専用operator task loop](../verification/read-only-operator-loop.md)
 - [MySQL状態・履歴保存](../verification/mysql-persistence.md)

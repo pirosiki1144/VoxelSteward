@@ -117,6 +117,9 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 再試行対象は接続close、接続タイムアウト、およびエラーコードで明確に識別できる一時的な
 ネットワークエラーです。未知エラーは安全側で回復不能と扱います。通常運転とsmokeは同じ
 `InstanceLock`と認証volumeを使い、同じBOT識別子の同時使用を防ぎます。
+検証環境用`compose.verification.yaml`は同じruntime imageと認証volumeを再利用し、normal mode、
+MySQL永続化、非再起動policyだけを固定します。別のMinecraft client実装や安全policyを持たず、
+`--no-deps runtime`で他の接続serviceから分離します。
 
 ## 10. 状態・進捗管理
 

@@ -1,0 +1,6 @@
+services:
+  runtime:
+    restart: "no"
+    environment:
+      BOT_MODE: normal
+      MYSQL_PERSISTENCE_ENABLED: "true"
