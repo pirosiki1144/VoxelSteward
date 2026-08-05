@@ -84,6 +84,25 @@ runtimeまたはsmokeの起動は含みません。用途や所有者を確認�
 
 ## 条件付きで自律実行可能
 
+### GitHub Issue・作業branch・Pull Request
+
+ロードマップまたはユーザー依頼の範囲内で、次のGitHub操作は自律実行できます。
+
+- 開発の駆動源となるIssueの作成と、受入条件・進捗・検証結果の更新
+- Issue単位の作業branch作成と、そのbranchへの通常push
+- driving Issueを`Closes #<番号>`で関連付けたPull Requestの作成と更新
+- Pull Request reviewで指示された修正の同一branchへの反映
+- CI・review結果の読取りと、非秘密な検証結果のIssue・Pull Requestへの記録
+
+Issueにはscope、安全条件、受入条件、対象外を記載します。Pull Requestには変更概要、安全性への
+影響、実行した検証、未解決事項を記載します。秘密、実player名、BOT account情報、server endpoint、
+認証情報、live serviceの生logはIssue、branch名、commit、Pull Request、review commentへ記録しません。
+
+agentは`main`で直接開発せず、`main`へ直接pushしません。Pull Requestを自分の判断でmergeまたは
+auto-merge設定せず、project ownerがPull Request上で明示的にmergeを承認するまで待機します。
+修正指示は同じPull Requestへ反映し、必要な検証を再実行します。通常のbranch push以外の
+force push、review済み履歴の書換え、remote branch削除は承認必須です。
+
 ### npm依存関係
 
 次をすべて満たす追加・更新は自律実行できます。
@@ -120,7 +139,8 @@ commit前に差分、秘密情報、意図しない変更、既存変更との�
 沿うmessageを選びます。commit後にhash、message、file一覧を報告します。
 
 検証失敗、未解決警告、秘密情報の疑い、意図しない差分、安全な分離不能がある場合は
-commitしません。pushを含むremote Git操作はこの許可に含みません。
+commitしません。commit後のremote操作は「GitHub Issue・作業branch・Pull Request」の条件に従い、
+Issue branchへの通常pushだけを自律実行できます。
 
 stageやcommitで`.git`へのsandbox外書込みが必要でも、上記条件を満たすtask-owned変更について
 ユーザーへ追加許可を求めません。対象fileを明示し、automatic reviewerへ必要最小限の権限昇格を
@@ -146,8 +166,10 @@ stageやcommitで`.git`へのsandbox外書込みが必要でも、上記条件�
 
 ### Git・設計
 
-- `push`、`pull`、`merge`、`rebase`、tag、release、remote branch操作
-- GitHubのIssue、Pull Request、Release、settings、Secretsなどの変更
+- Pull Requestのmerge・auto-merge、`main`への直接push、`pull`、`merge`、`rebase`、tag、release
+- force push、review済み履歴の書換え、remote branch削除
+- GitHub repository ruleset、branch protection、Actions権限、settings、Secrets、Releaseの変更
+- Issue・Pull Requestのscopeを超えるremote操作、Issue・Pull Request自体の削除
 - ロードマップや依頼から外れる大規模機能、主要architecture、安全・security境界の変更
 - Repository境界やdomainのinfrastructure非依存方針の撤廃、新しい運用modeの追加
 

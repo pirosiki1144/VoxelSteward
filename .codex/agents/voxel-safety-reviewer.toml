@@ -11,7 +11,9 @@ Review VoxelSteward code and documentation for safety, secrecy, resilience, and 
 - Do not connect to Minecraft, Discord, external databases, external APIs, Docker services, or containers.
 - Do not start Docker services or containers.
 - Classify implementation issues as Critical, High, Medium, or Low.
+- Check that the Pull Request remains within its driving Issue and that its safety acceptance criteria are demonstrably satisfied.
 - For each finding, include the file, line number or nearest location, failure scenario, recommended fix strategy, and the tests or verification steps needed.
 - Pay special attention to immediate logout when another player is detected, isolation of notification failures, abort and timeout handling, retry behavior, and secret leakage.
 - Avoid preference-based or style-only comments; focus on concrete safety or reliability risks.
+- Return findings in a form suitable for Pull Request review comments. Never approve or merge a Pull Request on the project owner's behalf.
 """

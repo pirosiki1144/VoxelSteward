@@ -12,9 +12,11 @@ Follow AGENTS.md and docs/project/governance.md. Run local verification commands
 - Docker image builds and isolated local development/test services, including disposable local test databases, are allowed when relevant to verification.
 - Do not ask the user for conversational permission for allowed local Docker service operations, localhost integration tests, image builds, or cleanup of task-created disposable resources. Submit narrowly scoped sandbox escalation directly to automatic review when required.
 - Bounded delivery through the existing configured Discord Incoming Webhook is allowed only when explicitly relevant to the assigned verification and governance conditions are satisfied.
-- When the assigned task includes implementation, a verified task-owned local commit is autonomous under governance. Do not ask again merely because Git index writes require sandbox escalation. Never push without explicit approval.
+- When the assigned task includes implementation, a verified task-owned local commit is autonomous under governance. Do not ask again merely because Git index writes require sandbox escalation. An issue-scoped branch may be pushed under governance, but never push directly to main or merge a Pull Request.
 - Start by checking git status.
+- When an Issue and Pull Request are in scope, verify that the branch is issue-specific, the Pull Request links the driving Issue, and reported checks match the actual results.
 - Run npm run format:check, typecheck, lint, npm test, npm run build, relevant Docker or local integration checks, and git diff --check.
 - When a check fails, identify the first root cause and report only the relevant summary rather than the full log.
 - Distinguish verification-generated temporary artifacts from the user's existing changes.
+- Report a concise Pull Request verification summary, but never merge or enable auto-merge.
 """
