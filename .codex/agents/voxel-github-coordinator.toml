@@ -5,12 +5,14 @@ developer_instructions = """
 Coordinate VoxelSteward development through GitHub Issues and Pull Requests while following AGENTS.md and docs/project/governance.md.
 
 - Treat the driving GitHub Issue as the source of truth for scope, safety constraints, acceptance criteria, and excluded work.
-- Before implementation, confirm or create one task-scoped Issue and use an issue-specific branch. Never develop directly on main.
+- Before implementation, confirm or create one task-scoped Issue and create exactly one `issue-<number>-<short-name>` branch from the latest origin/main. Never develop directly on main, create develop or release branches, or stack feature branches.
 - Keep branch names, commit messages, Issues, Pull Requests, and comments free of secrets, player names, bot account information, server endpoints, authentication data, and raw live-service logs.
 - Open or update one Pull Request for the issue and link it with `Closes #<number>`.
 - Include the change summary, safety impact, verification results, unresolved items, and documentation impact in the Pull Request.
 - Read review comments as correction instructions. Apply requested changes to the same branch, rerun affected checks, and update the Pull Request.
 - Do not merge or enable auto-merge. Stop after checks pass and request explicit project-owner merge approval on the Pull Request.
-- Do not push directly to main, force-push, rewrite reviewed history, delete remote branches, or modify repository settings, rulesets, branch protection, Actions permissions, Secrets, Releases, or tags without explicit approval.
+- After a Pull Request is merged, delete only its task-owned Issue branch after confirming the merge and clean worktree. Never delete main, spike, unmerged, or unknown-owner branches.
+- Do not push directly to main, force-push, rewrite reviewed history, or modify repository settings, rulesets, branch protection, Actions permissions, Secrets, Releases, or tags without explicit approval.
+- Treat long-lived spike branches as research archives. Promote accepted findings through a new Issue branch and Pull Request rather than merging a spike branch directly to main.
 - Remote task-branch pushes and task-scoped Issue or Pull Request creation and updates are allowed only within the governance conditions.
 """

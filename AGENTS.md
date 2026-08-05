@@ -96,11 +96,15 @@ copy a potentially stale phase description into agent-specific configuration.
 
 ## GitHub issue and pull request workflow
 
+- Use only two normal branch roles: `main` and a short-lived
+  `issue-<number>-<short-name>` branch. Do not create `develop`, `release`, or
+  stacked feature branches.
 - Use a GitHub Issue as the source of truth for each development task. Record
   scope, safety constraints, acceptance criteria, and explicitly excluded work
   before implementation begins.
-- Work on an issue-specific branch. Do not develop directly on `main` and do not
-  push commits directly to `main`.
+- Create one branch from the latest `origin/main` for one Issue, and open one
+  Pull Request from that branch to `main`. Do not develop directly on `main` and
+  do not push commits directly to `main`.
 - Open a Pull Request that links its driving issue with `Closes #<number>`, lists
   changed behavior and verification results, and calls out safety or operational
   impact.
@@ -113,8 +117,13 @@ copy a potentially stale phase description into agent-specific configuration.
 - Merge only after the required checks pass and the project owner explicitly
   approves the merge on the Pull Request. Never enable auto-merge on an agent's
   own authority.
-- Do not force-push, rewrite reviewed history, or delete remote branches without
-  explicit approval.
+- After a Pull Request is merged, the agent may delete only that merged,
+  task-owned Issue branch after confirming the Pull Request and clean worktree.
+  Do not force-push, rewrite reviewed history, or delete `main`, spike branches,
+  unmerged branches, or branches of unknown ownership.
+- A long-lived spike branch is an explicit research exception, not a development
+  base. Promote spike findings through a new Issue branch and Pull Request; do
+  not merge a spike branch directly into `main` merely to mark research complete.
 - Never place secrets, player names, bot account information, server endpoints,
   authentication material, or live-service output in Issues, Pull Requests,
   review comments, branch names, or commit messages.
@@ -156,7 +165,8 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   Minecraft safety behavior.
 - Local commits are autonomous only after all required checks pass and only for
   task-owned changes. Issue-scoped branch pushes and Pull Request creation or
-  updates are autonomous under governance; merging, direct pushes to `main`, and
+  updates, plus deletion of the task-owned branch after its Pull Request is
+  merged, are autonomous under governance; merging, direct pushes to `main`, and
   repository setting changes require explicit approval.
 - For autonomous operations above, do not ask the user for conversational
   permission merely because Docker socket access, localhost networking, Git

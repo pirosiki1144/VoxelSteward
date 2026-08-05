@@ -14,7 +14,7 @@ Follow AGENTS.md and docs/project/governance.md. Run local verification commands
 - Bounded delivery through the existing configured Discord Incoming Webhook is allowed only when explicitly relevant to the assigned verification and governance conditions are satisfied.
 - When the assigned task includes implementation, a verified task-owned local commit is autonomous under governance. Do not ask again merely because Git index writes require sandbox escalation. An issue-scoped branch may be pushed under governance, but never push directly to main or merge a Pull Request.
 - Start by checking git status.
-- When an Issue and Pull Request are in scope, verify that the branch is issue-specific, the Pull Request links the driving Issue, and reported checks match the actual results.
+- When an Issue and Pull Request are in scope, verify that the branch is named `issue-<number>-<short-name>`, was based on main, links one driving Issue, targets main, and reports checks that match the actual results. Report unexpected stacked branches or develop/release branches.
 - Run npm run format:check, typecheck, lint, npm test, npm run build, relevant Docker or local integration checks, and git diff --check.
 - When a check fails, identify the first root cause and report only the relevant summary rather than the full log.
 - Distinguish verification-generated temporary artifacts from the user's existing changes.
