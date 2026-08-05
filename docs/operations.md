@@ -108,6 +108,36 @@ checkpointを有限時間で永続化し、Minecraftを一度だけ切断しま�
 手動SQL更新をしません。DB・通知障害は安全切断を妨げません。停止後も認証volumeを削除しないで
 ください。
 
+### MySQL運用ログの安全な照会
+
+`operator-log`はMySQLを読み取るだけの管理entrypointです。run一覧、最新状態、revision昇順の履歴、
+task checkpointを有限件数で返します。Minecraft接続、認証volume、migration、task claim、outbox配送を
+開始しません。設定済みのローカルまたは承認済み環境から次のいずれかを実行します。
+
+```bash
+npm run build
+npm run operator-log -- runs --limit 20
+npm run operator-log -- status --run-id <run-id>
+npm run operator-log -- history --run-id <run-id> --after-revision 0 --limit 100
+npm run operator-log -- checkpoints --run-id <run-id> --limit 100
+```
+
+Containerから照会する場合もserviceを1つだけ指定します。
+
+```bash
+docker compose --profile operator run --rm operator-log runs --limit 20
+```
+
+出力はJSON Linesで、run ID、revision、UTC時刻、runtime・接続・spawn・telemetry状態、位置、dimension、
+体力、空腹度、他player検知boolean、型付きtask状態、allow-list済み停止理由・error codeだけを含みます。
+player名、BOT情報、server endpoint、credential、生Error、stack、接続文字列、snapshot raw JSON、自由文の
+進捗・error messageは返しません。不明なDB値は固定errorにするかfieldを省略し、内容を転載しません。
+
+履歴を追う場合は直前の最大revisionを次回の`--after-revision`へ指定します。`--limit`はrunsが1～100、
+history・checkpointsが1～500です。`run-id`はUUID形式だけを受理し、未知flagや余分なfieldを拒否します。
+DB障害時は`OPERATIONAL_LOG_UNAVAILABLE`等の固定codeだけを出力します。照会失敗を理由にruntime、DB、
+task状態を変更しません。
+
 ### ローカルoperator指示
 
 `npm run build`後、MySQL設定を秘密管理された環境から注入し、`npm run operator-task --`に続けて

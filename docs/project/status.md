@@ -25,6 +25,7 @@
 - MySQL Repository、version管理migration、transaction rollback
 - runtime run、snapshot、履歴、task checkpoint、通知outboxの冪等保存
 - outboxの排他claim、有限lease回収、配送結果更新、再起動後の未配送通知再処理
+- run ID・revision順の状態、履歴、checkpointをallow-list投影する読み取り専用operator照会
 
 ### operator task loop
 

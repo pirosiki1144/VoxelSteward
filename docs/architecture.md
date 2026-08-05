@@ -130,6 +130,10 @@ MySQL永続化、非再起動policyだけを固定します。別のMinecraft cl
 各runtime runをUUIDで分離し、history、最新snapshot、作業checkpoint、通知outboxを
 単一transactionで保存します。Minecraft adapterとRuntimeSupervisorはSQLを知りません。
 subscriber障害は安全切断経路から隔離します。
+管理用`operator-log`は専用`OperationalLogRepository`だけに依存し、MySQL adapterがsnapshotとhistoryの
+JSONから許可済みfieldをSQLで投影します。raw JSON、自由文message、接続情報をapplication層へ渡さず、
+run IDとrevisionによる有限・昇順照会だけを提供します。このentrypointはmigrationやMinecraft adapterを
+参照しません。
 MySQL有効時の起動時にはtask queueを読み取り、`queued`を未開始のclaim候補、`claimed`を
 結果不明のmanual review、完了・失敗・停止・cancel済みを終端として件数だけ監査します。
 監査はtaskを変更せず、task IDや指示内容をログへ出しません。

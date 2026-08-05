@@ -328,6 +328,18 @@ subscriberを追加しました。
 Minecraft接続ポート、PlayerDetectionPolicy、再接続判断、smokeの振る舞いは変更しません。
 公開する状態APIはプロセス内のまま、任意有効化のMySQL adapterへイベントを保存できます。
 
+運用照会は`OperationalLogRepository`を通じて行います。`runs`、`status`、`history`、`checkpoints`は
+run IDとrevisionを基準に有限件数を返し、MySQL JSONから次のfieldだけを投影します。
+
+- runtime、Minecraft接続、spawn、telemetry validity
+- 位置、dimension、体力、空腹度、他player検知boolean
+- 型付きtask ID・type・状態・更新時刻
+- allow-list済み停止理由とerror code
+
+snapshot全体、before/after JSON、進捗message、error messageは外部へ返しません。player名、BOT情報、
+server endpoint、credentialは元のStateSnapshot型にも照会型にも存在しません。未知の原因は`unknown`、
+未知の任意文字列は省略または固定errorとして扱います。
+
 状態イベントを利用する通知application層は追加されていますが、状態domainは通知型や
 外部送信ポートへ依存しません。通知対象、重複防止、障害隔離は
 [通知基盤](notifications.md)を参照してください。

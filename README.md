@@ -128,6 +128,20 @@ docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml
 
 実際の起動・停止方法と承認境界は[運用手順](docs/operations.md)を参照してください。
 
+MySQLに保存された運用状態は、読み取り専用の`operator-log` entrypointからrun一覧、最新状態、
+revision順履歴、task checkpointとして照会できます。raw JSONや自由文errorは出力せず、状態、位置、
+体力、空腹度、停止理由などのallow-list済みfieldだけをJSON Linesで返します。
+
+```bash
+npm run operator-log -- runs --limit 20
+npm run operator-log -- status --run-id <run-id>
+npm run operator-log -- history --run-id <run-id> --after-revision 0 --limit 100
+npm run operator-log -- checkpoints --run-id <run-id> --limit 100
+```
+
+Composeからは`operator-log` serviceだけを明示して実行できます。Minecraft認証volumeはmountせず、
+Minecraft serviceも起動しません。詳細は[運用手順](docs/operations.md)を参照してください。
+
 ### 作業指示と作業キュー
 
 型付き作業指示をpriority付きFIFOで管理するdomain、application service、Repository port、

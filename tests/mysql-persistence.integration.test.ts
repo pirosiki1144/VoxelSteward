@@ -7,6 +7,7 @@ import {
   rollbackAll,
 } from "../src/adapters/persistence/mysql-migrations.js";
 import { MySqlStatePersistenceRepository } from "../src/adapters/persistence/mysql-state-persistence-repository.js";
+import { MySqlOperationalLogRepository } from "../src/adapters/persistence/mysql-operational-log-repository.js";
 import { MySqlNotificationOutboxRepository } from "../src/adapters/persistence/mysql-notification-outbox-repository.js";
 import { MySqlTaskQueueRepository } from "../src/adapters/persistence/mysql-task-queue-repository.js";
 import { TaskQueueService } from "../src/application/task-queue/index.js";
@@ -55,6 +56,7 @@ suite("MySqlStatePersistenceRepository", () => {
     connectionLimit: 2,
   });
   const repository = new MySqlStatePersistenceRepository(pool);
+  const operationalLog = new MySqlOperationalLogRepository(pool);
   const queueRepository = new MySqlTaskQueueRepository(pool);
   const outboxRepository = new MySqlNotificationOutboxRepository(pool);
 
@@ -152,7 +154,10 @@ suite("MySqlStatePersistenceRepository", () => {
       taskType: "verification",
     });
     store.dispatch({ type: "task.transition", to: "running" });
-    store.dispatch({ type: "runtime.stop_reason.record", reason: "operator" });
+    store.dispatch({
+      type: "runtime.stop_reason.record",
+      reason: "stop_requested",
+    });
     store.dispatch({ type: "task.transition", to: "stopped" });
     store.dispatch({ type: "runtime.transition", to: "stopping" });
     store.dispatch({
@@ -205,6 +210,52 @@ suite("MySqlStatePersistenceRepository", () => {
       [...outbox.map(({ revision }) => revision)].sort((a, b) => a - b),
     );
     expect(outbox.length).toBeGreaterThan(0);
+
+    const status = await operationalLog.findRun(runId);
+    expect(status).toMatchObject({
+      runId,
+      revision: 12,
+      runtime: "stopped",
+      minecraftConnection: "disconnected",
+      spawnCompleted: false,
+      telemetryStatus: "unknown",
+      stopReason: "stop_requested",
+      task: {
+        id: "runtime-trace",
+        type: "verification",
+        state: "stopped",
+      },
+    });
+    const safeHistory = await operationalLog.listHistory(runId, 0, 100);
+    expect(safeHistory.map(({ revision }) => revision)).toEqual(
+      Array.from({ length: 12 }, (_, index) => index + 1),
+    );
+    expect(safeHistory.map(({ cause }) => cause)).toEqual(
+      history.map(({ cause }) => cause),
+    );
+    expect(
+      safeHistory.find(({ cause }) => cause === "minecraft.telemetry.update"),
+    ).toMatchObject({
+      telemetryStatus: "valid",
+      position: { x: 0, y: 64, z: 0 },
+      dimension: "overworld",
+      health: 20,
+      hunger: 20,
+    });
+    const safeCheckpoints = await operationalLog.listCheckpoints(runId, 10);
+    expect(safeCheckpoints).toEqual([
+      expect.objectContaining({
+        taskId: "runtime-trace",
+        revision: 12,
+        taskType: "verification",
+        taskState: "stopped",
+      }),
+    ]);
+    expect(
+      (await operationalLog.listRuns(100)).some(
+        ({ runId: id }) => id === runId,
+      ),
+    ).toBe(true);
   });
 
   it("古いrevisionで最新snapshotとcheckpointを後退させない", async () => {
