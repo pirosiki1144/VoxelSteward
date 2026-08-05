@@ -90,6 +90,31 @@ Read `docs/project/status.md` for the current baseline, constraints, and next
 completion criteria, and `docs/project/roadmap.md` for sequencing. Do not copy a
 potentially stale phase description into agent-specific configuration.
 
+## GitHub issue and pull request workflow
+
+- Use a GitHub Issue as the source of truth for each development task. Record
+  scope, safety constraints, acceptance criteria, and explicitly excluded work
+  before implementation begins.
+- Work on an issue-specific branch. Do not develop directly on `main` and do not
+  push commits directly to `main`.
+- Open a Pull Request that links its driving issue with `Closes #<number>`, lists
+  changed behavior and verification results, and calls out safety or operational
+  impact.
+- Treat Pull Request review comments as the authoritative correction requests.
+  Apply requested changes on the same branch, rerun affected checks, and update
+  the Pull Request instead of opening an unrelated replacement.
+- Agents may create and update task-scoped Issues, issue branches, and Pull
+  Requests under the conditions in `docs/project/governance.md`. They must not
+  merge their own Pull Requests.
+- Merge only after the required checks pass and the project owner explicitly
+  approves the merge on the Pull Request. Never enable auto-merge on an agent's
+  own authority.
+- Do not force-push, rewrite reviewed history, or delete remote branches without
+  explicit approval.
+- Never place secrets, player names, bot account information, server endpoints,
+  authentication material, or live-service output in Issues, Pull Requests,
+  review comments, branch names, or commit messages.
+
 ## Documentation
 
 Architecture or safety changes must update the relevant file under `docs/`.
@@ -126,7 +151,9 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   existing fixed templates is autonomous. Notification failure must never weaken
   Minecraft safety behavior.
 - Local commits are autonomous only after all required checks pass and only for
-  task-owned changes. Remote Git operations still require approval.
+  task-owned changes. Issue-scoped branch pushes and Pull Request creation or
+  updates are autonomous under governance; merging, direct pushes to `main`, and
+  repository setting changes require explicit approval.
 - For autonomous operations above, do not ask the user for conversational
   permission merely because Docker socket access, localhost networking, Git
   index writes, or another sandbox capability requires escalation. Submit the
@@ -135,8 +162,9 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   local integration tests, image builds, explicit staging, and verified local
   commits.
 - Real Minecraft connections, game actions, external or shared databases,
-  production infrastructure changes, authentication-volume changes, remote Git
-  operations, and destructive operations require approval or remain forbidden.
+  production infrastructure changes, authentication-volume changes, Pull Request
+  merges, direct `main` pushes, repository setting changes, and destructive
+  operations require approval or remain forbidden.
 - Secrets, player names, bot account information, and server endpoints must not
   be logged, documented, tested, committed, or sent to Discord.
 
