@@ -466,3 +466,23 @@
 - 理由: 実移動やblock操作を有効化する前に、operator入力から安全判定、server観測、永続結果までの最小loopを
   world変更なしで検証するためです。
 - 検証: `docs/verification/read-only-operator-loop.md`に専用テストサーバーでの受入結果を記録しています。
+
+## ADR-032: main・develop・用途別branchで開発とreleaseを分離する
+
+- ステータス: 承認済み（運用規則）
+- 背景: Issueごとにbranchを必須作成する方式では、Issue数とbranch数が直接対応し、密接に関連する変更の
+  統合とrelease準備の役割が不明確になります。Issueはscopeと受入条件の正本、branchは実際の変更目的と
+  lifecycleを表すものとして分離します。
+- 決定: `main`をrelease可能な正本、`develop`を通常開発の統合先とします。通常開発は`develop`から
+  `feature/<短い変更目的>`を作成して`develop`へ、release準備は`develop`から`release/<version>`を
+  作成して`main`と`develop`へ、緊急修正は`main`から`hotfix/<短い修正目的>`を作成して`main`と
+  `develop`へPull Requestで反映します。
+- Issue連携: branch名にIssue番号やIssue名を必須で含めません。Pull Request本文の`Closes`、`Fixes`、
+  `Refs`で関連付けます。branchは実作業開始時だけ作成し、変更目的が同じ複数Issueは1つのfeature branchと
+  Pull Requestで扱えます。無関係なIssueは混在させません。
+- cleanup: 必要なmergeが完了したtask-owned `feature`、`release`、`hotfix` branchは削除できます。
+  `main`、`develop`、未merge、所有者不明、調査保存用branchは自動削除しません。
+- 安全境界: `main`と`develop`への直接push、agentの自己merge・auto-merge、force push、review済み履歴の
+  書換えを禁止します。branch protectionとrulesetの変更は別途承認を必要とします。
+- 参考: [Git ブランチの命名規則](https://qiita.com/Hashimoto-Noriaki/items/5d990e21351b331d2aa1)の
+  `master`をVoxelStewardの`main`として適用します。
