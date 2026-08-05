@@ -137,6 +137,16 @@ run IDとrevisionによる有限・昇順照会だけを提供します。この
 MySQL有効時の起動時にはtask queueを読み取り、`queued`を未開始のclaim候補、`claimed`を
 結果不明のmanual review、完了・失敗・停止・cancel済みを終端として件数だけ監査します。
 監査はtaskを変更せず、task IDや指示内容をログへ出しません。
+
+### 平日運用スケジューラー
+
+`domain/scheduler`は注入ClockのUTC時刻をJSTへ変換し、平日の午前・切替・午後・時間外を判定します。
+前回評価時刻と日付付きwindow IDを保持し、枠変更時に停止、開始の順でimmutableなintentを返します。
+時計の巻戻りではintentを抑止し、飛越しでは過去の全境界を再生せず現在枠への最小遷移だけを返します。
+Minecraft、MySQL、process signal、timerには依存しません。intentを実際の接続・切断へ変換し、旧runの
+終了完了を待つapplication/runtime層はIssue #7で追加します。詳細は[平日運用スケジューラー](scheduling.md)
+を参照してください。
+
 ローカルoperator entrypointはMySQL queueへ`verify_arrival`と`record_position`だけを冪等投入します。
 通常runtimeの読み取り専用executorは共通安全policyを通過後に対象typeだけをclaimし、server観測済み位置を
 StateStoreの作業状態とcheckpointへ反映します。Minecraft送信portは参照しません。

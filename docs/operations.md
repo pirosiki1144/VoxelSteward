@@ -183,6 +183,13 @@ docker compose stop runtime
 `runtime.finished`を記録します。設定・認証・未知の接続エラー、他プレイヤー検知、
 SIGINT、SIGTERMでは再接続しません。
 
+### 平日schedulerの現在の運用境界
+
+平日09:00～17:00（JST）の枠判定と開始・停止intent生成はdomainとして実装済みです。ただし、通常runtime
+への接続、常駐timer、Compose serviceによる自動起動はまだ有効化していません。現時点で時刻到達だけを
+理由にMinecraftへ自動接続することはありません。境界と後続統合条件は
+[平日運用スケジューラー](scheduling.md)を参照してください。
+
 ### Discord Incoming Webhook通知
 
 通知は既定で無効です。`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを
