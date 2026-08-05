@@ -96,25 +96,34 @@ copy a potentially stale phase description into agent-specific configuration.
 
 ## GitHub issue and pull request workflow
 
-- Use a GitHub Issue as the source of truth for each development task. Record
-  scope, safety constraints, acceptance criteria, and explicitly excluded work
-  before implementation begins.
-- Work on an issue-specific branch. Do not develop directly on `main` and do not
-  push commits directly to `main`.
-- Open a Pull Request that links its driving issue with `Closes #<number>`, lists
-  changed behavior and verification results, and calls out safety or operational
-  impact.
+- Use `main` as the release-ready branch and `develop` as the normal development
+  integration branch. Do not develop or push directly on either branch.
+- Start normal work from `develop` in `feature/<short-purpose>` and target
+  `develop`. Start release preparation from `develop` in `release/<version>` and
+  reflect the reviewed result into both `main` and `develop`. Start an urgent
+  released-code correction from `main` in `hotfix/<short-purpose>` and reflect
+  the reviewed fix into both `main` and `develop`.
+- Use GitHub Issues as the source of truth for development tasks. Create a branch
+  only when implementation begins. An Issue number or title is not required in
+  the branch name; link Issues in the Pull Request with `Closes`, `Fixes`, or
+  `Refs`.
+- Closely related Issues may share one feature branch and Pull Request when they
+  have one coherent change purpose. Do not combine unrelated Issues.
+- Pull Requests must list changed behavior, verification results, and safety or
+  operational impact.
 - Treat Pull Request review comments as the authoritative correction requests.
   Apply requested changes on the same branch, rerun affected checks, and update
   the Pull Request instead of opening an unrelated replacement.
-- Agents may create and update task-scoped Issues, issue branches, and Pull
+- Agents may create and update task-scoped Issues, work branches, and Pull
   Requests under the conditions in `docs/project/governance.md`. They must not
   merge their own Pull Requests.
 - Merge only after the required checks pass and the project owner explicitly
   approves the merge on the Pull Request. Never enable auto-merge on an agent's
   own authority.
-- Do not force-push, rewrite reviewed history, or delete remote branches without
-  explicit approval.
+- After all required merges are complete, agents may delete only their merged,
+  task-owned `feature`, `release`, or `hotfix` branches. Do not force-push,
+  rewrite reviewed history, or delete `main`, `develop`, unmerged, spike, or
+  unknown-owner branches.
 - Never place secrets, player names, bot account information, server endpoints,
   authentication material, or live-service output in Issues, Pull Requests,
   review comments, branch names, or commit messages.
@@ -155,9 +164,10 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   existing fixed templates is autonomous. Notification failure must never weaken
   Minecraft safety behavior.
 - Local commits are autonomous only after all required checks pass and only for
-  task-owned changes. Issue-scoped branch pushes and Pull Request creation or
-  updates are autonomous under governance; merging, direct pushes to `main`, and
-  repository setting changes require explicit approval.
+  task-owned changes. Task-scoped `feature`, `release`, and `hotfix` branch
+  pushes and Pull Request creation or updates are autonomous under governance;
+  merging, direct pushes to `main` or `develop`, and repository setting changes
+  require explicit approval.
 - For autonomous operations above, do not ask the user for conversational
   permission merely because Docker socket access, localhost networking, Git
   index writes, or another sandbox capability requires escalation. Submit the
@@ -167,8 +177,8 @@ Follow `docs/project/governance.md` as the authoritative operating boundary.
   commits.
 - Real Minecraft connections, game actions, external or shared databases,
   production infrastructure changes, authentication-volume changes, Pull Request
-  merges, direct `main` pushes, repository setting changes, and destructive
-  operations require approval or remain forbidden.
+  merges, direct `main` or `develop` pushes, repository setting changes, and
+  destructive operations require approval or remain forbidden.
 - Secrets, player names, bot account information, and server endpoints must not
   be logged, documented, tested, committed, or sent to Discord.
 

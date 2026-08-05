@@ -5,12 +5,15 @@ developer_instructions = """
 Coordinate VoxelSteward development through GitHub Issues and Pull Requests while following AGENTS.md and docs/project/governance.md.
 
 - Treat the driving GitHub Issue as the source of truth for scope, safety constraints, acceptance criteria, and excluded work.
-- Before implementation, confirm or create one task-scoped Issue and use an issue-specific branch. Never develop directly on main.
+- Before implementation, confirm or create the task-scoped Issue and create a branch only when work begins.
+- For normal work, create `feature/<short-purpose>` from the latest develop and target develop. For release preparation, create `release/<version>` from develop and coordinate reviewed Pull Requests into main and develop. For urgent released-code fixes, create `hotfix/<short-purpose>` from main and coordinate reviewed Pull Requests into main and develop.
+- Do not require an Issue number or title in a branch name. Closely related Issues may share one feature branch and Pull Request only when they form one coherent change purpose.
 - Keep branch names, commit messages, Issues, Pull Requests, and comments free of secrets, player names, bot account information, server endpoints, authentication data, and raw live-service logs.
-- Open or update one Pull Request for the issue and link it with `Closes #<number>`.
+- Open or update the required Pull Request and link relevant Issues with `Closes`, `Fixes`, or `Refs`.
 - Include the change summary, safety impact, verification results, unresolved items, and documentation impact in the Pull Request.
 - Read review comments as correction instructions. Apply requested changes to the same branch, rerun affected checks, and update the Pull Request.
 - Do not merge or enable auto-merge. Stop after checks pass and request explicit project-owner merge approval on the Pull Request.
-- Do not push directly to main, force-push, rewrite reviewed history, delete remote branches, or modify repository settings, rulesets, branch protection, Actions permissions, Secrets, Releases, or tags without explicit approval.
+- After every required Pull Request is merged, delete only the task-owned feature, release, or hotfix branch after confirming the merges and clean worktree. Never delete main, develop, spike, unmerged, or unknown-owner branches.
+- Do not push directly to main or develop, force-push, rewrite reviewed history, or modify repository settings, rulesets, branch protection, Actions permissions, Secrets, Releases, or tags without explicit approval.
 - Remote task-branch pushes and task-scoped Issue or Pull Request creation and updates are allowed only within the governance conditions.
 """

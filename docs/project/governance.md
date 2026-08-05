@@ -91,8 +91,8 @@ runtimeまたはsmokeの起動は含みません。用途や所有者を確認�
 ロードマップまたはユーザー依頼の範囲内で、次のGitHub操作は自律実行できます。
 
 - 開発の駆動源となるIssueの作成と、受入条件・進捗・検証結果の更新
-- Issue単位の作業branch作成と、そのbranchへの通常push
-- driving Issueを`Closes #<番号>`で関連付けたPull Requestの作成と更新
+- 実作業開始時の用途別branch作成と、そのbranchへの通常push
+- driving Issueを`Closes`、`Fixes`、`Refs`で関連付けたPull Requestの作成と更新
 - Pull Request reviewで指示された修正の同一branchへの反映
 - CI・review結果の読取りと、非秘密な検証結果のIssue・Pull Requestへの記録
 
@@ -100,10 +100,23 @@ Issueにはscope、安全条件、受入条件、対象外を記載します。P
 影響、実行した検証、未解決事項を記載します。秘密、実player名、BOT account情報、server endpoint、
 認証情報、live serviceの生logはIssue、branch名、commit、Pull Request、review commentへ記録しません。
 
-agentは`main`で直接開発せず、`main`へ直接pushしません。Pull Requestを自分の判断でmergeまたは
-auto-merge設定せず、project ownerがPull Request上で明示的にmergeを承認するまで待機します。
-修正指示は同じPull Requestへ反映し、必要な検証を再実行します。通常のbranch push以外の
-force push、review済み履歴の書換え、remote branch削除は承認必須です。
+branchの役割と流れは次のとおりです。
+
+- `main`: release可能な正本。直接開発・直接pushをしない
+- `develop`: 通常開発の統合先。直接開発・直接pushをしない
+- `feature/<短い変更目的>`: `develop`から派生し、`develop`向けPull Requestを作成する
+- `release/<version>`: `develop`から派生し、review後に`main`と`develop`へPull Requestで反映する
+- `hotfix/<短い修正目的>`: `main`から派生し、review後に`main`と`develop`へPull Requestで反映する
+
+Issue番号やIssue名をbranch名へ必須で含めません。branchはIssue作成時ではなく実作業開始時に作成します。
+密接に関連し、変更目的が同じ複数Issueは1つの`feature` branchとPull Requestで扱えます。無関係なIssueを
+同じPull Requestへ混在させません。
+
+agentはPull Requestを自分の判断でmergeまたはauto-merge設定せず、project ownerがPull Request上で
+明示的にmergeを承認するまで待機します。修正指示は同じPull Requestへ反映し、必要な検証を再実行します。
+必要なmergeが完了したtask-owned `feature`、`release`、`hotfix` branchだけは確認後に削除できます。
+force push、review済み履歴の書換え、`main`、`develop`、未merge、所有者不明、調査保存用branchの削除は
+承認必須または禁止です。
 
 ### npm依存関係
 
@@ -142,7 +155,7 @@ commit前に差分、秘密情報、意図しない変更、既存変更との�
 
 検証失敗、未解決警告、秘密情報の疑い、意図しない差分、安全な分離不能がある場合は
 commitしません。commit後のremote操作は「GitHub Issue・作業branch・Pull Request」の条件に従い、
-Issue branchへの通常pushだけを自律実行できます。
+task-owned `feature`、`release`、`hotfix` branchへの通常pushだけを自律実行できます。
 
 stageやcommitで`.git`へのsandbox外書込みが必要でも、上記条件を満たすtask-owned変更について
 ユーザーへ追加許可を求めません。対象fileを明示し、automatic reviewerへ必要最小限の権限昇格を
@@ -168,8 +181,8 @@ stageやcommitで`.git`へのsandbox外書込みが必要でも、上記条件�
 
 ### Git・設計
 
-- Pull Requestのmerge・auto-merge、`main`への直接push、`pull`、`merge`、`rebase`、tag、release
-- force push、review済み履歴の書換え、remote branch削除
+- Pull Requestのmerge・auto-merge、`main`・`develop`への直接push、`pull`、`merge`、`rebase`、tag、release
+- force push、review済み履歴の書換え、必要なmergeが完了したtask-owned作業branch以外のremote branch削除
 - GitHub repository ruleset、branch protection、Actions権限、settings、Secrets、Releaseの変更
 - Issue・Pull Requestのscopeを超えるremote操作、Issue・Pull Request自体の削除
 - ロードマップや依頼から外れる大規模機能、主要architecture、安全・security境界の変更
