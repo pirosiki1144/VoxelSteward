@@ -1,4 +1,10 @@
 services:
+  scheduled-runtime:
+    restart: "no"
+    environment:
+      BOT_MODE: normal
+      MYSQL_PERSISTENCE_ENABLED: "true"
+
   runtime:
     restart: "no"
     environment:

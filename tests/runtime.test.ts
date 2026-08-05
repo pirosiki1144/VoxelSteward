@@ -118,6 +118,26 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("運用枠終了を正常な安全停止として一度だけ切断する", async () => {
+    const connection = new FakeConnection();
+    const { supervisor, run } = setup([connection]);
+    connection.emit("join");
+    connection.emit("spawn");
+    supervisor.requestStop("schedule_window_ended");
+    supervisor.requestStop("schedule_window_ended");
+    await expect(run).resolves.toEqual({
+      reason: "schedule_window_ended",
+      exitCode: 0,
+    });
+    expect(connection.disconnect.mock.calls).toEqual([
+      ["schedule_window_ended"],
+    ]);
+    expect(supervisor.getStateSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "schedule_window_ended",
+    });
+  });
+
   it("runtimeのspawnとtelemetryが揃った後だけ安全境界からtaskをclaimする", async () => {
     const connection = new FakeConnection();
     const stateStore = createStateStore();

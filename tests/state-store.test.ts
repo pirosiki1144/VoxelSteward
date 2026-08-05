@@ -50,6 +50,40 @@ const toReady = (
 };
 
 describe("InMemoryStateStore", () => {
+  it("scheduler intentをimmutableな状態eventとして記録し同値更新を抑止する", () => {
+    const store = createStateStore({ clock: new FakeClock() });
+    const command = {
+      type: "schedule.intent.record" as const,
+      phase: "morning" as const,
+      intent: {
+        type: "schedule.start_requested" as const,
+        evaluatedAt: "2026-07-30T00:00:00.000Z",
+        window: {
+          id: "2026-07-30:morning",
+          slot: "morning" as const,
+          startsAt: "2026-07-30T00:00:00.000Z",
+          endsAt: "2026-07-30T02:59:00.000Z",
+        },
+      },
+    };
+    const event = store.dispatch(command);
+    expect(event).toMatchObject({
+      revision: 1,
+      cause: "schedule.intent.record",
+      changedFields: ["schedule"],
+      after: {
+        schedule: {
+          phase: "morning",
+          intent: "schedule.start_requested",
+          window: { id: "2026-07-30:morning" },
+        },
+      },
+    });
+    expect(store.dispatch(command)).toBeUndefined();
+    expect(Object.isFrozen(event?.after.schedule)).toBe(true);
+    expect(Object.isFrozen(event?.after.schedule?.window)).toBe(true);
+  });
+
   it("UTCの初期スナップショットを返す", () => {
     const store = createStateStore({ clock: new FakeClock() });
 

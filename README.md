@@ -94,6 +94,24 @@ docker compose logs -f runtime
 回復不能エラー、他プレイヤー検知、SIGINT、SIGTERMでは再接続しません。
 `reconnect.exhausted`と`runtime.finished`の`exitCode: 1`は再接続上限到達を示します。
 
+### スケジュール運転ランタイム
+
+`scheduled-runtime`は平日のJST運用枠だけ、既存の読み取り専用runtime sessionを1回ずつ開始します。
+午前枠は09:00開始・11:59停止、午後枠は12:00開始・17:00停止です。切替時は旧runのcheckpoint保存、
+安全切断、cleanup、InstanceLock解放が完了してから新runを開始します。他player検知、operator停止、
+接続失敗後は同じ枠で再接続しません。
+
+実Minecraft serverへ接続するため、起動には承認が必要です。
+
+```bash
+docker compose --profile scheduled up scheduled-runtime
+docker compose --profile scheduled stop scheduled-runtime
+```
+
+poll間隔は`SCHEDULER_POLL_INTERVAL_MS`で100～60000msに設定でき、既定値は1000msです。
+`restart: "no"`、`BOT_MODE=normal`、既存認証volume、有限再接続、安全停止は通常runtimeと共通です。
+詳細は[平日運用スケジューラー](docs/scheduling.md)を参照してください。
+
 ### Discord通知
 
 既定の`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを検証・使用せず、

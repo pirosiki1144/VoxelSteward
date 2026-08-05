@@ -3,8 +3,8 @@
 ## 目的とスコープ
 
 通常運転、Discord通知、MySQL保存、将来の作業実行が同じ状態変化を利用できる、
-インフラストラクチャ非依存の状態ストアです。Minecraft内操作とスケジュール制御は
-実装していません。
+インフラストラクチャ非依存の状態ストアです。Minecraft内操作は実装していません。schedulerの
+開始・停止intentは型付き状態commandとして同じrevision履歴へ記録します。
 
 ## 実装モジュール
 
@@ -70,6 +70,17 @@ interface StateSnapshot {
     readonly progress?: number;
     readonly progressMessage?: string;
   };
+  readonly schedule?: {
+    readonly phase: "morning" | "handoff" | "afternoon" | "outside_hours";
+    readonly intent: "schedule.start_requested" | "schedule.stop_requested";
+    readonly window: Readonly<{
+      id: string;
+      slot: "morning" | "afternoon";
+      startsAt: string;
+      endsAt: string;
+    }>;
+    readonly evaluatedAt: string;
+  };
   readonly stopReason?: string;
   readonly lastError?: Readonly<{
     code: string;
@@ -79,6 +90,9 @@ interface StateSnapshot {
   readonly updatedAt: string;
 }
 ```
+
+schedule状態には日付付きwindow ID、枠、UTC境界、最後のintentだけを保持します。server endpoint、BOT情報、
+player名は含めません。`schedule.intent.record`は通知・MySQL subscriberと同じimmutable event経路を使います。
 
 `progress`は0～1の正規化値として検証し、作業固有の詳細は`progressMessage`で表現します。
 作業種別は初期段階では空でない文字列として検証し、将来の作業追加で状態ストア自体を

@@ -35,6 +35,11 @@ interface StateRow extends RowDataPacket {
   readonly task_type: string | null;
   readonly task_state: string;
   readonly task_updated_at: string;
+  readonly schedule_phase: string | null;
+  readonly schedule_intent: string | null;
+  readonly schedule_window_id: string | null;
+  readonly schedule_slot: string | null;
+  readonly schedule_evaluated_at: string | null;
   readonly stop_reason: string | null;
   readonly last_error_code: string | null;
   readonly occurred_at?: Date | string;
@@ -71,6 +76,11 @@ const stateSelection = (
   JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.task.type')) AS task_type,
   JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.task.state')) AS task_state,
   JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.task.updatedAt')) AS task_updated_at,
+  JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.schedule.phase')) AS schedule_phase,
+  JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.schedule.intent')) AS schedule_intent,
+  JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.schedule.window.id')) AS schedule_window_id,
+  JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.schedule.window.slot')) AS schedule_slot,
+  JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.schedule.evaluatedAt')) AS schedule_evaluated_at,
   JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.stopReason')) AS stop_reason,
   JSON_UNQUOTE(JSON_EXTRACT(${alias}.${jsonColumn}, '$.lastError.code')) AS last_error_code`;
 
@@ -100,6 +110,17 @@ const taskStates = new Set([
   "stopped",
 ]);
 const dimensions = new Set(["overworld", "nether", "end"]);
+const schedulePhases = new Set([
+  "morning",
+  "handoff",
+  "afternoon",
+  "outside_hours",
+]);
+const scheduleIntents = new Set([
+  "schedule.start_requested",
+  "schedule.stop_requested",
+]);
+const scheduleSlots = new Set(["morning", "afternoon"]);
 const causes = new Set<OperationalCause>([
   "runtime.transition",
   "minecraft.connection.transition",
@@ -113,12 +134,14 @@ const causes = new Set<OperationalCause>([
   "task.reset",
   "runtime.stop_reason.record",
   "runtime.error.record",
+  "schedule.intent.record",
 ]);
 const stopReasons = new Set([
   "other_player_detected",
   "signal_sigint",
   "signal_sigterm",
   "stop_requested",
+  "schedule_window_ended",
   "reconnect_exhausted",
   "connection_error",
   "internal_error",
@@ -129,6 +152,7 @@ const errorCodes = new Set([
   "internal_error",
 ]);
 const safeIdentifier = /^[a-z0-9][a-z0-9._-]{0,127}$/;
+const scheduleWindowId = /^\d{4}-\d{2}-\d{2}:(morning|afternoon)$/;
 const runIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const limitLiteral = (value: number, maximum: number): string => {
@@ -174,6 +198,32 @@ const summary = (row: StateRow): OperationalStateSummary => {
     row.dimension === null || !dimensions.has(row.dimension)
       ? undefined
       : member<"overworld" | "nether" | "end">(row.dimension, dimensions);
+  const schedule =
+    row.schedule_phase !== null &&
+    row.schedule_intent !== null &&
+    row.schedule_window_id !== null &&
+    row.schedule_slot !== null &&
+    row.schedule_evaluated_at !== null &&
+    schedulePhases.has(row.schedule_phase) &&
+    scheduleIntents.has(row.schedule_intent) &&
+    scheduleWindowId.test(row.schedule_window_id) &&
+    scheduleSlots.has(row.schedule_slot)
+      ? Object.freeze({
+          phase: member<"morning" | "handoff" | "afternoon" | "outside_hours">(
+            row.schedule_phase,
+            schedulePhases,
+          ),
+          intent: member<
+            "schedule.start_requested" | "schedule.stop_requested"
+          >(row.schedule_intent, scheduleIntents),
+          windowId: row.schedule_window_id,
+          slot: member<"morning" | "afternoon">(
+            row.schedule_slot,
+            scheduleSlots,
+          ),
+          evaluatedAt: iso(row.schedule_evaluated_at),
+        })
+      : undefined;
   return Object.freeze({
     revision: row.revision,
     updatedAt: iso(row.updated_at),
@@ -204,6 +254,7 @@ const summary = (row: StateRow): OperationalStateSummary => {
             updatedAt: new Date(row.task_updated_at).toISOString(),
           }),
         }),
+    ...(schedule === undefined ? {} : { schedule }),
     ...(stopReason === undefined ? {} : { stopReason }),
     ...(lastErrorCode === undefined ? {} : { lastErrorCode }),
   });

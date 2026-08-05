@@ -7,6 +7,11 @@ import type {
 } from "./types.js";
 
 export type StateCommand =
+  | {
+      readonly type: "schedule.intent.record";
+      readonly phase: import("../scheduler/index.js").SchedulePhase;
+      readonly intent: import("../scheduler/index.js").ScheduleIntent;
+    }
   | { readonly type: "runtime.transition"; readonly to: RuntimeState }
   | {
       readonly type: "minecraft.connection.transition";
