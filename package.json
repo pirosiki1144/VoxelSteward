@@ -17,6 +17,7 @@
     "runtime": "node dist/src/runtime.js",
     "smoke": "node dist/src/smoke.js",
     "operator-task": "node dist/src/operator-task.js",
+    "operator-log": "node dist/src/operator-log.js",
     "verify:runtime-compose": "node scripts/verify-runtime-compose.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

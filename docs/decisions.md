@@ -504,3 +504,20 @@
   完了済みtaskの非再実行、claimed残留のmanual reviewを既存統合testで検証します。
 - 秘密境界: 検査は`.env`を読まず、接続先、credential、player名、BOT情報を表示・保存しません。
   実接続と認証volume変更はこの決定では承認しません。
+
+## ADR-034: 運用ログは読み取り専用Repositoryでallow-list投影する
+
+- ステータス: 承認済み（offline・隔離MySQL実装）
+- 背景: MySQLのsnapshotとhistoryは復旧・監査に必要な完全な状態JSONを保持しますが、operator照会で
+  raw JSONや自由文を返すと、将来のfield追加による秘密情報露出と無制限出力の危険があります。
+- 決定: `OperationalLogRepository`を管理照会の唯一のportとし、run一覧、最新状態、revision昇順履歴、
+  task checkpointを有限件数で返します。MySQL adapterはJSONからruntime、接続、spawn、telemetry、
+  task、停止理由、sanitized error codeだけを投影します。
+- 安全境界: player名、BOT情報、server endpoint、credential、生Error、stack、接続文字列、raw snapshot、
+  自由文messageは照会型に含めません。未知causeは`unknown`、未知の停止理由・error codeは省略し、
+  DB例外は固定`OPERATIONAL_LOG_UNAVAILABLE`へ変換します。
+- 実行境界: `operator-log` entrypointは厳格なUUID、revision、件数上限だけを受理します。MySQLを
+  SELECTするだけで、migration、task claim、outbox配送、Minecraft接続、認証volume mountを行いません。
+- scheduler: scheduler判断と運用枠はIssue #6で状態eventへ追加した後、同じrun ID・revision経路で保存・
+  照会します。本決定では未実装のscheduler状態を推測・保存しません。
+- 理由: 永続化の完全性を保ちながら、operatorへ必要最小限の監査情報だけを安定した型で提供するためです。

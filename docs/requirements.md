@@ -33,6 +33,8 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
   Docker Compose
 - Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
 - 状態snapshot、変更履歴、作業checkpoint、通知outboxを保存するMySQL adapter
+- run IDとrevisionを使い、allow-list済み状態・履歴・checkpointだけを有限件数で返す読み取り専用
+  operator照会
 - 型付き指示、priority付きFIFO、取消、終端状態、有限試行を持つ作業queue
 
 ## 3. 安全要件
@@ -123,6 +125,8 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - 同一状態の重複イベントを抑制し、不正遷移を拒否または検出すること。
 - 内部時刻をUTCで保持し、表示側でJSTへ変換できること。
 - subscriberの障害がruntimeの安全停止や他subscriberを妨げないこと。
+- operator照会はraw snapshot、自由文message、生Error、stack、接続文字列を返さず、DB障害を固定codeへ
+  変換し、runtimeやtask状態を変更しないこと。
 - プレイヤー名、サーバー接続情報、認証情報を状態へ保存しないこと。
 - DiscordとMySQLはMinecraft接続へ直結せず、同じ状態イベントだけを購読すること。
 - 作業queueのclaimだけではMinecraft操作を開始せず、executorと共通安全制御を別工程とすること。

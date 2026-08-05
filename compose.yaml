@@ -92,6 +92,32 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
 
+  operator-log:
+    profiles: ["operator"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward:local
+    entrypoint: ["node", "dist/src/operator-log.js"]
+    command: []
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MYSQL_PERSISTENCE_ENABLED: ${MYSQL_PERSISTENCE_ENABLED:-false}
+      MYSQL_HOST: ${MYSQL_HOST:-}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-}
+      MYSQL_USER: ${MYSQL_USER:-}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      MYSQL_CONNECTION_TIMEOUT_MS: ${MYSQL_CONNECTION_TIMEOUT_MS:-5000}
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+
   block-placement-acceptance:
     profiles: ["acceptance"]
     build:
