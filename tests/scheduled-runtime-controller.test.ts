@@ -65,6 +65,46 @@ const flush = async (): Promise<void> => {
 };
 
 describe("ScheduledRuntimeController", () => {
+  it("Fake Clockで午前・午後の境界を通し、読み取り専用sessionだけを順序実行する", async () => {
+    const clock = new FakeClock("2026-08-04T23:59:00.000Z");
+    const morning = new FakeSession();
+    const afternoon = new FakeSession();
+    const sessions = [morning, afternoon];
+    const createSession = vi.fn(() => {
+      const session = sessions.shift();
+      if (session === undefined) throw new Error("unexpected session");
+      return Promise.resolve(session);
+    });
+    const controller = new ScheduledRuntimeController({
+      scheduler: createWeekdayScheduler(clock),
+      createSession,
+    });
+
+    await controller.evaluateOnce();
+    expect(createSession).not.toHaveBeenCalled();
+
+    clock.set("2026-08-05T00:00:00.000Z");
+    await controller.evaluateOnce();
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(morning.intents[0]?.intent.type).toBe("schedule.start_requested");
+
+    clock.set("2026-08-05T02:59:00.000Z");
+    await controller.evaluateOnce();
+    expect(morning.stopReasons).toEqual(["schedule_window_ended"]);
+    expect(morning.closeCalls).toBe(1);
+
+    clock.set("2026-08-05T03:00:00.000Z");
+    await controller.evaluateOnce();
+    expect(createSession).toHaveBeenCalledTimes(2);
+    expect(afternoon.intents[0]?.intent.type).toBe("schedule.start_requested");
+
+    clock.set("2026-08-05T08:00:00.000Z");
+    await controller.evaluateOnce();
+    expect(afternoon.stopReasons).toEqual(["schedule_window_ended"]);
+    expect(afternoon.closeCalls).toBe(1);
+    await controller.close();
+  });
+
   it("枠開始時にsessionを一度だけ作成してschedule intentを記録する", async () => {
     const clock = new FakeClock("2026-08-06T00:00:00.000Z");
     const session = new FakeSession();
