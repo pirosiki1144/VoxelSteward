@@ -2,7 +2,7 @@
 
 ## 対象
 
-Issue #7で、平日scheduler intentと既存の読み取り専用runtime sessionを接続しました。この記録はFake Clock、
+Issue #7で、平日scheduler intentと既存の読み取り専用runtime sessionを接続しました。Issue #8のoffline統合検証として、Fake Clock、
 Fake Minecraft connection、隔離MySQL、Compose構成による検証であり、実Minecraft serverへ接続していません。
 
 ## 確認内容
@@ -18,6 +18,19 @@ Fake Minecraft connection、隔離MySQL、Compose構成による検証であり�
 - schedule状態の読み取り専用operator照会
 - DB障害をMinecraft安全停止から隔離
 - movement、視点、block、item、chat、command送信APIを追加していないこと
+
+## Issue #8の受入結果
+
+Issue #8の必須ケースを、`tests/scheduler.test.ts`、`tests/scheduled-runtime-controller.test.ts`、
+`tests/runtime.test.ts`、`tests/mysql-persistence.integration.test.ts`で検証しました。統合ケースではFake Clockを
+08:59、09:00、11:59、12:00、17:00へ進め、午前sessionのcleanup完了後に午後sessionを開始すること、各sessionが
+一度だけ安全停止すること、Minecraft送信操作がないことを確認します。MySQLケースは隔離サービスでのみ実行します。
+
+実行結果:
+
+- offline自動テスト: 合格
+- 隔離MySQL統合テスト: 合格（15件）
+- 実Minecraft server接続: 未実施
 
 ## 未実施
 
