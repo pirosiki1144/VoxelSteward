@@ -187,3 +187,24 @@ execution-environment restriction. Never attempt to bypass an upstream control.
 If the upstream system itself requires a human decision, expose that system
 approval; otherwise autonomous operations must not be paused for redundant user
 confirmation.
+
+## Agent model routing
+
+- Use `gpt-5.6-terra` with `medium` reasoning for ordinary implementation,
+  documentation, GitHub coordination, and default subagent work.
+- Use `gpt-5.6-sol` with `high` reasoning for complex design, broad changes,
+  concurrency, safety stops, secret handling, data integrity, or other high-risk
+  work.
+- Use `gpt-5.6-luna` with `low` reasoning only for clearly bounded, repetitive,
+  and low-judgment transformations or narrow test additions.
+- Do not route unclear work to Luna. Do not route concurrency, safety, secrets,
+  data corruption, or external-service writes to Luna.
+- Escalate Luna work to Terra when requirements need interpretation, existing
+  patterns do not apply, multiple modules are affected, tests fail, or scope is
+  no longer narrow. Escalate Terra work to Sol for architectural changes,
+  cross-cutting changes, concurrency or data-integrity risk, secret or external
+  service risk, Minecraft safety-stop impact, or a consequential design choice.
+- Do not use model escalation as unlimited retry. Report the reason and preserve
+  completed work when handing work upward.
+- Avoid duplicate implementation and unnecessary subagent launches. Parallel
+  agents are limited to independent read-only investigation or verification.
