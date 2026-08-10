@@ -5,6 +5,7 @@ import { InstanceLock } from "./infrastructure/instance-lock.js";
 import { createLogger } from "./infrastructure/logger.js";
 import { loadSmokeConfig } from "./smoke/config.js";
 import { SmokeSession } from "./smoke/session.js";
+import { minecraftVersionErrorLogFields } from "./smoke/minecraft-version.js";
 
 const main = async (): Promise<void> => {
   let lock: InstanceLock | undefined;
@@ -27,9 +28,12 @@ const main = async (): Promise<void> => {
     process.exitCode = result.exitCode;
   } catch (error) {
     const logger = createLogger("normal", "info");
+    const versionError = minecraftVersionErrorLogFields(error);
     logger.log("error", {
       event: "smoke.start_failed",
-      error: error instanceof Error ? error.message : "unknown startup error",
+      ...(versionError ?? {
+        error: error instanceof Error ? error.message : "unknown startup error",
+      }),
       outcome: "abnormal",
       exitCode: 1,
     });

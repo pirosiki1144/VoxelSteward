@@ -79,6 +79,14 @@ operator確認までmanual reviewとします。終端済みtaskは
 非root user、認証volume、MySQL・通知設定境界をそのまま継承します。認証volumeを初期化・再作成
 せず、`smoke`や他のMinecraft接続serviceを依存関係として起動しません。
 
+#### Minecraftクライアントバージョン
+
+`MINECRAFT_VERSION`はruntimeとsmokeで共通に読み込みます。未設定または空欄はプロトコルライブラリの
+自動判定、明示値は現在`1.26.30`（短縮表記`26.30`も可）です。`1.26.40`などライブラリが未対応の値は
+`UNSUPPORTED_MINECRAFT_VERSION`で接続前に停止します。変更後はイメージを再ビルドし、サービスを再起動
+してください。`runtime.starting`または`smoke.started`には`configuredVersion`、`resolvedVersion`、
+`versionSource`が出力されますが、接続先や認証情報は出力しません。
+
 構成検査は`.env`を読ませず、値を表示しない次のcommandで行います。
 
 ```bash

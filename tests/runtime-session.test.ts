@@ -51,6 +51,7 @@ const config = (folder: string): RuntimeConfig => ({
   port: 19132,
   accountId: "scheduled-test",
   mode: "normal",
+  versionSource: "auto",
   authProfilesFolder: folder,
   logLevel: "error",
   connectionTimeoutMs: 1_000,
