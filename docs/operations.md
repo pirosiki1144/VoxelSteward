@@ -82,7 +82,7 @@ operator確認までmanual reviewとします。終端済みtaskは
 #### Minecraftクライアントバージョン
 
 `MINECRAFT_VERSION`はruntimeとsmokeで共通に読み込みます。未設定または空欄はプロトコルライブラリの
-自動判定、明示値は現在`1.26.30`（短縮表記`26.30`も可）です。`1.26.40`などライブラリが未対応の値は
+自動判定、明示値は現在`1.26.30`または`1.26.40`（短縮表記も可）です。ライブラリ未対応の値は
 `UNSUPPORTED_MINECRAFT_VERSION`で接続前に停止します。変更後はイメージを再ビルドし、サービスを再起動
 してください。`runtime.starting`または`smoke.started`には`configuredVersion`、`resolvedVersion`、
 `versionSource`が出力されますが、接続先や認証情報は出力しません。

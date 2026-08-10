@@ -562,9 +562,10 @@
 - 背景: runtimeとsmokeが別々にバージョン文字列を解釈すると、接続前検証やログの意味がずれます。また、
   プロトコルライブラリが未対応の新バージョンを設定だけで強制すると、接続失敗や安全でない推測につながります。
 - 決定: `src/smoke/minecraft-version.ts`の共通resolverで、未指定はライブラリ自動判定、指定値は正規化して
-  allow-list（現在は`1.26.30`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
+  allow-list（現在は`1.26.30`、`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
   `UNSUPPORTED_MINECRAFT_VERSION`として、InstanceLock・Minecraft client生成・接続より前に停止します。
   runtimeとsmokeは同じselectionと、`configuredVersion`・`resolvedVersion`・`versionSource`の安全なログ項目を使います。
-- 制約: resolverの対応値は依存ライブラリの実装根拠なしに拡張しません。`1.26.40`は現在の固定
-  `bedrock-protocol`が提供していないため未対応です。対応には依存更新、offline検証、専用受入試験を別途必要とします。
+- 制約: resolverの対応値は依存ライブラリの実装根拠なしに拡張しません。`1.26.40`は上流固定コミット
+  （bedrock-protocol 3.58.0相当）と`minecraft-data` 3.113.0で接続定義を確認済みです。
+  movement・block操作の既存offline schemaは1.26.30限定のままです。
 - 理由: 設定の一貫性とfail-closedを保ち、ユーザーが指定した値を黙って別バージョンへ置換しないためです。

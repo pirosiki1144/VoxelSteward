@@ -1,4 +1,4 @@
-export const SUPPORTED_MINECRAFT_VERSIONS = ["1.26.30"] as const;
+export const SUPPORTED_MINECRAFT_VERSIONS = ["1.26.30", "1.26.40"] as const;
 
 export type MinecraftVersion = (typeof SUPPORTED_MINECRAFT_VERSIONS)[number];
 export type MinecraftVersionSource = "environment" | "auto";

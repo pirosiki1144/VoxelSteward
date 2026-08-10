@@ -20,7 +20,7 @@
 
 - immutableな状態snapshot、revision、状態変更event
 - runtime、Minecraft接続、telemetry、task、停止理由の状態連携
-- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現在の対応値は`1.26.30`）
+- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現在の対応値は`1.26.30`、`1.26.40`）
 - 外部service非依存の通知port、mapper、順序付きsubscriber
 - Discord Incoming Webhook adapterと有限timeout・retry・rate-limit処理
 - MySQL Repository、version管理migration、transaction rollback
@@ -66,8 +66,8 @@
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装
-- `1.26.40`など、現在のプロトコルライブラリが提供しないMinecraftバージョンは未対応。依存更新と
-  offline検証なしに設定で強制しない。
+- `1.26.40`の接続定義は固定した上流`bedrock-protocol`コミットと`minecraft-data` 3.113.0で対応済み。
+  movement・block操作などのoffline schemaは引き続き1.26.30限定で、runtimeへ接続しない。
 
 ## 現在のGitHub Issues
 
