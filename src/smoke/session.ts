@@ -8,6 +8,7 @@ import type {
   SmokeResult,
   StopReason,
 } from "./types.js";
+import { minecraftVersionLogFields } from "./minecraft-version.js";
 
 export class SmokeSession {
   readonly #connection: ReadonlyMinecraftConnection;
@@ -42,7 +43,7 @@ export class SmokeSession {
     this.#logger.log("info", {
       event: "smoke.started",
       timeoutSeconds: this.#config.timeoutSeconds,
-      versionSelection: this.#config.version ?? "auto",
+      ...minecraftVersionLogFields(this.#config),
     });
 
     return new Promise<SmokeResult>((resolve) => {

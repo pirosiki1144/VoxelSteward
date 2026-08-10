@@ -60,7 +60,9 @@ cp .env.example .env
 
 - `MINECRAFT_HOST` — 接続許可を得たテスト用BDS
 - `MINECRAFT_PORT` — 通常は`19132`
-- `MINECRAFT_VERSION` — 通常は空欄。サーバー広告から自動判定
+- `MINECRAFT_VERSION` — 任意。空欄はプロトコルライブラリの自動判定、明示値は現在
+  `1.26.30`または`1.26.40`（短縮表記`26.30`、`26.40`）を受け付けます。設定はruntimeとsmokeで
+  共通です。不正形式や未対応値はMinecraft接続前に拒否します。
 - `BOT_ACCOUNT_ID` — 認証キャッシュを区別するローカル識別子
 - `BOT_MODE` — 通常は`normal`
 - `SMOKE_TIMEOUT_SECONDS` — `5`～`300`秒、既定値は`60`
@@ -94,6 +96,24 @@ docker compose logs -f runtime
 回復不能エラー、他プレイヤー検知、SIGINT、SIGTERMでは再接続しません。
 `reconnect.exhausted`と`runtime.finished`の`exitCode: 1`は再接続上限到達を示します。
 
+### スケジュール運転ランタイム
+
+`scheduled-runtime`は平日のJST運用枠だけ、既存の読み取り専用runtime sessionを1回ずつ開始します。
+午前枠は09:00開始・11:59停止、午後枠は12:00開始・17:00停止です。切替時は旧runのcheckpoint保存、
+安全切断、cleanup、InstanceLock解放が完了してから新runを開始します。他player検知、operator停止、
+接続失敗後は同じ枠で再接続しません。
+
+実Minecraft serverへ接続するため、起動には承認が必要です。
+
+```bash
+docker compose --profile scheduled up scheduled-runtime
+docker compose --profile scheduled stop scheduled-runtime
+```
+
+poll間隔は`SCHEDULER_POLL_INTERVAL_MS`で100～60000msに設定でき、既定値は1000msです。
+`restart: "no"`、`BOT_MODE=normal`、既存認証volume、有限再接続、安全停止は通常runtimeと共通です。
+詳細は[平日運用スケジューラー](docs/scheduling.md)を参照してください。
+
 ### Discord通知
 
 既定の`DISCORD_NOTIFICATIONS_ENABLED=false`ではWebhook URLを検証・使用せず、
@@ -116,6 +136,31 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 設定値と隔離テスト方法は[運用手順](docs/operations.md)、スキーマと障害境界は
 [状態管理](docs/state-management.md)を参照してください。MySQL有効時はoutbox配送workerが
 有限leaseと再試行でat-least-once配送し、MySQL無効時はprocess内best effortです。
+
+検証環境では`compose.verification.yaml`を重ねることで、通常runtimeを`normal`かつ
+`MYSQL_PERSISTENCE_ENABLED=true`へ固定できます。構成だけを非秘密な空環境で検査するには
+次を実行します。この検査とimage buildはMinecraftへ接続しません。
+
+```bash
+npm run verify:runtime-compose
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+```
+
+実際の起動・停止方法と承認境界は[運用手順](docs/operations.md)を参照してください。
+
+MySQLに保存された運用状態は、読み取り専用の`operator-log` entrypointからrun一覧、最新状態、
+revision順履歴、task checkpointとして照会できます。raw JSONや自由文errorは出力せず、状態、位置、
+体力、空腹度、停止理由などのallow-list済みfieldだけをJSON Linesで返します。
+
+```bash
+npm run operator-log -- runs --limit 20
+npm run operator-log -- status --run-id <run-id>
+npm run operator-log -- history --run-id <run-id> --after-revision 0 --limit 100
+npm run operator-log -- checkpoints --run-id <run-id> --limit 100
+```
+
+Composeからは`operator-log` serviceだけを明示して実行できます。Minecraft認証volumeはmountせず、
+Minecraft serviceも起動しません。詳細は[運用手順](docs/operations.md)を参照してください。
 
 ### 作業指示と作業キュー
 
@@ -219,7 +264,9 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 
 - `MINECRAFT_HOST is required` — `.env`の`MINECRAFT_HOST`を確認します。
 - ping timeout — BDSが起動していること、UDPポート、WSL2／ホスト側Firewallを確認します。
-- unsupported version — `MINECRAFT_VERSION`を空欄に戻して自動判定を使用します。
+- unsupported version — 現在対応する`1.26.30`または`1.26.40`（短縮表記も可）を指定するか、空欄に戻して
+  自動判定を使用します。不正値は`INVALID_MINECRAFT_VERSION`または`UNSUPPORTED_MINECRAFT_VERSION`で
+  接続前に停止します。
 - Microsoft認証に失敗する — BOT用アカウントのMinecraft所有状況、マルチプレイ設定、
   BDSのallowlistを確認します。
 - another smoke test instance is active — 同じ`BOT_ACCOUNT_ID`のコンテナが実行中でないか

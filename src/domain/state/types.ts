@@ -47,6 +47,13 @@ export interface TaskProgressState {
   readonly progressMessage?: string;
 }
 
+export interface ScheduleRuntimeState {
+  readonly phase: import("../scheduler/index.js").SchedulePhase;
+  readonly intent: import("../scheduler/index.js").ScheduleIntent["type"];
+  readonly window: import("../scheduler/index.js").OperatingWindow;
+  readonly evaluatedAt: string;
+}
+
 export type SanitizedErrorCode =
   "connection_error" | "reconnect_exhausted" | "internal_error";
 
@@ -65,6 +72,7 @@ export interface StateSnapshot {
   readonly runtime: RuntimeState;
   readonly minecraft: MinecraftState;
   readonly task: TaskProgressState;
+  readonly schedule?: ScheduleRuntimeState;
   readonly stopReason?: string;
   readonly lastError?: RecordedError;
 }

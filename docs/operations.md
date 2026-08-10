@@ -72,6 +72,80 @@ attemptsだけを記録し、生のDB errorや接続情報を出力しません�
 operator確認までmanual reviewとします。終端済みtaskは
 再実行対象に戻しません。
 
+### 検証環境向け通常runtime
+
+`compose.verification.yaml`は通常`runtime`へ重ねる検証環境専用overrideです。`BOT_MODE=normal`、
+`MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`を固定し、基底serviceのread-only filesystem、
+非root user、認証volume、MySQL・通知設定境界をそのまま継承します。認証volumeを初期化・再作成
+せず、`smoke`や他のMinecraft接続serviceを依存関係として起動しません。
+
+#### Minecraftクライアントバージョン
+
+`MINECRAFT_VERSION`はruntimeとsmokeで共通に読み込みます。未設定または空欄はプロトコルライブラリの
+自動判定、明示値は現在`1.26.30`または`1.26.40`（短縮表記も可）です。ライブラリ未対応の値は
+`UNSUPPORTED_MINECRAFT_VERSION`で接続前に停止します。変更後はイメージを再ビルドし、サービスを再起動
+してください。`runtime.starting`または`smoke.started`には`configuredVersion`、`resolvedVersion`、
+`versionSource`が出力されますが、接続先や認証情報は出力しません。
+
+構成検査は`.env`を読ませず、値を表示しない次のcommandで行います。
+
+```bash
+npm run verify:runtime-compose
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml config --quiet
+docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+```
+
+実接続は専用test serverへの接続承認後だけ、設定済み`.env`を使ってruntime 1 serviceを明示します。
+`--no-deps`により不要serviceを起動しません。
+
+```bash
+docker compose -f compose.yaml -f compose.verification.yaml up -d --no-deps runtime
+docker compose -f compose.yaml -f compose.verification.yaml logs --no-log-prefix runtime
+docker compose -f compose.yaml -f compose.verification.yaml stop runtime
+docker compose -f compose.yaml -f compose.verification.yaml ps runtime
+```
+
+logではevent名、reason、outcome、exitCode、revision、件数だけを確認し、環境変数、接続先、
+player名、BOT情報、task内容を転載しません。起動時はmigration、task復旧監査、InstanceLock取得後に
+Minecraftへ接続します。SIGTERMでは新規task・outbox claimを止め、StateStoreの停止eventとtask
+checkpointを有限時間で永続化し、Minecraftを一度だけ切断します。`runtime.finished`の後も
+`restart: "no"`により再起動しません。
+
+状態確認では`runtime.started`、`minecraft.spawn_completed`、`persistence.task_recovery_audited`、
+`runtime.finished`を使用します。`claimed`残留は件数だけをmanual reviewとして扱い、自動再実行や
+手動SQL更新をしません。DB・通知障害は安全切断を妨げません。停止後も認証volumeを削除しないで
+ください。
+
+### MySQL運用ログの安全な照会
+
+`operator-log`はMySQLを読み取るだけの管理entrypointです。run一覧、最新状態、revision昇順の履歴、
+task checkpointを有限件数で返します。Minecraft接続、認証volume、migration、task claim、outbox配送を
+開始しません。設定済みのローカルまたは承認済み環境から次のいずれかを実行します。
+
+```bash
+npm run build
+npm run operator-log -- runs --limit 20
+npm run operator-log -- status --run-id <run-id>
+npm run operator-log -- history --run-id <run-id> --after-revision 0 --limit 100
+npm run operator-log -- checkpoints --run-id <run-id> --limit 100
+```
+
+Containerから照会する場合もserviceを1つだけ指定します。
+
+```bash
+docker compose --profile operator run --rm operator-log runs --limit 20
+```
+
+出力はJSON Linesで、run ID、revision、UTC時刻、runtime・接続・spawn・telemetry状態、位置、dimension、
+体力、空腹度、他player検知boolean、型付きtask状態、allow-list済み停止理由・error codeだけを含みます。
+player名、BOT情報、server endpoint、credential、生Error、stack、接続文字列、snapshot raw JSON、自由文の
+進捗・error messageは返しません。不明なDB値は固定errorにするかfieldを省略し、内容を転載しません。
+
+履歴を追う場合は直前の最大revisionを次回の`--after-revision`へ指定します。`--limit`はrunsが1～100、
+history・checkpointsが1～500です。`run-id`はUUID形式だけを受理し、未知flagや余分なfieldを拒否します。
+DB障害時は`OPERATIONAL_LOG_UNAVAILABLE`等の固定codeだけを出力します。照会失敗を理由にruntime、DB、
+task状態を変更しません。
+
 ### ローカルoperator指示
 
 `npm run build`後、MySQL設定を秘密管理された環境から注入し、`npm run operator-task --`に続けて
@@ -116,6 +190,23 @@ docker compose stop runtime
 `reconnect.exhausted`と、`reason: "reconnect_exhausted"`、`exitCode: 1`の
 `runtime.finished`を記録します。設定・認証・未知の接続エラー、他プレイヤー検知、
 SIGINT、SIGTERMでは再接続しません。
+
+### 平日schedulerの現在の運用境界
+
+平日09:00～17:00（JST）の枠判定は`scheduled-runtime`から既存の読み取り専用runtimeへ接続されています。
+このserviceは`scheduled` profileのため、通常のCompose起動では開始されません。実Minecraft接続の承認後に
+対象serviceだけを明示します。
+
+```bash
+docker compose --profile scheduled up scheduled-runtime
+docker compose --profile scheduled logs -f scheduled-runtime
+docker compose --profile scheduled stop scheduled-runtime
+```
+
+午前枠終了は`reason: "schedule_window_ended"`で正常終了し、11:59～12:00は接続しません。12:00の新runは
+旧runのcleanupとInstanceLock解放後だけ開始します。SIGINT・SIGTERM、他player検知、operator停止後は
+同じ枠で再接続しません。Composeは`restart: "no"`です。実接続を伴わない構成検査は空env fileで
+`npm run verify:runtime-compose`を使用します。詳細は[平日運用スケジューラー](scheduling.md)を参照してください。
 
 ### Discord Incoming Webhook通知
 

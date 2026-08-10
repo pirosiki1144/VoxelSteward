@@ -51,6 +51,7 @@ const config = (overrides: Partial<RuntimeConfig> = {}): RuntimeConfig => ({
   port: 19132,
   accountId: "runtime-bot",
   mode: "normal",
+  versionSource: "auto",
   authProfilesFolder: "/tmp/test-auth",
   logLevel: "debug",
   connectionTimeoutMs: 15_000,
@@ -118,6 +119,26 @@ const waitForCalls = async (
 };
 
 describe("RuntimeSupervisor", () => {
+  it("運用枠終了を正常な安全停止として一度だけ切断する", async () => {
+    const connection = new FakeConnection();
+    const { supervisor, run } = setup([connection]);
+    connection.emit("join");
+    connection.emit("spawn");
+    supervisor.requestStop("schedule_window_ended");
+    supervisor.requestStop("schedule_window_ended");
+    await expect(run).resolves.toEqual({
+      reason: "schedule_window_ended",
+      exitCode: 0,
+    });
+    expect(connection.disconnect.mock.calls).toEqual([
+      ["schedule_window_ended"],
+    ]);
+    expect(supervisor.getStateSnapshot()).toMatchObject({
+      runtime: "stopped",
+      stopReason: "schedule_window_ended",
+    });
+  });
+
   it("runtimeのspawnとtelemetryが揃った後だけ安全境界からtaskをclaimする", async () => {
     const connection = new FakeConnection();
     const stateStore = createStateStore();
@@ -805,6 +826,7 @@ describe("runtime configuration", () => {
     ["RUNTIME_RECONNECT_INITIAL_DELAY_MS", "99"],
     ["RUNTIME_RECONNECT_MAX_DELAY_MS", "99"],
     ["RUNTIME_CONNECTION_TIMEOUT_MS", "999"],
+    ["MINECRAFT_VERSION", "1.27.0"],
   ])("不正な%sを拒否する", (name, value) => {
     expect(() =>
       loadRuntimeConfig({ ...environment, [name]: value }),

@@ -15,13 +15,17 @@
     "lint": "eslint .",
     "test": "vitest run",
     "runtime": "node dist/src/runtime.js",
+    "scheduled-runtime": "node dist/src/scheduled-runtime.js",
     "smoke": "node dist/src/smoke.js",
     "operator-task": "node dist/src/operator-task.js",
+    "operator-log": "node dist/src/operator-log.js",
+    "verify:runtime-compose": "node scripts/verify-runtime-compose.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "bedrock-protocol": "3.57.0",
+    "bedrock-protocol": "https://github.com/PrismarineJS/bedrock-protocol/archive/8da133e7f47493ed8d207ebd59334131d48feb48.tar.gz",
+    "minecraft-data": "3.113.0",
     "mysql2": "3.23.2"
   },
   "devDependencies": {

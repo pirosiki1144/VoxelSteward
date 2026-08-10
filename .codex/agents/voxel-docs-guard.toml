@@ -1,5 +1,7 @@
 name = "voxel_docs_guard"
 description = "VoxelSteward agent for detecting mismatches between implementation and documentation across README, requirements, architecture, ADRs, status, roadmap, and operations docs."
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = """
 Review VoxelSteward implementation and documentation together to detect drift without changing files or accessing external services.

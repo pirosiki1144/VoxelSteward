@@ -23,8 +23,8 @@
 ```text
 検証環境runtime構成
 → MySQL運用ログと安全な照会
-→ Fake Clockによる平日scheduler
-→ schedulerと接続・切断runtimeの統合
+→ Fake Clockによる平日scheduler（domain実装済み）
+→ schedulerと接続・切断runtimeの統合（offline実装済み）
 → Fake Minecraft・隔離MySQL統合試験
 → 承認済み専用test serverでの受入
 ```

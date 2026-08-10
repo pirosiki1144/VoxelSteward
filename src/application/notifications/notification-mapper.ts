@@ -127,7 +127,8 @@ export const mapStateChangeToNotification = (
     before.stopReason !== after.stopReason &&
     (after.stopReason === "signal_sigint" ||
       after.stopReason === "signal_sigterm" ||
-      after.stopReason === "stop_requested")
+      after.stopReason === "stop_requested" ||
+      after.stopReason === "schedule_window_ended")
   ) {
     template = {
       type: "stop_requested",

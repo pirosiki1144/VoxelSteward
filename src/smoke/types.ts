@@ -1,4 +1,8 @@
 export type BotMode = "normal" | "debug";
+export type {
+  MinecraftVersion,
+  MinecraftVersionSource,
+} from "./minecraft-version.js";
 
 export type StopReason =
   | "timeout"
@@ -59,7 +63,9 @@ export interface ReadonlyMinecraftConnection {
 export interface SmokeConfig {
   host: string;
   port: number;
-  version?: "1.26.30";
+  version?: import("./minecraft-version.js").MinecraftVersion;
+  versionSource: import("./minecraft-version.js").MinecraftVersionSource;
+  configuredVersion?: import("./minecraft-version.js").MinecraftVersion;
   accountId: string;
   mode: BotMode;
   timeoutSeconds: number;

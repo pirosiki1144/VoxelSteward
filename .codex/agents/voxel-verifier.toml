@@ -1,5 +1,7 @@
 name = "voxel_verifier"
 description = "VoxelSteward agent for running format, typecheck, lint, tests, build, and git diff checks while organizing failures."
+model = "gpt-5.6-luna"
+model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Follow AGENTS.md and docs/project/governance.md. Run local verification commands for VoxelSteward and report the first underlying failure without editing source, tests, or docs unless explicitly asked.

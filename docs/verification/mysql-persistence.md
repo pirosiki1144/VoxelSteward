@@ -10,7 +10,7 @@
 
 ## 確認内容
 
-DB統合15 test caseで次の1～16を確認し、Fake runtime・executor統合で17を確認しました。
+DB統合15 test caseとFake runtime・executor・operator照会testで次を確認しました。
 
 1. 空DBへのup migrationと同一migrationの冪等再適用
 2. history、最新snapshot、作業checkpoint、通知outboxのtransaction保存
@@ -29,6 +29,8 @@ DB統合15 test caseで次の1～16を確認し、Fake runtime・executor統合�
 15. 通常runtime相当の接続、spawn、telemetry、作業状態、安全停止のrevision順保存
 16. 最新snapshot、checkpoint、通知outboxが同じrunの履歴と整合すること
 17. runtime永続化障害が他プレイヤー安全停止を妨げず、executorのDB障害もruntimeへ再投入しないFake統合試験
+18. run一覧、最新状態、revision昇順履歴、task checkpointの安全なoperator照会
+19. raw snapshot、自由文error、接続情報を返さないallow-list投影
 
 テストdataには実在するplayer名、BOT情報、server endpoint、認証情報を使用していません。
 

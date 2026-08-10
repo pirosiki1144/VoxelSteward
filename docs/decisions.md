@@ -486,3 +486,86 @@
   書換えを禁止します。branch protectionとrulesetの変更は別途承認を必要とします。
 - 参考: [Git ブランチの命名規則](https://qiita.com/Hashimoto-Noriaki/items/5d990e21351b331d2aa1)の
   `master`をVoxelStewardの`main`として適用します。
+
+## ADR-033: 検証環境runtimeは基底Composeへの安全固定overrideとする
+
+- ステータス: 承認済み（構成・offline検証）
+- 背景: 通常runtimeの汎用既定値を変更せず、検証環境ではnormal modeとMySQL永続化を再現可能に
+  固定する必要があります。別serviceへ実装を複製すると、安全設定や認証volumeの差異が生じます。
+- 決定: `compose.verification.yaml`を`compose.yaml`へ重ね、既存`runtime`の`BOT_MODE=normal`、
+  `MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`だけを固定します。image、read-only filesystem、
+  非root user、InstanceLock、account別認証volume、有限再接続、通知・MySQL設定境界は基底serviceから
+  継承します。
+- 起動境界: 構成検査とimage buildは空のenv fileで行います。実起動は接続承認後に`--no-deps runtime`
+  だけを指定し、smokeその他のMinecraft接続serviceを起動しません。安全停止後はComposeから再起動
+  しません。
+- 検証: 機械検査は解決後Compose modelの固定値、read-only user、既存認証volumeを確認します。
+  Fake runtimeと隔離MySQLでは接続、spawn、telemetry、停止のrevision順保存、checkpoint、復旧監査、
+  完了済みtaskの非再実行、claimed残留のmanual reviewを既存統合testで検証します。
+- 秘密境界: 検査は`.env`を読まず、接続先、credential、player名、BOT情報を表示・保存しません。
+  実接続と認証volume変更はこの決定では承認しません。
+
+## ADR-034: 運用ログは読み取り専用Repositoryでallow-list投影する
+
+- ステータス: 承認済み（offline・隔離MySQL実装）
+- 背景: MySQLのsnapshotとhistoryは復旧・監査に必要な完全な状態JSONを保持しますが、operator照会で
+  raw JSONや自由文を返すと、将来のfield追加による秘密情報露出と無制限出力の危険があります。
+- 決定: `OperationalLogRepository`を管理照会の唯一のportとし、run一覧、最新状態、revision昇順履歴、
+  task checkpointを有限件数で返します。MySQL adapterはJSONからruntime、接続、spawn、telemetry、
+  task、停止理由、sanitized error codeだけを投影します。
+- 安全境界: player名、BOT情報、server endpoint、credential、生Error、stack、接続文字列、raw snapshot、
+  自由文messageは照会型に含めません。未知causeは`unknown`、未知の停止理由・error codeは省略し、
+  DB例外は固定`OPERATIONAL_LOG_UNAVAILABLE`へ変換します。
+- 実行境界: `operator-log` entrypointは厳格なUUID、revision、件数上限だけを受理します。MySQLを
+  SELECTするだけで、migration、task claim、outbox配送、Minecraft接続、認証volume mountを行いません。
+- scheduler: Issue #6のdomain intentはMySQLへ直接接続しません。Issue #7で状態eventへ接続した後、同じ
+  run ID・revision経路で保存・照会します。本決定では未統合のscheduler状態を推測・保存しません。
+- 理由: 永続化の完全性を保ちながら、operatorへ必要最小限の監査情報だけを安定した型で提供するためです。
+
+## ADR-035: 平日運用枠を純粋なscheduler domainで判定する
+
+- ステータス: 承認済み（domain・Fake Clock実装）
+- 背景: 検証環境で定時運用する前に、JST境界、process再起動、時計変動をMinecraft接続や実時間sleepなしで
+  決定論的に検証する必要があります。
+- 決定: 平日午前を09:00以上11:59未満、切替を11:59以上12:00未満、午後を12:00以上17:00未満と
+  します。注入Clockから得たUTC時刻を一箇所でJST判定し、日付付きwindowの開始・停止intentだけを返す
+  `domain/scheduler`を採用します。土日と時間外は運用枠を持たず、祝日は判定しません。
+- 重複境界: 前回評価時刻以前への巻戻りではintentを生成しません。同じwindowは再開始せず、飛越し時は
+  通過境界を全再生せず、旧window停止と現在window開始だけを順に返します。
+- 分離: domainはMinecraft、MySQL、process signal、timerを知りません。runtimeが旧runの切断完了前に
+  新runを開始しない制御、他player・operator停止後の非再開、intent履歴保存はapplication/runtime層で
+  実装します。
+- 理由: 時刻判定と副作用を分離し、境界の正しさと多重開始防止をFake Clockで先に固定するためです。
+
+## ADR-036: schedulerは再利用可能なruntime sessionを直列制御する
+
+- ステータス: 承認済み（offline・隔離MySQL実装）
+- 背景: 午前・午後runで既存の通知、MySQL、task executor、安全停止を維持しつつ、旧runの切断完了前に
+  次runを開始しない必要があります。別runtime実装や子process起動は安全境界を重複させます。
+- 決定: one-shot runtimeの資源管理を`RuntimeSession`へ抽出し、通常entrypointとscheduled entrypointで
+  共用します。controllerはscheduler intentを順に処理し、停止時は`reason: schedule_window_ended`を記録、
+  supervisor終了、task checkpoint、永続化flush、全adapter cleanup、InstanceLock解放をawaitしてから
+  次sessionを作成します。
+- 非再接続: schedulerは1windowにつき開始intentを1件だけ生成します。sessionが他player、operator停止、
+  接続上限、回復不能エラーで終了しても同じwindowでは再生成しません。process signalはpoll待機とactive
+  sessionの両方を停止します。
+- 永続化: schedule intentをStateStore commandへ変換し、接続・spawn・telemetry・停止理由と同じrun IDと
+  revisionで保存します。DB初期化失敗はconnection factory実行前に失敗し、書込み障害は安全切断から隔離します。
+- InstanceLock: session作成ごとに既存のaccount別lockを取得し、cleanupの最後に解放します。二重scheduler、
+  通常runtime、smokeとの同一identity競合を新しい無効化経路なしで防ぎます。
+- Compose: `scheduled-runtime`は明示profile、normal固定、`restart: "no"`、read-only、非root、既存認証volumeを
+  使用します。実Minecraft接続とproduction deployはこのoffline決定に含めません。
+
+## ADR-037: Minecraftバージョン設定は共通resolverでfail-closedにする
+
+- ステータス: 承認待ち（Issue #25の実装・offline検証）
+- 背景: runtimeとsmokeが別々にバージョン文字列を解釈すると、接続前検証やログの意味がずれます。また、
+  プロトコルライブラリが未対応の新バージョンを設定だけで強制すると、接続失敗や安全でない推測につながります。
+- 決定: `src/smoke/minecraft-version.ts`の共通resolverで、未指定はライブラリ自動判定、指定値は正規化して
+  allow-list（現在は`1.26.30`、`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
+  `UNSUPPORTED_MINECRAFT_VERSION`として、InstanceLock・Minecraft client生成・接続より前に停止します。
+  runtimeとsmokeは同じselectionと、`configuredVersion`・`resolvedVersion`・`versionSource`の安全なログ項目を使います。
+- 制約: resolverの対応値は依存ライブラリの実装根拠なしに拡張しません。`1.26.40`は上流固定コミット
+  （bedrock-protocol 3.58.0相当）と`minecraft-data` 3.113.0で接続定義を確認済みです。
+  movement・block操作の既存offline schemaは1.26.30限定のままです。
+- 理由: 設定の一貫性とfail-closedを保ち、ユーザーが指定した値を黙って別バージョンへ置換しないためです。

@@ -20,8 +20,13 @@ VoxelStewardは、将来的にMinecraft Bedrock Dedicated Server（BDS）へ接�
 
 ## 1.1 長期的な製品範囲
 
-将来は平日09:00～17:00（JST）に作業支援を行い、09:00～12:00と12:00～17:00を
-作業時間単位とします。体力、空腹度、位置、作業状態、進捗、異常を記録し、Discord通知と
+平日09:00～17:00（JST）を運用対象とし、午前枠は09:00:00以上11:59:00未満、切替時間は
+11:59:00以上12:00:00未満、午後枠は12:00:00以上17:00:00未満とします。scheduler domainは
+Clockを注入可能とし、UTCを内部時刻として保持しながらJST境界を一箇所で判定します。同じ枠の
+開始・停止要求を重複生成せず、時計の巻戻りや飛越しで多重開始しません。祝日判定は後続工程です。
+運用枠終了時はcheckpoint保存と安全切断を完了してから次runを開始し、他player検知またはoperator停止後は
+同じ枠で自動再接続しません。午前・午後runは同じBOT identityのInstanceLockで重複を防ぎます。
+体力、空腹度、位置、作業状態、進捗、異常を記録し、Discord通知と
 MySQL保存を段階的に追加します。道路作成、道路修繕、探索、安全化、整地、植林・伐採、
 耕作・収穫は、安全制御と移動の検証完了後に実装します。
 
@@ -33,6 +38,8 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
   Docker Compose
 - Linux VPSまたはAWSのコンテナランタイムへ移行可能な設計
 - 状態snapshot、変更履歴、作業checkpoint、通知outboxを保存するMySQL adapter
+- run IDとrevisionを使い、allow-list済み状態・履歴・checkpointだけを有限件数で返す読み取り専用
+  operator照会
 - 型付き指示、priority付きFIFO、取消、終端状態、有限試行を持つ作業queue
 
 ## 3. 安全要件
@@ -83,12 +90,21 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`が成功すること。
 - build済みのプログラムを起動すると、`GET /health`を提供し、構造化ログを出力すること。
 - SIGTERMによってヘルスチェックサーバーが正常に終了すること。
+- 検証環境の通常runtimeは`normal`とMySQL永続化を固定し、安全停止後にcontainerを自動再起動
+  しないこと。
+- 検証環境構成は既存のaccount別認証volumeとInstanceLockを共有し、runtime以外のMinecraft
+  接続serviceを暗黙に起動しないこと。
+- Compose構成を`.env`や秘密値なしで検査でき、接続先、credential、player名、BOT情報を
+  検査出力や運用記録へ含めないこと。
 - 本番環境の秘密情報を埋め込まずに、Docker Composeでスモークテストと永続的な
   認証volumeを定義できること。
 
 ## 6. スモークテストの受け入れ基準
 
-- bedrock-protocolがサーバー広告から対応バージョンを自動判定できること。
+- `MINECRAFT_VERSION`は未指定時に自動判定し、指定時は共通の型付きresolverで検証すること。
+  現在の対応値は`1.26.30`と`1.26.40`（短縮表記は正規化）とし、未対応値は
+  `UNSUPPORTED_MINECRAFT_VERSION`として接続前に拒否すること。プロトコルライブラリの対応根拠なしに
+  新しいMinecraftバージョンを受け入れないこと。
 - Microsoftのdevice code認証キャッシュをBOTアカウント単位の名前付きDocker volumeへ
   保存できること。
 - ログイン完了とスポーン完了を区別して検知できること。
@@ -117,6 +133,8 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - 同一状態の重複イベントを抑制し、不正遷移を拒否または検出すること。
 - 内部時刻をUTCで保持し、表示側でJSTへ変換できること。
 - subscriberの障害がruntimeの安全停止や他subscriberを妨げないこと。
+- operator照会はraw snapshot、自由文message、生Error、stack、接続文字列を返さず、DB障害を固定codeへ
+  変換し、runtimeやtask状態を変更しないこと。
 - プレイヤー名、サーバー接続情報、認証情報を状態へ保存しないこと。
 - DiscordとMySQLはMinecraft接続へ直結せず、同じ状態イベントだけを購読すること。
 - 作業queueのclaimだけではMinecraft操作を開始せず、executorと共通安全制御を別工程とすること。

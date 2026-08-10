@@ -8,6 +8,7 @@ export type RuntimeStopReason =
   | "signal_sigint"
   | "signal_sigterm"
   | "stop_requested"
+  | "schedule_window_ended"
   | "reconnect_exhausted"
   | "connection_error"
   | "internal_error";

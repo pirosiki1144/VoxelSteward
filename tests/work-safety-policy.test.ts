@@ -127,19 +127,21 @@ describe("DefaultWorkSafetyPolicy", () => {
     });
   });
 
-  it.each(["signal_sigint", "signal_sigterm", "stop_requested"])(
-    "%s停止後の開始を非再開可能として拒否する",
-    (stopReason) => {
-      expect(
-        policy.evaluate(
-          { ...readySnapshot(), runtime: "stopping", stopReason },
-          "start",
-        ),
-      ).toMatchObject({
-        disposition: "block",
-        reason: "stop_requested",
-        resumable: false,
-      });
-    },
-  );
+  it.each([
+    "signal_sigint",
+    "signal_sigterm",
+    "stop_requested",
+    "schedule_window_ended",
+  ])("%s停止後の開始を非再開可能として拒否する", (stopReason) => {
+    expect(
+      policy.evaluate(
+        { ...readySnapshot(), runtime: "stopping", stopReason },
+        "start",
+      ),
+    ).toMatchObject({
+      disposition: "block",
+      reason: "stop_requested",
+      resumable: false,
+    });
+  });
 });

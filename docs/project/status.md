@@ -14,16 +14,19 @@
 - normal modeでの他player検知時の即時停止と非再接続
 - debug smokeでの参加・退出観測継続
 - runtime、smoke、operator serviceのDocker imageとCompose構成
+- normal・MySQL有効・非再起動を固定する検証環境向けCompose overrideと非秘密な構成検査
 
 ### 状態・通知・永続化
 
 - immutableな状態snapshot、revision、状態変更event
 - runtime、Minecraft接続、telemetry、task、停止理由の状態連携
+- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現在の対応値は`1.26.30`、`1.26.40`）
 - 外部service非依存の通知port、mapper、順序付きsubscriber
 - Discord Incoming Webhook adapterと有限timeout・retry・rate-limit処理
 - MySQL Repository、version管理migration、transaction rollback
 - runtime run、snapshot、履歴、task checkpoint、通知outboxの冪等保存
 - outboxの排他claim、有限lease回収、配送結果更新、再起動後の未配送通知再処理
+- run ID・revision順の状態、履歴、checkpointをallow-list投影する読み取り専用operator照会
 
 ### operator task loop
 
@@ -34,6 +37,15 @@
 - server観測位置だけを使う実行とMySQL checkpoint保存
 - 完了済みtaskの非再実行と、claimed残留taskのmanual review分類
 - 専用test serverと隔離MySQLによる読み取り専用loop受入
+
+### 時刻制御
+
+- Fake Clock対応の平日JST運用枠scheduler domain
+- 09:00、11:59、12:00、17:00境界の開始・停止intent
+- 同一枠の重複抑止、process再起動時の現在枠判定、時計巻戻り・飛越しの安全側処理
+- scheduler intentと既存読み取り専用runtime sessionの接続・切断統合
+- 旧run cleanup完了後の新run開始、同一枠の非再接続、SIGINT・SIGTERM安全終了
+- schedule判断、接続状態、停止理由のStateStore・MySQL revision履歴
 
 ### 後続機能のoffline境界
 
@@ -50,9 +62,12 @@
 - block配置のface、transaction envelope、item action、authoritative frameの意味論は未確定
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
+- scheduler runtimeの実Minecraft server受入は未実施
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装
+- `1.26.40`の接続定義は固定した上流`bedrock-protocol`コミットと`minecraft-data` 3.113.0で対応済み。
+  movement・block操作などのoffline schemaは引き続き1.26.30限定で、runtimeへ接続しない。
 
 ## 現在のGitHub Issues
 
@@ -69,9 +84,11 @@ Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本�
 
 ## 検証記録
 
+- [検証環境向け通常runtime構成](../verification/verification-runtime.md)
 - [通常運転runtime](../verification/runtime-readonly.md)
 - [読み取り専用operator task loop](../verification/read-only-operator-loop.md)
 - [MySQL状態・履歴保存](../verification/mysql-persistence.md)
+- [スケジュール運転runtime offline検証](../verification/scheduled-runtime.md)
 - [Discord Incoming Webhook](../verification/discord-webhook.md)
 - [Movement protocol設計](../verification/movement-protocol-design.md)
 - [Block配置protocol evidence](../verification/block-placement-protocol-evidence.md)

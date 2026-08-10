@@ -1,4 +1,5 @@
 import { parseInteger } from "../smoke/config.js";
+import { resolveMinecraftVersion } from "../smoke/minecraft-version.js";
 import type { RuntimeConfig } from "./types.js";
 
 const required = (name: string, value: string | undefined): string => {
@@ -6,19 +7,6 @@ const required = (name: string, value: string | undefined): string => {
     throw new Error(`${name} is required`);
   }
   return value.trim();
-};
-
-const parseVersion = (
-  raw: string | undefined,
-): RuntimeConfig["version"] | undefined => {
-  if (raw === undefined || raw.trim() === "") return undefined;
-  const normalized = raw.trim().split(".").slice(0, 3).join(".");
-  if (normalized !== "1.26.30") {
-    throw new Error(
-      "MINECRAFT_VERSION must be omitted for auto-detection or identify 1.26.30",
-    );
-  }
-  return normalized;
 };
 
 export const loadRuntimeConfig = (
@@ -47,7 +35,7 @@ export const loadRuntimeConfig = (
     300_000,
   );
 
-  const config: RuntimeConfig = {
+  const config: Omit<RuntimeConfig, "versionSource"> = {
     host: required("MINECRAFT_HOST", environment.MINECRAFT_HOST),
     port: parseInteger(
       "MINECRAFT_PORT",
@@ -78,7 +66,13 @@ export const loadRuntimeConfig = (
     reconnectInitialDelayMs,
     reconnectMaxDelayMs,
   };
-  const version = parseVersion(environment.MINECRAFT_VERSION);
-  if (version !== undefined) config.version = version;
-  return config;
+  const version = resolveMinecraftVersion(environment.MINECRAFT_VERSION);
+  return {
+    ...config,
+    versionSource: version.source,
+    ...(version.version === undefined ? {} : { version: version.version }),
+    ...(version.configuredVersion === undefined
+      ? {}
+      : { configuredVersion: version.configuredVersion }),
+  };
 };

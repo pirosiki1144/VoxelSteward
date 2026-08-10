@@ -19,6 +19,7 @@ import type {
   RuntimeStopReason,
   Wait,
 } from "./types.js";
+import { minecraftVersionLogFields } from "../smoke/minecraft-version.js";
 
 const defaultWait: Wait = (delayMs, signal) =>
   new Promise<void>((resolve) => {
@@ -75,6 +76,7 @@ export class RuntimeSupervisor {
     this.#logger.log("info", {
       event: "runtime.starting",
       maxAttempts: this.#config.maxRetries + 1,
+      ...minecraftVersionLogFields(this.#config),
     });
 
     let retry = 0;
@@ -167,7 +169,10 @@ export class RuntimeSupervisor {
   requestStop(
     reason: Extract<
       RuntimeStopReason,
-      "signal_sigint" | "signal_sigterm" | "stop_requested"
+      | "signal_sigint"
+      | "signal_sigterm"
+      | "stop_requested"
+      | "schedule_window_ended"
     >,
   ): void {
     if (this.#stopReason !== undefined) return;
@@ -372,7 +377,8 @@ export class RuntimeSupervisor {
     return reason === "other_player_detected" ||
       reason === "signal_sigint" ||
       reason === "signal_sigterm" ||
-      reason === "stop_requested"
+      reason === "stop_requested" ||
+      reason === "schedule_window_ended"
       ? 0
       : 1;
   }
