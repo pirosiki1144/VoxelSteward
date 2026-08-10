@@ -5,6 +5,7 @@ import { createLogger } from "./infrastructure/logger.js";
 import { loadRuntimeConfig } from "./runtime/config.js";
 import { loadNotificationConfig } from "./runtime/notification-config.js";
 import { loadPersistenceConfig } from "./runtime/persistence-config.js";
+import { minecraftVersionErrorLogFields } from "./smoke/minecraft-version.js";
 import {
   createLockedRuntimeSession,
   type RuntimeSession,
@@ -43,10 +44,13 @@ export const main = async (): Promise<void> => {
     process.exitCode = result.exitCode;
   } catch (error) {
     const logger = createLogger("normal", "info");
+    const versionError = minecraftVersionErrorLogFields(error);
     logger.log("error", {
       event: "runtime.error",
       reason: "startup_error",
-      error: error instanceof Error ? error.message : "unknown startup error",
+      ...(versionError ?? {
+        error: error instanceof Error ? error.message : "unknown startup error",
+      }),
       outcome: "abnormal",
       exitCode: 1,
     });

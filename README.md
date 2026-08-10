@@ -60,7 +60,9 @@ cp .env.example .env
 
 - `MINECRAFT_HOST` — 接続許可を得たテスト用BDS
 - `MINECRAFT_PORT` — 通常は`19132`
-- `MINECRAFT_VERSION` — 通常は空欄。サーバー広告から自動判定
+- `MINECRAFT_VERSION` — 任意。空欄はプロトコルライブラリの自動判定、明示値は現在
+  `1.26.30`（または短縮表記`26.30`）だけを受け付けます。設定はruntimeとsmokeで共通です。
+  未対応値（例: `1.26.40`）や不正形式はMinecraft接続前に拒否します。
 - `BOT_ACCOUNT_ID` — 認証キャッシュを区別するローカル識別子
 - `BOT_MODE` — 通常は`normal`
 - `SMOKE_TIMEOUT_SECONDS` — `5`～`300`秒、既定値は`60`
@@ -262,7 +264,9 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 
 - `MINECRAFT_HOST is required` — `.env`の`MINECRAFT_HOST`を確認します。
 - ping timeout — BDSが起動していること、UDPポート、WSL2／ホスト側Firewallを確認します。
-- unsupported version — `MINECRAFT_VERSION`を空欄に戻して自動判定を使用します。
+- unsupported version — 現在対応する`1.26.30`（または`26.30`）を指定するか、空欄に戻して
+  自動判定を使用します。`1.26.40`は固定中のプロトコルライブラリ未対応のため、依存更新と検証なしに
+  指定できません。不正値は`INVALID_MINECRAFT_VERSION`または`UNSUPPORTED_MINECRAFT_VERSION`で接続前に停止します。
 - Microsoft認証に失敗する — BOT用アカウントのMinecraft所有状況、マルチプレイ設定、
   BDSのallowlistを確認します。
 - another smoke test instance is active — 同じ`BOT_ACCOUNT_ID`のコンテナが実行中でないか

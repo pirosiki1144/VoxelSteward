@@ -38,6 +38,7 @@ const config = (mode: "normal" | "debug" = "normal"): SmokeConfig => ({
   port: 19132,
   accountId: "test-bot",
   mode,
+  versionSource: "auto",
   timeoutSeconds: 60,
   authProfilesFolder: "/tmp/test-auth",
   logLevel: "debug",

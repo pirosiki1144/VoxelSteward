@@ -9,6 +9,7 @@ import { loadNotificationConfig } from "./runtime/notification-config.js";
 import { loadPersistenceConfig } from "./runtime/persistence-config.js";
 import { loadSchedulerRuntimeConfig } from "./runtime/scheduler-config.js";
 import { createLockedRuntimeSession } from "./runtime/session.js";
+import { minecraftVersionErrorLogFields } from "./smoke/minecraft-version.js";
 
 export const main = async (): Promise<void> => {
   let controller: ScheduledRuntimeController | undefined;
@@ -71,10 +72,12 @@ export const main = async (): Promise<void> => {
     };
     await controller.run();
     process.exitCode = 0;
-  } catch {
+  } catch (error) {
+    const versionError = minecraftVersionErrorLogFields(error);
     createLogger("normal", "info").log("error", {
       event: "scheduled_runtime.finished",
       reason: "startup_error",
+      ...(versionError ?? {}),
       outcome: "abnormal",
       exitCode: 1,
     });

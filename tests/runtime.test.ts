@@ -51,6 +51,7 @@ const config = (overrides: Partial<RuntimeConfig> = {}): RuntimeConfig => ({
   port: 19132,
   accountId: "runtime-bot",
   mode: "normal",
+  versionSource: "auto",
   authProfilesFolder: "/tmp/test-auth",
   logLevel: "debug",
   connectionTimeoutMs: 15_000,
@@ -825,6 +826,7 @@ describe("runtime configuration", () => {
     ["RUNTIME_RECONNECT_INITIAL_DELAY_MS", "99"],
     ["RUNTIME_RECONNECT_MAX_DELAY_MS", "99"],
     ["RUNTIME_CONNECTION_TIMEOUT_MS", "999"],
+    ["MINECRAFT_VERSION", "1.26.40"],
   ])("不正な%sを拒否する", (name, value) => {
     expect(() =>
       loadRuntimeConfig({ ...environment, [name]: value }),

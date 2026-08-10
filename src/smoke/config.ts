@@ -1,4 +1,5 @@
 import type { BotMode, SmokeConfig } from "./types.js";
+import { resolveMinecraftVersion } from "./minecraft-version.js";
 
 export const parseBotMode = (raw: string | undefined): BotMode => {
   const mode = raw ?? "normal";
@@ -29,19 +30,6 @@ const required = (name: string, value: string | undefined): string => {
   return value.trim();
 };
 
-const parseVersion = (
-  raw: string | undefined,
-): SmokeConfig["version"] | undefined => {
-  if (raw === undefined || raw.trim() === "") return undefined;
-  const normalized = raw.trim().split(".").slice(0, 3).join(".");
-  if (normalized !== "1.26.30") {
-    throw new Error(
-      "MINECRAFT_VERSION must be omitted for auto-detection or identify 1.26.30",
-    );
-  }
-  return normalized;
-};
-
 export const loadSmokeConfig = (
   environment: NodeJS.ProcessEnv = process.env,
 ): SmokeConfig => {
@@ -52,7 +40,7 @@ export const loadSmokeConfig = (
     throw new Error("LOG_LEVEL must be debug, info, warn, or error");
   }
 
-  const config: SmokeConfig = {
+  const config: Omit<SmokeConfig, "versionSource"> = {
     host: required("MINECRAFT_HOST", environment.MINECRAFT_HOST),
     port: parseInteger(
       "MINECRAFT_PORT",
@@ -76,7 +64,13 @@ export const loadSmokeConfig = (
     connectionTimeoutMs: 15_000,
   };
 
-  const version = parseVersion(environment.MINECRAFT_VERSION);
-  if (version !== undefined) config.version = version;
-  return config;
+  const version = resolveMinecraftVersion(environment.MINECRAFT_VERSION);
+  return {
+    ...config,
+    versionSource: version.source,
+    ...(version.version === undefined ? {} : { version: version.version }),
+    ...(version.configuredVersion === undefined
+      ? {}
+      : { configuredVersion: version.configuredVersion }),
+  };
 };

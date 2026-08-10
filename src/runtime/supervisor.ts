@@ -19,6 +19,7 @@ import type {
   RuntimeStopReason,
   Wait,
 } from "./types.js";
+import { minecraftVersionLogFields } from "../smoke/minecraft-version.js";
 
 const defaultWait: Wait = (delayMs, signal) =>
   new Promise<void>((resolve) => {
@@ -75,6 +76,7 @@ export class RuntimeSupervisor {
     this.#logger.log("info", {
       event: "runtime.starting",
       maxAttempts: this.#config.maxRetries + 1,
+      ...minecraftVersionLogFields(this.#config),
     });
 
     let retry = 0;
