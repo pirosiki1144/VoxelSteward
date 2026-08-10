@@ -35,6 +35,14 @@ describe("Minecraft version configuration", () => {
     });
   });
 
+  it("上流protocol/data更新で1.26.40を選択できる", () => {
+    expect(resolveMinecraftVersion("1.26.40")).toEqual({
+      version: "1.26.40",
+      configuredVersion: "1.26.40",
+      source: "environment",
+    });
+  });
+
   it("runtimeとsmokeが同じバージョン解決を使用する", () => {
     const runtime = loadRuntimeConfig({
       ...environment,
@@ -61,7 +69,7 @@ describe("Minecraft version configuration", () => {
   }
 
   it("ライブラリ未対応のバージョンを接続前に拒否する", () => {
-    const error = captureError(() => resolveMinecraftVersion("1.26.40"));
+    const error = captureError(() => resolveMinecraftVersion("1.27.0"));
     expect(error).toBeInstanceOf(MinecraftVersionConfigError);
     if (error instanceof MinecraftVersionConfigError) {
       expect(error.code).toBe("UNSUPPORTED_MINECRAFT_VERSION");
@@ -71,11 +79,11 @@ describe("Minecraft version configuration", () => {
   it("設定エラーのログ項目へ入力値や例外を渡さない", () => {
     const error = new MinecraftVersionConfigError(
       "UNSUPPORTED_MINECRAFT_VERSION",
-      "1.26.40",
+      "1.27.0",
     );
     expect(minecraftVersionErrorLogFields(error)).toEqual({
       code: "UNSUPPORTED_MINECRAFT_VERSION",
-      configuredVersion: "1.26.40",
+      configuredVersion: "1.27.0",
     });
     expect(minecraftVersionErrorLogFields(new Error("secret"))).toBeUndefined();
   });

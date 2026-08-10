@@ -24,7 +24,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "bedrock-protocol": "3.57.0",
+    "bedrock-protocol": "https://github.com/PrismarineJS/bedrock-protocol/archive/8da133e7f47493ed8d207ebd59334131d48feb48.tar.gz",
+    "minecraft-data": "3.113.0",
     "mysql2": "3.23.2"
   },
   "devDependencies": {
