@@ -107,10 +107,23 @@ copy a potentially stale phase description into agent-specific configuration.
   only when implementation begins. An Issue number or title is not required in
   the branch name; link Issues in the Pull Request with `Closes`, `Fixes`, or
   `Refs`.
+- Use parent Issues for epics and sub-issues for implementation units. Use
+  GitHub `blocked by` and `blocking` relationships for execution order.
+- Before starting an Issue, read only the target Issue, its direct parent, open
+  blocking dependencies, linked Pull Requests, and relevant code or tests.
+  Do not scan unrelated Issues, Pull Requests, documents, or history unless
+  the task requires it.
+- Do not start an Issue while an open `blocked by` dependency remains. Use one
+  implementation Pull Request per sub-issue unless the owner explicitly
+  authorizes a coherent grouping.
 - Closely related Issues may share one feature branch and Pull Request when they
   have one coherent change purpose. Do not combine unrelated Issues.
 - Pull Requests must list changed behavior, verification results, and safety or
   operational impact.
+- Include `Closes #<issue-number>` (or the appropriate closing keyword) in the
+  Pull Request body, and record implementation results, verification results,
+  and unresolved items there. Do not create a separate progress file or copy
+  GitHub Issue data into repository documents.
 - Treat Pull Request review comments as the authoritative correction requests.
   Apply requested changes on the same branch, rerun affected checks, and update
   the Pull Request instead of opening an unrelated replacement.
@@ -120,6 +133,8 @@ copy a potentially stale phase description into agent-specific configuration.
 - Merge only after the required checks pass and the project owner explicitly
   approves the merge on the Pull Request. Never enable auto-merge on an agent's
   own authority.
+- Consider an Issue complete only after its acceptance criteria pass and the
+  associated Pull Request is merged.
 - After all required merges are complete, agents may delete only their merged,
   task-owned `feature`, `release`, or `hotfix` branches. Do not force-push,
   rewrite reviewed history, or delete `main`, `develop`, unmerged, spike, or
