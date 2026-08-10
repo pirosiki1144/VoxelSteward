@@ -569,3 +569,18 @@
   （bedrock-protocol 3.58.0相当）と`minecraft-data` 3.113.0で接続定義を確認済みです。
   movement・block操作の既存offline schemaは1.26.30限定のままです。
 - 理由: 設定の一貫性とfail-closedを保ち、ユーザーが指定した値を黙って別バージョンへ置換しないためです。
+
+## ADR-038: Compose環境は明示env-fileとproject単位で分離する
+
+- ステータス: 承認待ち（Issue #20の実装・offline検証）
+- 背景: 固定`.env`をCompose serviceへ渡し続けると、開発環境から本番のMinecraft接続先、Discord
+  Webhook、MySQLへ誤接続する可能性があります。また、Composeの既定projectや固定volume名の共有は
+  停止・削除対象の取り違えにつながります。
+- 決定: 基底`compose.yaml`から固定`.env`の`env_file`を除去し、`compose.dev.yaml`と`compose.prod.yaml`が
+  それぞれ必須の`.env.development`／`.env.production`を明示します。起動コマンドは`-p`でprojectを
+  分け、認証volumeは`voxel-steward-dev-auth-*`／`voxel-steward-prod-auth-*`へ分離します。固定
+  `container_name`は使用しません。
+- 安全境界: 実値入りenv fileは`.gitignore`で除外し、overlayなしの起動や必須env file欠落は安全に失敗
+  させます。既存の基底runtime/smokeと認証volumeの形式は維持し、認証volumeの削除・初期化は行いません。
+- 理由: 起動時の環境選択を明示し、Composeの停止・network・container・volumeスコープを環境ごとに
+  分離することで、開発操作が本番資源へ影響する経路を減らすためです。
