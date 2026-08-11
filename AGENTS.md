@@ -57,6 +57,27 @@ authority are in:
 - Keep state-domain code independent of Minecraft, Discord, databases, Docker,
   and process signals.
 
+## Environment configuration contract
+
+- When implementation introduces, renames, or removes an environment variable,
+  update `.env.example` in the same task with the variable name, a safe empty
+  value or non-secret default, and a concise human-readable comment.
+- Never place real passwords, tokens, webhook URLs, endpoints, account data, or
+  other secrets in `.env.example`. Keep `.env`, `.env.development`,
+  `.env.production`, and authentication caches outside Git.
+- Treat `.env.example`, Compose overlays, runtime configuration parsers, and
+  verification scripts as one configuration contract. Update all affected
+  references together; do not leave a new setting documented only in source.
+- During development, create a disposable local env file from `.env.example`
+  or inject safe test values through an ephemeral test env file. Use that file
+  for Compose config checks and local integration tests; never open or print a
+  real `.env` file.
+- Before handoff, compare environment-variable references in source, Compose,
+  scripts, and tests with `.env.example`. Report any intentional exception
+  (such as CI-only or secret-manager-only variables) in the relevant document.
+- If `.env.example` already has user-owned changes, preserve them and stop if
+  the new configuration cannot be added without mixing ownership.
+
 ## Context and token efficiency
 
 These rules apply to every agent and sub-agent working in this repository.
