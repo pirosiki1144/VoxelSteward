@@ -20,6 +20,7 @@
     "operator-task": "node dist/src/operator-task.js",
     "operator-log": "node dist/src/operator-log.js",
     "verify:runtime-compose": "node scripts/verify-runtime-compose.mjs",
+    "verify:environment-compose": "node scripts/verify-environment-compose.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

@@ -31,6 +31,30 @@ npm test
 npm run build
 ```
 
+## 開発環境と本番環境の分離
+
+開発用と本番用は、環境変数ファイル、Composeプロジェクト、認証volumeを分離します。
+実値入りの`.env.development`と`.env.production`はGitへ追加せず、必要な変数名は
+`.env.example`を参照してください。起動時には使用する環境ファイルとCompose overlayを必ず明示します。
+
+```bash
+cp .env.example .env.development
+cp .env.example .env.production
+
+# 開発環境
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml up -d
+
+# 本番環境
+docker compose -p voxelsteward-prod --env-file .env.production \
+  -f compose.yaml -f compose.prod.yaml up -d
+```
+
+`-p`がnetwork・container・Compose管理対象を分離し、overlayが環境別の必須env-fileと
+認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
+別環境へ`down`や`stop`を実行しないでください。本番環境のvolume削除や`down -v`は実行しません。
+設定検証は実サービスを起動せず、`npm run verify:environment-compose`で行えます。
+
 HTTPヘルスチェックを備えた最小構成のサービスを起動します。
 
 ```bash
@@ -78,15 +102,19 @@ cp .env.example .env
 次の起動は実Minecraft serverへ接続するため、実行前に承認が必要です。
 
 ```bash
-docker compose build runtime
-docker compose up runtime
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml build runtime
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml up runtime
 ```
 
 停止は前面実行中のCtrl+C、または別端末から次を実行します。
 
 ```bash
-docker compose stop runtime
-docker compose logs -f runtime
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml stop runtime
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml logs -f runtime
 ```
 
 一時切断は`RUNTIME_MAX_RETRIES`回まで再試行します。待機は

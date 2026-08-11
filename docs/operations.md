@@ -18,6 +18,35 @@ npm run build
 npm start
 ```
 
+### 開発環境と本番環境の分離
+
+開発用と本番用は、`.env.development`／`.env.production`、Compose project name、network、
+container、認証volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
+`.env.example`をコピーして作成し、接続先、Discord通知、MySQL設定をそれぞれの環境用に設定します。
+環境ファイルの内容はログやチャットへ表示しません。
+
+```bash
+cp .env.example .env.development
+cp .env.example .env.production
+
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.dev.yaml up -d
+docker compose -p voxelsteward-prod --env-file .env.production \
+  -f compose.yaml -f compose.prod.yaml up -d
+```
+
+開発環境の停止・状態確認は`voxelsteward-dev`へ、本番環境は`voxelsteward-prod`へ同じ
+`--env-file`とoverlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
+本番volumeの削除、`down -v`、所有者不明volumeの整理は禁止です。実サービスを起動しない分離検証は
+次で実行します。
+
+```bash
+npm run verify:environment-compose
+```
+
+基底`compose.yaml`は固定の`.env`を参照せず、環境別overlayが必須env-fileと環境別認証volumeを
+追加します。`-p`によってnetworkとcontainer名を分離し、固定`container_name`は使用しません。
+
 デフォルトのヘルスチェックエンドポイントは`http://127.0.0.1:3000/health`です。
 
 ### 自律実行できるローカル検証
