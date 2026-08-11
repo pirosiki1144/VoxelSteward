@@ -112,9 +112,10 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 
 - 開発、ネットワーク検証、本番は固定digestの同一MySQLイメージと共通Compose service定義を
   使用できること。
-- Compose projectとMySQLデータvolumeは環境ごとに分離し、同一volumeを環境間で共有しないこと。
+- 開発・検証は同じCompose project、MySQL container、データvolumeを共有し、database名、ユーザー、
+  パスワードを分離すること。本番は別Compose project、container、データvolumeへ分離すること。
 - runtimeは環境内の`mysql:3306`へ接続し、database名、ユーザー、パスワード、rootパスワードは
-  環境別の秘密管理設定から注入すること。
+  秘密管理設定から注入すること。
 - 既存volumeの削除・初期化・自動移行を行わず、migrationは対象環境のDBへ明示的に適用すること。
 - ログイン完了とスポーン完了を区別して検知できること。
 - BOT名、ディメンション、座標、体力、空腹度、プレイヤー一覧について、受信済みの値

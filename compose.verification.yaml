@@ -1,7 +1,4 @@
 services:
-  mysql:
-    environment:
-      VOXEL_ENV: verification
   scheduled-runtime:
     restart: "no"
     environment:
@@ -9,6 +6,9 @@ services:
       MYSQL_PERSISTENCE_ENABLED: "true"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_VERIFICATION_DATABASE:?MYSQL_VERIFICATION_DATABASE is required}
+      MYSQL_USER: ${MYSQL_VERIFICATION_USER:?MYSQL_VERIFICATION_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_VERIFICATION_PASSWORD:?MYSQL_VERIFICATION_PASSWORD is required}
 
   runtime:
     restart: "no"
@@ -17,3 +17,6 @@ services:
       MYSQL_PERSISTENCE_ENABLED: "true"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_VERIFICATION_DATABASE:?MYSQL_VERIFICATION_DATABASE is required}
+      MYSQL_USER: ${MYSQL_VERIFICATION_USER:?MYSQL_VERIFICATION_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_VERIFICATION_PASSWORD:?MYSQL_VERIFICATION_PASSWORD is required}

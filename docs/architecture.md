@@ -121,10 +121,11 @@ volumeへ保存します。実行コンテナは非rootかつread-onlyとし、�
 ### MySQL実行基盤
 
 `compose.mysql.yaml`に固定digestのMySQL service、healthcheck、migration前提の共通定義を
-置き、開発・ネットワーク検証・本番のoverlayから再利用します。各環境は異なるCompose
-projectとMySQL data volumeを持ち、同一volumeや同時稼働コンテナを共有しません。runtimeは
-環境内の`mysql:3306`へ接続し、database名と資格情報は環境別に注入します。環境共通の
-コンテナ設計と環境分離の永続境界を両立し、外部DBや既存本番データの自動移行は行いません。
+置き、開発・ネットワーク検証・本番のoverlayから再利用します。開発と検証は同じCompose
+project、MySQL container、data volumeを共有しますが、database・user・passwordを分離します。
+本番は異なるCompose project、container、data volumeへ分離します。runtimeは環境内の
+`mysql:3306`へ接続し、database名と資格情報は環境別に注入します。環境共通のコンテナ設計と
+本番の永続境界を両立し、外部DBや既存本番データの自動移行は行いません。
 検証環境用`compose.verification.yaml`は同じruntime imageと認証volumeを再利用し、normal mode、
 MySQL永続化、非再起動policyだけを固定します。別のMinecraft client実装や安全policyを持たず、
 `--no-deps runtime`で他の接続serviceから分離します。

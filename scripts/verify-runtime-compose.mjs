@@ -7,6 +7,9 @@ const composeEnvironment = {
   MYSQL_USER: "voxel_check",
   MYSQL_PASSWORD: "voxel_check_password",
   MYSQL_ROOT_PASSWORD: "voxel_root_check_password",
+  MYSQL_VERIFICATION_DATABASE: "voxel_steward_verification_check",
+  MYSQL_VERIFICATION_USER: "voxel_verification_check",
+  MYSQL_VERIFICATION_PASSWORD: "voxel_verification_check_password",
 };
 
 const compose = spawnSync(
@@ -16,9 +19,9 @@ const compose = spawnSync(
     "--env-file",
     "/dev/null",
     "-f",
-    "compose.mysql.yaml",
-    "-f",
     "compose.yaml",
+    "-f",
+    "compose.mysql.yaml",
     "-f",
     "compose.verification.yaml",
     "--profile",

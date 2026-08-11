@@ -9,7 +9,8 @@ const temporaryDirectory = mkdtempSync(
   join(tmpdir(), "voxel-steward-compose-"),
 );
 
-const runConfiguration = (project, overlay, envFile) => {
+const runConfiguration = (project, overlays, envFile) => {
+  const files = overlays.flatMap((overlay) => ["-f", overlay]);
   const result = spawnSync(
     "docker",
     [
@@ -20,10 +21,7 @@ const runConfiguration = (project, overlay, envFile) => {
       envFile,
       "-f",
       "compose.yaml",
-      "-f",
-      "compose.mysql.yaml",
-      "-f",
-      overlay,
+      ...files,
       "config",
       "--format",
       "json",
@@ -74,6 +72,9 @@ try {
       "MYSQL_USER=voxel_check",
       "MYSQL_PASSWORD=voxel_check_password",
       "MYSQL_ROOT_PASSWORD=voxel_root_check_password",
+      "MYSQL_VERIFICATION_DATABASE=voxel_steward_verification_check",
+      "MYSQL_VERIFICATION_USER=voxel_verification_check",
+      "MYSQL_VERIFICATION_PASSWORD=voxel_verification_check_password",
       "DISCORD_NOTIFICATIONS_ENABLED=false",
       `VOXEL_ENV_FILE=${path}`,
     ].join("\n");
@@ -82,18 +83,25 @@ try {
 
   const development = runConfiguration(
     "voxelsteward-dev-check",
-    "compose.dev.yaml",
+    ["compose.mysql.yaml", "compose.dev.yaml"],
     developmentEnv,
   );
   const production = runConfiguration(
     "voxelsteward-prod-check",
-    "compose.prod.yaml",
+    ["compose.mysql.yaml", "compose.prod.yaml"],
     productionEnv,
+  );
+  const verification = runConfiguration(
+    "voxelsteward-dev-check",
+    ["compose.mysql.yaml", "compose.dev.yaml", "compose.verification.yaml"],
+    developmentEnv,
   );
   const developmentRuntime = development.services?.runtime;
   const productionRuntime = production.services?.runtime;
   const developmentMysql = development.services?.mysql;
   const productionMysql = production.services?.mysql;
+  const verificationMysql = verification.services?.mysql;
+  const verificationRuntime = verification.services?.runtime;
   const developmentVolume = development.volumes?.["auth-profiles"];
   const productionVolume = production.volumes?.["auth-profiles"];
   const checks = [
@@ -129,12 +137,28 @@ try {
           "voxelsteward-prod-check_mysql-data",
       "MySQL volume must be isolated by Compose project",
     ],
+    [
+      verificationMysql?.image === developmentMysql?.image &&
+        verificationRuntime?.environment?.MYSQL_DATABASE ===
+          "voxel_steward_verification_check" &&
+        verificationRuntime?.environment?.MYSQL_USER ===
+          "voxel_verification_check" &&
+        verificationRuntime?.environment?.MYSQL_HOST === "mysql",
+      "verification must use a separate database and user on the shared MySQL service",
+    ],
+    [
+      verification.volumes?.["mysql-data"]?.name ===
+        development.volumes?.["mysql-data"]?.name &&
+        verification.volumes?.["mysql-data"]?.name !==
+          production.volumes?.["mysql-data"]?.name,
+      "development and verification must share only their project-scoped MySQL volume",
+    ],
   ];
   const failed = checks.find(([passed]) => !passed);
   if (failed !== undefined)
     throw new Error(`environment Compose check failed: ${failed[1]}`);
   process.stdout.write(
-    "development and production Compose configurations are isolated\n",
+    "development and verification share a project-scoped MySQL volume; production is isolated\n",
   );
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });

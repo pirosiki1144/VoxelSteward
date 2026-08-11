@@ -72,8 +72,8 @@
 ## 現在のGitHub Issues
 
 検証環境への適用、MySQL運用ログ、時刻制御を現在の優先工程とします。MySQLは固定digestの
-共通Compose serviceを開発・検証・本番で再利用し、Compose projectごとにデータvolumeを分離
-する方針をIssue #37で管理しています。
+共通Compose serviceを再利用し、開発・検証は同じCompose projectとデータvolume、本番は別projectと
+volumeで運用する方針をIssue #37で管理しています。databaseと資格情報は環境間で分離します。
 
 - [#4 検証環境向け通常runtime構成](https://github.com/pirosiki1144/VoxelSteward/issues/4)
 - [#5 MySQL運用ログと安全な照会](https://github.com/pirosiki1144/VoxelSteward/issues/5)

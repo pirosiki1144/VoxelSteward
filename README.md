@@ -33,7 +33,7 @@ npm run build
 
 ## 開発環境と本番環境の分離
 
-開発用と本番用は、環境変数ファイル、Composeプロジェクト、認証volume、MySQLデータvolumeを分離します。
+開発・検証用と本番用は、環境変数ファイル、Composeプロジェクト、認証volume、MySQLデータvolumeを分離します。
 実値入りの`.env.development`と`.env.production`はGitへ追加せず、必要な変数名は
 `.env.example`を参照してください。起動時には使用する環境ファイルとCompose overlayを必ず明示します。
 
@@ -51,9 +51,10 @@ docker compose -p voxelsteward-prod --env-file .env.production \
 ```
 
 `compose.mysql.yaml`は開発・検証・本番で同じ固定MySQLイメージとhealthcheckを使います。
-`-p`がnetwork、container、MySQLデータvolumeなどのCompose管理対象を環境ごとに分離し、
-overlayが環境別の必須env-fileと認証volume名を選択します。同じMySQLコンテナやvolumeを
-環境間で共有しません。runtimeのMySQL設定は各環境の内部service名`mysql:3306`へ固定します。
+開発と検証は同じ`voxelsteward-dev` project、MySQLコンテナ、データvolumeを共有し、
+`MYSQL_DATABASE`・`MYSQL_USER`・`MYSQL_PASSWORD`だけを分けます。本番は`voxelsteward-prod`
+projectと専用MySQLコンテナ・volumeへ分離します。runtimeのMySQL設定は各環境の内部service名
+`mysql:3306`へ固定します。
 停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
 別環境へ`down`や`stop`を実行しないでください。本番環境のvolume削除や`down -v`は実行しません。
 設定検証は実サービスを起動せず、`npm run verify:environment-compose`で行えます。

@@ -20,8 +20,8 @@ npm start
 
 ### 開発環境と本番環境の分離
 
-開発用と本番用は、`.env.development`／`.env.production`、Compose project name、network、
-container、認証volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
+開発・検証用と本番用は、`.env.development`／`.env.production`、Compose project name、network、
+container、認証volume、MySQL data volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
 `.env.example`をコピーして作成し、接続先、Discord通知、MySQL設定をそれぞれの環境用に設定します。
 環境ファイルの内容はログやチャットへ表示しません。
 
@@ -36,12 +36,24 @@ docker compose -p voxelsteward-prod --env-file .env.production \
 ```
 
 `compose.mysql.yaml`は固定digestの同じMySQLイメージ、healthcheck、migration前提のserviceを
-提供します。開発・ネットワーク検証・本番は同じ実行コンテナ設計を使いますが、Compose projectを
-分けるためMySQLデータvolumeは共有しません。環境間で同じvolumeをmountする運用は、データ混在と
-誤操作の影響範囲が大きいため禁止します。各環境のruntimeは内部service名`mysql:3306`へ接続し、
-`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`は環境別の秘密管理
-設定から注入します。MySQLの初期化は空の環境でのみ行い、既存volumeへ環境をまたいだ初期化を
-行いません。
+提供します。開発とネットワーク検証は同じ`voxelsteward-dev` project、MySQL container、data
+volumeを共有しますが、MySQL内のdatabase・user・passwordは分離します。本番は`voxelsteward-prod`
+projectと専用container・volumeへ分離します。各runtimeは内部service名`mysql:3306`へ接続し、
+`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`は秘密管理設定から
+注入します。開発envには`MYSQL_VERIFICATION_DATABASE`、`MYSQL_VERIFICATION_USER`、
+`MYSQL_VERIFICATION_PASSWORD`も設定し、初期化時に検証databaseとuserを作成します。本番では
+検証用3変数を空にします。MySQLの初期化は空のvolumeでのみ行い、既存volumeを初期化しません。
+
+検証runtimeは開発projectを共有して次のように起動します。
+
+```bash
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml \
+  -f compose.verification.yaml up -d --no-deps runtime
+```
+
+検証runtimeは`MYSQL_VERIFICATION_*`で指定したdatabase・userへ接続します。開発runtimeと同時に
+起動する場合は、BOTのInstanceLockと接続先Minecraftが別であることを確認してください。
 
 開発環境の停止・状態確認は`voxelsteward-dev`へ、本番環境は`voxelsteward-prod`へ同じ
 `--env-file`とoverlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
