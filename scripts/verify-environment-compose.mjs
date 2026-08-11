@@ -21,6 +21,8 @@ const runConfiguration = (project, overlay, envFile) => {
       "-f",
       "compose.yaml",
       "-f",
+      "compose.mysql.yaml",
+      "-f",
       overlay,
       "config",
       "--format",
@@ -67,7 +69,11 @@ try {
       "MINECRAFT_HOST=compose-check.invalid",
       "MINECRAFT_PORT=19132",
       "BOT_ACCOUNT_ID=compose-check",
-      "MYSQL_PERSISTENCE_ENABLED=false",
+      "MYSQL_PERSISTENCE_ENABLED=true",
+      "MYSQL_DATABASE=voxel_steward_check",
+      "MYSQL_USER=voxel_check",
+      "MYSQL_PASSWORD=voxel_check_password",
+      "MYSQL_ROOT_PASSWORD=voxel_root_check_password",
       "DISCORD_NOTIFICATIONS_ENABLED=false",
       `VOXEL_ENV_FILE=${path}`,
     ].join("\n");
@@ -86,6 +92,8 @@ try {
   );
   const developmentRuntime = development.services?.runtime;
   const productionRuntime = production.services?.runtime;
+  const developmentMysql = development.services?.mysql;
+  const productionMysql = production.services?.mysql;
   const developmentVolume = development.volumes?.["auth-profiles"];
   const productionVolume = production.volumes?.["auth-profiles"];
   const checks = [
@@ -100,6 +108,26 @@ try {
     [
       developmentVolume?.name !== productionVolume?.name,
       "development and production volumes must differ",
+    ],
+    [
+      developmentMysql?.image === productionMysql?.image,
+      "development and production must use the same pinned MySQL image",
+    ],
+    [
+      developmentRuntime?.environment?.MYSQL_HOST === "mysql" &&
+        productionRuntime?.environment?.MYSQL_HOST === "mysql" &&
+        developmentRuntime?.environment?.MYSQL_PORT === "3306" &&
+        productionRuntime?.environment?.MYSQL_PORT === "3306",
+      "runtime must use the environment-local MySQL service",
+    ],
+    [
+      developmentMysql?.volumes?.[0]?.source === "mysql-data" &&
+        productionMysql?.volumes?.[0]?.source === "mysql-data" &&
+        development.volumes?.["mysql-data"]?.name ===
+          "voxelsteward-dev-check_mysql-data" &&
+        production.volumes?.["mysql-data"]?.name ===
+          "voxelsteward-prod-check_mysql-data",
+      "MySQL volume must be isolated by Compose project",
     ],
   ];
   const failed = checks.find(([passed]) => !passed);

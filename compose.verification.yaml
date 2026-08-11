@@ -1,12 +1,19 @@
 services:
+  mysql:
+    environment:
+      VOXEL_ENV: verification
   scheduled-runtime:
     restart: "no"
     environment:
       BOT_MODE: normal
       MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
 
   runtime:
     restart: "no"
     environment:
       BOT_MODE: normal
       MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
