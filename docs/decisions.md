@@ -584,3 +584,17 @@
   させます。既存の基底runtime/smokeと認証volumeの形式は維持し、認証volumeの削除・初期化は行いません。
 - 理由: 起動時の環境選択を明示し、Composeの停止・network・container・volumeスコープを環境ごとに
   分離することで、開発操作が本番資源へ影響する経路を減らすためです。
+
+## ADR-040: MySQLは開発・検証共有と本番分離のvolumeを使う
+
+- ステータス: 承認待ち（Issue #37のCompose・文書実装）
+- 背景: 開発・検証・本番でMySQLの起動定義が分散し、テスト用tmpfsと外部接続設定が混在していた。
+  同じコンテナやvolumeを環境間で共有すると、databaseの混在、誤停止、破壊的migrationの波及が起きる。
+- 決定: 固定digestのMySQL image、healthcheck、データmountを`compose.mysql.yaml`へ集約する。開発と
+  ネットワーク検証は同じCompose projectとMySQL data volumeを共有し、初期化scriptで検証databaseと
+  userを追加する。runtimeはdatabaseごとの資格情報で`mysql:3306`へ接続する。本番は異なるCompose
+  project、container、data volumeへ分離する。
+- 非採用: 開発・検証と本番でcontainerまたはvolumeを共有しない。既存volumeの削除・初期化・データ
+  移行をこの変更で行わない。`mysql-test`と評価用tmpfs MySQLは使い捨て検証用途として維持する。
+- 理由: 開発・検証の再現性と恒久化を共有しながら、本番の復旧単位と資格情報を分離し、誤操作の影響を
+  本番へ波及させないためです。
