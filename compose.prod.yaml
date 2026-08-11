@@ -1,0 +1,31 @@
+# Production environment overlay. Use with -p voxelsteward-prod and
+# --env-file .env.production; never point this overlay at development values.
+x-production-env-file: &production-env-file
+  - path: ${VOXEL_ENV_FILE:-.env.production}
+    required: true
+
+services:
+  scheduled-runtime:
+    env_file: *production-env-file
+    environment:
+      VOXEL_ENV: production
+  runtime:
+    env_file: *production-env-file
+    environment:
+      VOXEL_ENV: production
+  smoke:
+    env_file: *production-env-file
+    environment:
+      VOXEL_ENV: production
+  operator-task:
+    env_file: *production-env-file
+    environment:
+      VOXEL_ENV: production
+  operator-log:
+    env_file: *production-env-file
+    environment:
+      VOXEL_ENV: production
+
+volumes:
+  auth-profiles:
+    name: voxel-steward-prod-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
