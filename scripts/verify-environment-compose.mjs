@@ -62,7 +62,7 @@ try {
 
   const developmentEnv = join(temporaryDirectory, "development.env");
   const productionEnv = join(temporaryDirectory, "production.env");
-  const values = (path) =>
+  const values = (path, includeVerification) =>
     [
       "MINECRAFT_HOST=compose-check.invalid",
       "MINECRAFT_PORT=19132",
@@ -72,14 +72,20 @@ try {
       "MYSQL_USER=voxel_check",
       "MYSQL_PASSWORD=voxel_check_password",
       "MYSQL_ROOT_PASSWORD=voxel_root_check_password",
-      "MYSQL_VERIFICATION_DATABASE=voxel_steward_verification_check",
-      "MYSQL_VERIFICATION_USER=voxel_verification_check",
-      "MYSQL_VERIFICATION_PASSWORD=voxel_verification_check_password",
+      includeVerification
+        ? "MYSQL_VERIFICATION_DATABASE=voxel_steward_verification_check"
+        : "MYSQL_VERIFICATION_DATABASE=",
+      includeVerification
+        ? "MYSQL_VERIFICATION_USER=voxel_verification_check"
+        : "MYSQL_VERIFICATION_USER=",
+      includeVerification
+        ? "MYSQL_VERIFICATION_PASSWORD=voxel_verification_check_password"
+        : "MYSQL_VERIFICATION_PASSWORD=",
       "DISCORD_NOTIFICATIONS_ENABLED=false",
       `VOXEL_ENV_FILE=${path}`,
     ].join("\n");
-  writeFileSync(developmentEnv, `${values(developmentEnv)}\n`);
-  writeFileSync(productionEnv, `${values(productionEnv)}\n`);
+  writeFileSync(developmentEnv, `${values(developmentEnv, true)}\n`);
+  writeFileSync(productionEnv, `${values(productionEnv, false)}\n`);
 
   const development = runConfiguration(
     "voxelsteward-dev-check",
@@ -138,6 +144,15 @@ try {
       "MySQL volume must be isolated by Compose project",
     ],
     [
+      developmentMysql?.volumes?.some(
+        (volume) =>
+          volume.target === "/docker-entrypoint-initdb.d" &&
+          volume.read_only === true &&
+          volume.source.endsWith("/docker/mysql/init"),
+      ),
+      "MySQL initialization scripts must be mounted read-only",
+    ],
+    [
       verificationMysql?.image === developmentMysql?.image &&
         verificationRuntime?.environment?.MYSQL_DATABASE ===
           "voxel_steward_verification_check" &&
@@ -145,6 +160,12 @@ try {
           "voxel_verification_check" &&
         verificationRuntime?.environment?.MYSQL_HOST === "mysql",
       "verification must use a separate database and user on the shared MySQL service",
+    ],
+    [
+      productionMysql?.environment?.MYSQL_VERIFICATION_DATABASE === "" &&
+        productionMysql?.environment?.MYSQL_VERIFICATION_USER === "" &&
+        productionMysql?.environment?.MYSQL_VERIFICATION_PASSWORD === "",
+      "production must not configure verification database credentials",
     ],
     [
       verification.volumes?.["mysql-data"]?.name ===
