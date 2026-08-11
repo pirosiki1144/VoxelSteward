@@ -44,6 +44,22 @@ docker compose -p voxelsteward-prod --env-file .env.production \
 npm run verify:environment-compose
 ```
 
+### WSL評価ハーネス
+
+実BDSへ接続する前に、network namespaceを無効化した`local-evaluation`で状況判断と安全gateを検証します。
+このserviceは認証volume、永続volume、Minecraft接続先を持たず、block配置protocolがunsupportedの間は
+書込みを行いません。
+
+```bash
+npm run verify:evaluation-compose
+docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+  --profile evaluation build local-evaluation
+docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+  --profile evaluation run --rm local-evaluation
+```
+
+実BDS用serviceは、イメージ・version・license・認証境界の確定と受入承認が完了するまで追加しません。
+
 基底`compose.yaml`は固定の`.env`を参照せず、環境別overlayが必須env-fileと環境別認証volumeを
 追加します。`-p`によってnetworkとcontainer名を分離し、固定`container_name`は使用しません。
 

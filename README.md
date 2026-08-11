@@ -236,6 +236,20 @@ movementとblock placementのPlayerAuthInput frameは排他所有し、tick逆�
 offlineで検査します。専用のblock placement acceptance serviceも追加済みですが、protocol capabilityが
 `unsupported`の間は認証やMinecraft接続より前に停止し、実配置を行いません。
 
+### WSL評価ハーネス
+
+実Minecraftへ接続する前に、networkを無効化した評価サービスで接続準備、spawn、telemetry、他player検知、
+危険状態を再現できます。認証volumeをmountせず、block配置protocolが`unsupported`の間は書込みを0件にします。
+
+```bash
+npm run verify:evaluation-compose
+docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+  --profile evaluation run --rm local-evaluation
+```
+
+実BDS用serviceは、version・license・認証境界を確定した別工程で追加します。実Minecraft接続とgame内操作には
+別途承認が必要です。
+
 ### Dockerイメージのビルド
 
 ```bash
@@ -310,6 +324,7 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 - `npm run runtime` — build済みの通常運転ランタイムを実行します
 - `npm run format` — Prettierで対応ファイルを整形します
 - `npm run format:check` — ファイルが整形済みか確認します
+- `npm run verify:evaluation-compose` — network無効のWSL評価Compose設定を検査します
 
 ## 安全性
 

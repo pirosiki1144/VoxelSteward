@@ -54,6 +54,7 @@
 - block・held item・dimensionの読み取り専用観測adapter
 - 単一dirt配置の型、観測port、安全coordinator、永続phase
 - block配置protocolのevidence matrixとfail-closed capability評価
+- WSL向け外部接続なし評価ハーネスとnetwork無効Compose検証（Issue #32）
 
 ## 現在の制約
 
@@ -63,6 +64,7 @@
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
 - scheduler runtimeの実Minecraft server受入は未実施
+- WSL評価環境の実BDS接続は、イメージ・version・認証境界未確定のため未実施
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装
@@ -79,6 +81,7 @@
 - [#7 スケジュールに従うMinecraft接続・切断runtime](https://github.com/pirosiki1144/VoxelSteward/issues/7)
 - [#8 Fake Clock・Fake Minecraft・隔離MySQL統合検証](https://github.com/pirosiki1144/VoxelSteward/issues/8)
 - [#9 検証環境での実接続受入試験](https://github.com/pirosiki1144/VoxelSteward/issues/9)
+- [#32 WSL上の隔離Minecraft評価環境を構築し接続・ブロック操作を検証する](https://github.com/pirosiki1144/VoxelSteward/issues/32)
 
 Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本とします。
 
@@ -92,5 +95,6 @@ Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本�
 - [Discord Incoming Webhook](../verification/discord-webhook.md)
 - [Movement protocol設計](../verification/movement-protocol-design.md)
 - [Block配置protocol evidence](../verification/block-placement-protocol-evidence.md)
+- [WSL上のMinecraft評価環境](../verification/wsl-minecraft-evaluation.md)
 
 実player名、BOT account情報、server endpoint、認証情報は状態文書や検証記録へ保存しません。

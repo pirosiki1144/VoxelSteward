@@ -584,3 +584,12 @@
   させます。既存の基底runtime/smokeと認証volumeの形式は維持し、認証volumeの削除・初期化は行いません。
 - 理由: 起動時の環境選択を明示し、Composeの停止・network・container・volumeスコープを環境ごとに
   分離することで、開発操作が本番資源へ影響する経路を減らすためです。
+
+## ADR-039: WSL評価は外部接続なしハーネスを先行する
+
+- ステータス: 承認待ち（Issue #32の実装・offline検証）
+- 背景: WSL上でMinecraftの状況判断とblock操作を評価するには、実BDS接続前に安全条件を再現できる隔離環境が必要です。一方、BDS image、version、license、認証境界が未確定のままComposeへ追加すると、実サーバーや認証volumeへ誤接続する危険があります。
+- 決定: `compose.evaluation.yaml`の`local-evaluation`をnetwork無効、read-only、restartなし、認証・永続volumeなしで提供し、allow-list済みfixtureによる接続準備、spawn、telemetry、他player、安全状態を検証します。block配置は既存capability gateを通し、`unsupported`の間は送信0件で終了します。
+- 実BDS境界: 実BDS serviceはimage、version、license、WSL network、評価world、rollback区域、認証境界を固定し、試験コマンドと停止条件をレビューした別工程で追加します。通常runtime、smoke、captureとは分離します。
+- 安全性: 評価結果にplayer名、BOT情報、server endpoint、認証情報、raw packetを含めません。実Minecraft接続とgame内操作は自動検証の成功後も明示承認を必要とします。
+- 理由: offlineの決定論的な安全gateを先に固定し、実BDSの不確定な配布・認証・network条件をmainの通常起動経路へ持ち込まないためです。

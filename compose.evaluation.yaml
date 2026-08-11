@@ -1,0 +1,21 @@
+# Offline WSL evaluation harness. It never mounts authentication or persistent
+# application volumes and has no network interface. A real BDS service is not
+# declared until its image, version, license, and isolation boundary are fixed.
+services:
+  local-evaluation:
+    profiles: ["evaluation"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward-evaluation:local
+    command: ["node", "dist/src/evaluation/local-evaluation.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    network_mode: "none"
+    user: "node"
+    environment:
+      NODE_ENV: test
+      EVALUATION_MODE: local
+    tmpfs:
+      - /tmp:size=16m,mode=1777
