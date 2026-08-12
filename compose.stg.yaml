@@ -1,0 +1,46 @@
+# Staging environment overlay. Use with -p voxelsteward-stg and
+# --env-file .env.stg; never point this overlay at development or production values.
+x-staging-env-file: &staging-env-file
+  - path: ${VOXEL_ENV_FILE:-.env.stg}
+    required: true
+
+services:
+  mysql:
+    environment:
+      VOXEL_ENV: staging
+  scheduled-runtime:
+    env_file: *staging-env-file
+    environment:
+      VOXEL_ENV: staging
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+  runtime:
+    env_file: *staging-env-file
+    environment:
+      VOXEL_ENV: staging
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+  smoke:
+    env_file: *staging-env-file
+    environment:
+      VOXEL_ENV: staging
+  operator-task:
+    env_file: *staging-env-file
+    environment:
+      VOXEL_ENV: staging
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+  operator-log:
+    env_file: *staging-env-file
+    environment:
+      VOXEL_ENV: staging
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+
+volumes:
+  auth-profiles:
+    name: voxel-steward-stg-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}

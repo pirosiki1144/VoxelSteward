@@ -50,7 +50,8 @@ Phase 1の検証環境運用が安定した後に着手します。
 
 通常runtimeのmovement bindingは、offline検証と実接続承認が完了するまでdisabledを維持します。
 
-WSL上の評価ハーネスはIssue #32で追加しました。実BDS接続は、専用イメージ、version、認証境界、
+WSL上の評価ハーネスはIssue #32で追加しました。開発・staging・本番の環境境界は専用projectと
+env fileで分離します。実BDS接続は、専用イメージ、version、認証境界、
 rollback区域を確定した別受入工程で行い、現行の外部接続なしgateを維持します。
 
 ## Phase 3: 簡単なMinecraft内作業

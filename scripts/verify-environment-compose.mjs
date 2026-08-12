@@ -60,9 +60,10 @@ try {
     throw new Error("environment overlays must require explicit env files");
   }
 
-  const developmentEnv = join(temporaryDirectory, "development.env");
-  const productionEnv = join(temporaryDirectory, "production.env");
-  const values = (path, includeVerification) =>
+  const developmentEnv = join(temporaryDirectory, "dev.env");
+  const stagingEnv = join(temporaryDirectory, "stg.env");
+  const productionEnv = join(temporaryDirectory, "prod.env");
+  const values = (path) =>
     [
       "MINECRAFT_HOST=compose-check.invalid",
       "MINECRAFT_PORT=19132",
@@ -72,48 +73,44 @@ try {
       "MYSQL_USER=voxel_check",
       "MYSQL_PASSWORD=voxel_check_password",
       "MYSQL_ROOT_PASSWORD=voxel_root_check_password",
-      includeVerification
-        ? "MYSQL_VERIFICATION_DATABASE=voxel_steward_verification_check"
-        : "MYSQL_VERIFICATION_DATABASE=",
-      includeVerification
-        ? "MYSQL_VERIFICATION_USER=voxel_verification_check"
-        : "MYSQL_VERIFICATION_USER=",
-      includeVerification
-        ? "MYSQL_VERIFICATION_PASSWORD=voxel_verification_check_password"
-        : "MYSQL_VERIFICATION_PASSWORD=",
       "DISCORD_NOTIFICATIONS_ENABLED=false",
       `VOXEL_ENV_FILE=${path}`,
     ].join("\n");
-  writeFileSync(developmentEnv, `${values(developmentEnv, true)}\n`);
-  writeFileSync(productionEnv, `${values(productionEnv, false)}\n`);
+  writeFileSync(developmentEnv, `${values(developmentEnv)}\n`);
+  writeFileSync(stagingEnv, `${values(stagingEnv)}\n`);
+  writeFileSync(productionEnv, `${values(productionEnv)}\n`);
 
   const development = runConfiguration(
     "voxelsteward-dev-check",
     ["compose.mysql.yaml", "compose.dev.yaml"],
     developmentEnv,
   );
+  const staging = runConfiguration(
+    "voxelsteward-stg-check",
+    ["compose.mysql.yaml", "compose.stg.yaml"],
+    stagingEnv,
+  );
   const production = runConfiguration(
     "voxelsteward-prod-check",
     ["compose.mysql.yaml", "compose.prod.yaml"],
     productionEnv,
   );
-  const verification = runConfiguration(
-    "voxelsteward-dev-check",
-    ["compose.mysql.yaml", "compose.dev.yaml", "compose.verification.yaml"],
-    developmentEnv,
-  );
   const developmentRuntime = development.services?.runtime;
   const productionRuntime = production.services?.runtime;
   const developmentMysql = development.services?.mysql;
   const productionMysql = production.services?.mysql;
-  const verificationMysql = verification.services?.mysql;
-  const verificationRuntime = verification.services?.runtime;
+  const stagingMysql = staging.services?.mysql;
+  const stagingRuntime = staging.services?.runtime;
   const developmentVolume = development.volumes?.["auth-profiles"];
   const productionVolume = production.volumes?.["auth-profiles"];
   const checks = [
     [
       developmentRuntime?.environment?.VOXEL_ENV === "development",
       "development identity missing",
+    ],
+    [
+      stagingRuntime?.environment?.VOXEL_ENV === "staging",
+      "staging identity missing",
     ],
     [
       productionRuntime?.environment?.VOXEL_ENV === "production",
@@ -153,33 +150,29 @@ try {
       "MySQL initialization scripts must be mounted read-only",
     ],
     [
-      verificationMysql?.image === developmentMysql?.image &&
-        verificationRuntime?.environment?.MYSQL_DATABASE ===
-          "voxel_steward_verification_check" &&
-        verificationRuntime?.environment?.MYSQL_USER ===
-          "voxel_verification_check" &&
-        verificationRuntime?.environment?.MYSQL_HOST === "mysql",
-      "verification must use a separate database and user on the shared MySQL service",
+      stagingMysql?.image === developmentMysql?.image &&
+        stagingRuntime?.environment?.MYSQL_DATABASE === "voxel_steward_check" &&
+        stagingRuntime?.environment?.MYSQL_USER === "voxel_check" &&
+        stagingRuntime?.environment?.MYSQL_HOST === "mysql",
+      "staging must use the pinned MySQL service with its configured credentials",
     ],
     [
-      productionMysql?.environment?.MYSQL_VERIFICATION_DATABASE === "" &&
-        productionMysql?.environment?.MYSQL_VERIFICATION_USER === "" &&
-        productionMysql?.environment?.MYSQL_VERIFICATION_PASSWORD === "",
-      "production must not configure verification database credentials",
+      developmentVolume?.name !== staging.volumes?.["auth-profiles"]?.name,
+      "development and staging authentication volumes must differ",
     ],
     [
-      verification.volumes?.["mysql-data"]?.name ===
+      staging.volumes?.["mysql-data"]?.name !==
         development.volumes?.["mysql-data"]?.name &&
-        verification.volumes?.["mysql-data"]?.name !==
+        staging.volumes?.["mysql-data"]?.name !==
           production.volumes?.["mysql-data"]?.name,
-      "development and verification must share only their project-scoped MySQL volume",
+      "development, staging, and production MySQL volumes must differ",
     ],
   ];
   const failed = checks.find(([passed]) => !passed);
   if (failed !== undefined)
     throw new Error(`environment Compose check failed: ${failed[1]}`);
   process.stdout.write(
-    "development and verification share a project-scoped MySQL volume; production is isolated\n",
+    "development, staging, and production use isolated project-scoped resources\n",
   );
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });

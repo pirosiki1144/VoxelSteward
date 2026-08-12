@@ -3,13 +3,12 @@ import process from "node:process";
 
 const composeEnvironment = {
   ...process.env,
+  BOT_ACCOUNT_ID: "compose-check",
+  VOXEL_ENV_FILE: "/dev/null",
   MYSQL_DATABASE: "voxel_steward_check",
   MYSQL_USER: "voxel_check",
   MYSQL_PASSWORD: "voxel_check_password",
   MYSQL_ROOT_PASSWORD: "voxel_root_check_password",
-  MYSQL_VERIFICATION_DATABASE: "voxel_steward_verification_check",
-  MYSQL_VERIFICATION_USER: "voxel_verification_check",
-  MYSQL_VERIFICATION_PASSWORD: "voxel_verification_check_password",
 };
 
 const compose = spawnSync(
@@ -23,7 +22,7 @@ const compose = spawnSync(
     "-f",
     "compose.mysql.yaml",
     "-f",
-    "compose.verification.yaml",
+    "compose.stg.yaml",
     "--profile",
     "scheduled",
     "config",
@@ -38,9 +37,7 @@ const compose = spawnSync(
 );
 
 if (compose.status !== 0) {
-  process.stderr.write(
-    "verification runtime Compose configuration is invalid\n",
-  );
+  process.stderr.write("staging runtime Compose configuration is invalid\n");
   process.exit(1);
 }
 
@@ -48,9 +45,7 @@ let configuration;
 try {
   configuration = JSON.parse(compose.stdout);
 } catch {
-  process.stderr.write(
-    "verification runtime Compose configuration is not JSON\n",
-  );
+  process.stderr.write("staging runtime Compose configuration is not JSON\n");
   process.exit(1);
 }
 
@@ -102,8 +97,8 @@ const checks = [
     "the runtime authentication mount must be preserved",
   ],
   [
-    authVolume?.name === "voxel-steward-auth-default",
-    "the existing account-scoped authentication volume must be preserved",
+    authVolume?.name === "voxel-steward-stg-auth-compose-check",
+    "the staging account-scoped authentication volume must be isolated",
   ],
   [
     scheduledRuntime?.volumes?.some(
@@ -116,8 +111,8 @@ const checks = [
 
 const failed = checks.find(([passed]) => !passed);
 if (failed !== undefined) {
-  process.stderr.write(`verification runtime check failed: ${failed[1]}\n`);
+  process.stderr.write(`staging runtime check failed: ${failed[1]}\n`);
   process.exit(1);
 }
 
-process.stdout.write("verification runtime Compose configuration is valid\n");
+process.stdout.write("staging runtime Compose configuration is valid\n");

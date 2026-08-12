@@ -126,7 +126,7 @@ project、MySQL container、data volumeを共有しますが、database・user�
 本番は異なるCompose project、container、data volumeへ分離します。runtimeは環境内の
 `mysql:3306`へ接続し、database名と資格情報は環境別に注入します。環境共通のコンテナ設計と
 本番の永続境界を両立し、外部DBや既存本番データの自動移行は行いません。
-検証環境用`compose.verification.yaml`は同じruntime imageと認証volumeを再利用し、normal mode、
+検証環境用`compose.stg.yaml`はstaging専用のruntime image設定と認証volumeを使用し、normal mode、
 MySQL永続化、非再起動policyだけを固定します。別のMinecraft client実装や安全policyを持たず、
 `--no-deps runtime`で他の接続serviceから分離します。
 

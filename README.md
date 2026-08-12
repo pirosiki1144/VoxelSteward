@@ -34,23 +34,24 @@ npm run build
 ## 開発環境と本番環境の分離
 
 開発・検証用と本番用は、環境変数ファイル、Composeプロジェクト、認証volume、MySQLデータvolumeを分離します。
-実値入りの`.env.development`と`.env.production`はGitへ追加せず、必要な変数名は
+実値入りの`.env.dev`、`.env.stg`、`.env.prod`はGitへ追加せず、必要な変数名は
 `.env.example`を参照してください。起動時には使用する環境ファイルとCompose overlayを必ず明示します。
 
 ```bash
-cp .env.example .env.development
-cp .env.example .env.production
+cp .env.example .env.dev
+cp .env.example .env.stg
+cp .env.example .env.prod
 
 # 開発環境
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d
 
 # 本番環境
-docker compose -p voxelsteward-prod --env-file .env.production \
+docker compose -p voxelsteward-prod --env-file .env.prod \
   -f compose.yaml -f compose.mysql.yaml -f compose.prod.yaml up -d
 ```
 
-`compose.mysql.yaml`は開発・検証・本番で同じ固定MySQLイメージ、healthcheck、永続data volumeを使います。開発と検証は同じ`voxelsteward-dev` project、MySQLコンテナ、データvolumeを共有しますが、database・user・passwordを分けます。本番は`voxelsteward-prod` projectの専用MySQLコンテナ・volumeへ分離します。runtimeのMySQL設定は各環境の内部service名`mysql:3306`へ固定します。`-p`がnetwork・container・Compose管理対象を分離し、overlayが環境別の必須env-fileと認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
+`compose.mysql.yaml`は開発・検証・本番で同じ固定MySQLイメージ、healthcheck、永続data volumeを使います。開発・検証・本番はそれぞれ`voxelsteward-dev`、`voxelsteward-stg`、`voxelsteward-prod`のproject、MySQLコンテナ、data volumeを分離します。runtimeのMySQL設定は各環境の内部service名`mysql:3306`へ固定します。`-p`がnetwork・container・Compose管理対象を分離し、overlayが環境別の必須env-fileと認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
 別環境へ`down`や`stop`を実行しないでください。本番環境のvolume削除や`down -v`は実行しません。
 設定検証は実サービスを起動せず、`npm run verify:environment-compose`で行えます。
 
@@ -59,10 +60,10 @@ docker compose -p voxelsteward-prod --env-file .env.production \
 開発用MySQLコンテナは、次のコマンドで作成・起動します。runtime、smoke、Minecraftは起動しません。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d mysql
 
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml ps mysql
 ```
 
@@ -73,7 +74,7 @@ docker compose -p voxelsteward-dev --env-file .env.development \
 停止する場合は対象serviceだけを停止します。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml stop mysql
 ```
 
@@ -124,18 +125,18 @@ cp .env.example .env
 次の起動は実Minecraft serverへ接続するため、実行前に承認が必要です。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml build runtime
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up runtime
 ```
 
 停止は前面実行中のCtrl+C、または別端末から次を実行します。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml stop runtime
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml logs -f runtime
 ```
 
@@ -187,7 +188,7 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 [状態管理](docs/state-management.md)を参照してください。MySQL有効時はoutbox配送workerが
 有限leaseと再試行でat-least-once配送し、MySQL無効時はprocess内best effortです。
 
-検証環境では`compose.mysql.yaml`と`compose.verification.yaml`を重ねることで、通常runtimeを`normal`かつ
+検証環境では`compose.mysql.yaml`と`compose.stg.yaml`を重ねることで、通常runtimeを`normal`かつ
 `MYSQL_PERSISTENCE_ENABLED=true`へ固定できます。構成だけを非秘密な空環境で検査するには
 次を実行します。この検査とimage buildはMinecraftへ接続しません。
 
@@ -196,7 +197,7 @@ npm run verify:runtime-compose
 MYSQL_DATABASE=compose_check MYSQL_USER=compose_check MYSQL_PASSWORD=compose_check_password \
 MYSQL_ROOT_PASSWORD=compose_root_check_password \
 docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml \
-  -f compose.verification.yaml build runtime
+  -f compose.stg.yaml build runtime
 ```
 
 実際の起動・停止方法と承認境界は[運用手順](docs/operations.md)を参照してください。
