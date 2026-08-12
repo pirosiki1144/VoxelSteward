@@ -260,3 +260,11 @@ full inventoryの`ItemV4.extra_data`はopaqueなため使用しません。block
 配置protocolのadapter層は、faceとenvelopeを別々のcapability evidenceとして扱います。固定schema内に
 `up`の数値enumおよびauthority設定からenvelopeを選択する規則がないため、両候補をoffline serializeできても
 production portは`unsupported`のままです。
+
+## 17. WSL評価境界
+
+Issue #32の`local-evaluation`は、runtimeやMinecraft adapterへ接続しない評価専用entrypointです。
+network namespaceを無効化し、認証・永続volumeをmountせず、allow-list済みの接続準備、spawn、telemetry、
+他player、安全状態を決定論的なfixtureで評価します。block配置は既存capability assessmentを通し、
+`unsupported`の間は送信件数0で終了します。実BDSを追加する場合も、この評価境界と通常runtimeを別service・
+別projectとして維持します。

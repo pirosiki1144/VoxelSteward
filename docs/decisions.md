@@ -585,6 +585,15 @@
 - 理由: 起動時の環境選択を明示し、Composeの停止・network・container・volumeスコープを環境ごとに
   分離することで、開発操作が本番資源へ影響する経路を減らすためです。
 
+## ADR-039: WSL評価は外部接続なしハーネスを先行する
+
+- ステータス: 承認待ち（Issue #32の実装・offline検証）
+- 背景: WSL上でMinecraftの状況判断とblock操作を評価するには、実BDS接続前に安全条件を再現できる隔離環境が必要です。実BDSを通常Composeへ混ぜると、実サーバーや既存認証volumeへ誤接続する危険があります。
+- 決定: `compose.evaluation.yaml`の`local-evaluation`をnetwork無効、read-only、restartなし、認証・永続volumeなしで提供し、allow-list済みfixtureによる接続準備、spawn、telemetry、他player、安全状態を検証します。`evaluation-minecraft` profileにはdigest固定BDS、tmpfs MySQL、専用runtimeを分離して定義します。block配置は既存capability gateを通し、`unsupported`の間は送信0件で終了します。
+- 実BDS境界: BDS serviceは評価world、rollback区域、評価専用認証volume、開発MySQL、停止条件を通常runtime・smoke・captureから分離します。実行は構成検証後、1回だけ承認を得て行います。
+- 安全性: 評価結果にplayer名、BOT情報、server endpoint、認証情報、raw packetを含めません。実Minecraft接続とgame内操作は自動検証の成功後も明示承認を必要とします。
+- 理由: offlineの決定論的な安全gateを先に固定し、BDSの認証・world・networkを専用profileへ閉じ込めてmainの通常起動経路へ持ち込まないためです。
+
 ## ADR-040: MySQLは開発・検証共有と本番分離のvolumeを使う
 
 - ステータス: 承認待ち（Issue #37のCompose・文書実装）
