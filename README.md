@@ -50,32 +50,14 @@ docker compose -p voxelsteward-prod --env-file .env.production \
   -f compose.yaml -f compose.mysql.yaml -f compose.prod.yaml up -d
 ```
 
-`compose.mysql.yaml`は開発・検証・本番で同じ固定MySQLイメージ、healthcheck、永続data volumeを使います。開発と検証は同じ`voxelsteward-dev` project、MySQLコンテナ、データvolumeを共有しますが、database・user・passwordを分けます。本番は`voxelsteward-prod` projectの専用MySQLコンテナ・volumeへ分離します。runtimeのMySQL設定は各環境の内部service名`mysql:3306`へ固定します。`-p`がnetwork・container・Compose管理対象を分離し、overlayが環境別の必須env-fileと認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
+`compose.mysql.yaml`は開発・検証・本番で同じ固定MySQLイメージとhealthcheckを使います。
+開発と検証は同じ`voxelsteward-dev` project、MySQLコンテナ、データvolumeを共有し、
+`MYSQL_DATABASE`・`MYSQL_USER`・`MYSQL_PASSWORD`だけを分けます。本番は`voxelsteward-prod`
+projectと専用MySQLコンテナ・volumeへ分離します。runtimeのMySQL設定は各環境の内部service名
+`mysql:3306`へ固定します。
+停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
 別環境へ`down`や`stop`を実行しないでください。本番環境のvolume削除や`down -v`は実行しません。
 設定検証は実サービスを起動せず、`npm run verify:environment-compose`で行えます。
-
-### 恒久化MySQLだけを起動する
-
-開発用MySQLコンテナは、次のコマンドで作成・起動します。runtime、smoke、Minecraftは起動しません。
-
-```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d mysql
-
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml ps mysql
-```
-
-`mysql-data`はCompose projectに紐づくnamed volumeへ保存され、コンテナを停止・再作成しても
-データが残ります。初回の空volume作成時に、開発databaseと検証databaseが初期化されます。
-既存volumeへ再初期化するために`down -v`や`docker volume rm`を実行しないでください。
-
-停止する場合は対象serviceだけを停止します。
-
-```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml stop mysql
-```
 
 HTTPヘルスチェックを備えた最小構成のサービスを起動します。
 
@@ -261,21 +243,6 @@ movementとblock placementのPlayerAuthInput frameは排他所有し、tick逆�
 offlineで検査します。専用のblock placement acceptance serviceも追加済みですが、protocol capabilityが
 `unsupported`の間は認証やMinecraft接続より前に停止し、実配置を行いません。
 
-### WSL評価ハーネス
-
-実Minecraftへ接続する前に、networkを無効化した評価サービスで接続準備、spawn、telemetry、他player検知、
-危険状態を再現できます。認証volumeをmountせず、block配置protocolが`unsupported`の間は書込みを0件にします。
-
-```bash
-npm run verify:evaluation-compose
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
-  --profile evaluation run --rm local-evaluation
-```
-
-実BDS・開発MySQL・runtimeは`evaluation-minecraft` profileへ隔離しています。実行前に専用world、BDS version、
-評価専用認証volume、停止条件を確認し、実Minecraft接続とgame内操作の承認を得てください。
-開発MySQLへの履歴保存だけは`mysql-evaluation`単体と`npm run verify:evaluation-mysql`で確認できます。
-
 ### Dockerイメージのビルド
 
 ```bash
@@ -350,7 +317,6 @@ volumeを削除すると認証情報が失われるため、`docker compose down
 - `npm run runtime` — build済みの通常運転ランタイムを実行します
 - `npm run format` — Prettierで対応ファイルを整形します
 - `npm run format:check` — ファイルが整形済みか確認します
-- `npm run verify:evaluation-compose` — network無効のWSL評価Compose設定を検査します
 
 ## 安全性
 
