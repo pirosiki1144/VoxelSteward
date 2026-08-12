@@ -64,7 +64,7 @@
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
 - scheduler runtimeの実Minecraft server受入は未実施
-- WSL評価環境の実BDS接続は、イメージ・version・認証境界未確定のため未実施
+- WSL評価環境の実BDS接続は未実施。BDSはevaluation profileへ隔離し、version・専用認証境界・停止条件の確認後に起動する
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装

@@ -1,6 +1,6 @@
 # Offline WSL evaluation harness. It never mounts authentication or persistent
-# application volumes and has no network interface. A real BDS service is not
-# declared until its image, version, license, and isolation boundary are fixed.
+# The local fixture has no network interface. The evaluation-minecraft profile
+# adds a pinned BDS image, disposable world, runtime, and test MySQL boundary.
 services:
   local-evaluation:
     profiles: ["evaluation"]
@@ -19,3 +19,97 @@ services:
       EVALUATION_MODE: local
     tmpfs:
       - /tmp:size=16m,mode=1777
+
+  bds-evaluation:
+    profiles: ["evaluation-minecraft"]
+    image: itzg/minecraft-bedrock-server@sha256:dc4a9e45522ea943166b4e0212b3a8b6e4d78e33b9baa18463ea04a491934a74
+    restart: "no"
+    environment:
+      EULA: "TRUE"
+      VERSION: ${MINECRAFT_BDS_VERSION:-LATEST}
+      GAMEMODE: creative
+      DIFFICULTY: peaceful
+      ALLOW_CHEATS: "false"
+      MAX_PLAYERS: "2"
+      VIEW_DISTANCE: "6"
+    ports:
+      - "127.0.0.1:${MINECRAFT_EVALUATION_PORT:-19133}:19132/udp"
+    volumes:
+      - evaluation-world:/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "mc-monitor status-bedrock --host 127.0.0.1 --port 19132"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  mysql-evaluation:
+    profiles: ["evaluation-minecraft"]
+    image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+    restart: "no"
+    environment:
+      MYSQL_DATABASE: voxel_steward_evaluation
+      MYSQL_USER: voxel_evaluation
+      MYSQL_PASSWORD: voxel_evaluation_password
+      MYSQL_ROOT_PASSWORD: voxel_evaluation_root_password
+    tmpfs:
+      - /var/lib/mysql:size=256m
+    ports:
+      - "127.0.0.1:${MYSQL_EVALUATION_PORT:-33061}:3306"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 10s
+
+  runtime-evaluation:
+    profiles: ["evaluation-minecraft"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxel-steward-evaluation-runtime:local
+    command: ["node", "dist/src/runtime.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    depends_on:
+      bds-evaluation:
+        condition: service_healthy
+      mysql-evaluation:
+        condition: service_healthy
+    environment:
+      MINECRAFT_HOST: bds-evaluation
+      MINECRAFT_PORT: "19132"
+      MINECRAFT_VERSION: ${MINECRAFT_VERSION:-}
+      BOT_ACCOUNT_ID: ${BOT_ACCOUNT_ID:-evaluation}
+      BOT_MODE: normal
+      AUTH_PROFILES_FOLDER: /auth/profiles
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUNTIME_MAX_RETRIES: "0"
+      RUNTIME_CONNECTION_TIMEOUT_MS: ${RUNTIME_CONNECTION_TIMEOUT_MS:-15000}
+      DISCORD_NOTIFICATIONS_ENABLED: "false"
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql-evaluation
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: voxel_steward_evaluation
+      MYSQL_USER: voxel_evaluation
+      MYSQL_PASSWORD: voxel_evaluation_password
+      MYSQL_CONNECTION_TIMEOUT_MS: "5000"
+    volumes:
+      - evaluation-auth-profiles:/auth/profiles
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
+
+volumes:
+  evaluation-world:
+    name: voxel-steward-evaluation-world-${VOXEL_EVALUATION_ID:-default}
+  evaluation-auth-profiles:
+    name: voxel-steward-evaluation-auth-${BOT_ACCOUNT_ID:-evaluation}

@@ -58,7 +58,18 @@ docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
   --profile evaluation run --rm local-evaluation
 ```
 
-実BDS用serviceは、イメージ・version・license・認証境界の確定と受入承認が完了するまで追加しません。
+実BDS・開発MySQL・runtimeのserviceは`evaluation-minecraft` profileへ隔離しています。構成確認は次で行います。
+
+```bash
+docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+  --profile evaluation-minecraft config --quiet
+```
+
+実接続は専用world、評価専用認証volume、BDS versionを確認した後に1回だけ行います。実行前に、使用service、timeout、
+保存項目、安全停止条件をレビューします。通常runtime、smoke、既存認証volumeは使用しません。
+
+Minecraftを起動しない開発MySQLの保存確認は、`mysql-evaluation`だけを起動して
+`npm run verify:evaluation-mysql`を実行します。終了後は同じCompose projectの対象serviceだけを停止し、volumeを削除しません。
 
 基底`compose.yaml`は固定の`.env`を参照せず、環境別overlayが必須env-fileと環境別認証volumeを
 追加します。`-p`によってnetworkとcontainer名を分離し、固定`container_name`は使用しません。

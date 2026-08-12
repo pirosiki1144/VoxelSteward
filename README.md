@@ -33,7 +33,7 @@ npm run build
 
 ## 開発環境と本番環境の分離
 
-開発用と本番用は、環境変数ファイル、Composeプロジェクト、認証volumeを分離します。
+開発・検証用と本番用は、環境変数ファイル、Composeプロジェクト、認証volume、MySQLデータvolumeを分離します。
 実値入りの`.env.development`と`.env.production`はGitへ追加せず、必要な変数名は
 `.env.example`を参照してください。起動時には使用する環境ファイルとCompose overlayを必ず明示します。
 
@@ -43,17 +43,42 @@ cp .env.example .env.production
 
 # 開発環境
 docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml up -d
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d
 
 # 本番環境
 docker compose -p voxelsteward-prod --env-file .env.production \
-  -f compose.yaml -f compose.prod.yaml up -d
+  -f compose.yaml -f compose.mysql.yaml -f compose.prod.yaml up -d
 ```
 
-`-p`がnetwork・container・Compose管理対象を分離し、overlayが環境別の必須env-fileと
-認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
+`compose.mysql.yaml`は固定digestのMySQL image、healthcheck、永続data volumeを定義します。
+開発・検証は`voxelsteward-dev` projectのMySQLを共有し、database・user・passwordを分離します。
+本番は`voxelsteward-prod` projectの別MySQLとvolumeを使用します。`-p`がnetwork・container・
+Compose管理対象を分離し、overlayが環境別の必須env-fileと認証volume名を選択します。停止・状態確認も同じ`-p`、`--env-file`、`-f`の組み合わせを使い、
 別環境へ`down`や`stop`を実行しないでください。本番環境のvolume削除や`down -v`は実行しません。
 設定検証は実サービスを起動せず、`npm run verify:environment-compose`で行えます。
+
+### 恒久化MySQLだけを起動する
+
+開発用MySQLコンテナは、次のコマンドで作成・起動します。runtime、smoke、Minecraftは起動しません。
+
+```bash
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d mysql
+
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml ps mysql
+```
+
+`mysql-data`はCompose projectに紐づくnamed volumeへ保存され、コンテナを停止・再作成しても
+データが残ります。初回の空volume作成時に、開発databaseと検証databaseが初期化されます。
+既存volumeへ再初期化するために`down -v`や`docker volume rm`を実行しないでください。
+
+停止する場合は対象serviceだけを停止します。
+
+```bash
+docker compose -p voxelsteward-dev --env-file .env.development \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml stop mysql
+```
 
 HTTPヘルスチェックを備えた最小構成のサービスを起動します。
 
@@ -247,8 +272,9 @@ docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
   --profile evaluation run --rm local-evaluation
 ```
 
-実BDS用serviceは、version・license・認証境界を確定した別工程で追加します。実Minecraft接続とgame内操作には
-別途承認が必要です。
+実BDS・開発MySQL・runtimeは`evaluation-minecraft` profileへ隔離しています。実行前に専用world、BDS version、
+評価専用認証volume、停止条件を確認し、実Minecraft接続とgame内操作の承認を得てください。
+開発MySQLへの履歴保存だけは`mysql-evaluation`単体と`npm run verify:evaluation-mysql`で確認できます。
 
 ### Dockerイメージのビルド
 
