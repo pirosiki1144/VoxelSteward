@@ -6,6 +6,10 @@ x-staging-env-file: &staging-env-file
     required: true
 
 services:
+  mysql:
+    environment:
+      VOXEL_ENV: staging
+
   scheduled-runtime:
     env_file: *staging-env-file
     restart: "no"
@@ -39,7 +43,6 @@ services:
       MYSQL_PERSISTENCE_ENABLED: "true"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
-
   operator-log:
     env_file: *staging-env-file
     environment:
@@ -49,5 +52,7 @@ services:
       MYSQL_PORT: "3306"
 
 volumes:
+  auth-profiles:
+    name: voxel-steward-stg-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
   mysql-data:
     name: voxelsteward-stg-mysql-data

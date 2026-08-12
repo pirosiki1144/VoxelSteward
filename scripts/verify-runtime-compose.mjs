@@ -10,6 +10,8 @@ const compose = spawnSync(
     "-f",
     "compose.yaml",
     "-f",
+    "compose.mysql.yaml",
+    "-f",
     "compose.stg.yaml",
     "--profile",
     "scheduled",
@@ -17,7 +19,18 @@ const compose = spawnSync(
     "--format",
     "json",
   ],
-  { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
+  {
+    encoding: "utf8",
+    maxBuffer: 4 * 1024 * 1024,
+    env: {
+      ...process.env,
+      BOT_ACCOUNT_ID: "verification",
+      MYSQL_DATABASE: "verification",
+      MYSQL_USER: "verification",
+      MYSQL_PASSWORD: "verification",
+      MYSQL_ROOT_PASSWORD: "verification",
+    },
+  },
 );
 
 if (compose.status !== 0) {
@@ -81,7 +94,7 @@ const checks = [
     "the runtime authentication mount must be preserved",
   ],
   [
-    authVolume?.name === "voxel-steward-auth-default",
+    authVolume?.name === "voxel-steward-stg-auth-verification",
     "the existing account-scoped authentication volume must be preserved",
   ],
   [
