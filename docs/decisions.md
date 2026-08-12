@@ -593,3 +593,17 @@
 - 実BDS境界: BDS serviceは評価world、rollback区域、評価専用認証volume、開発MySQL、停止条件を通常runtime・smoke・captureから分離します。実行は構成検証後、1回だけ承認を得て行います。
 - 安全性: 評価結果にplayer名、BOT情報、server endpoint、認証情報、raw packetを含めません。実Minecraft接続とgame内操作は自動検証の成功後も明示承認を必要とします。
 - 理由: offlineの決定論的な安全gateを先に固定し、BDSの認証・world・networkを専用profileへ閉じ込めてmainの通常起動経路へ持ち込まないためです。
+
+## ADR-040: MySQLは開発・検証共有と本番分離のvolumeを使う
+
+- ステータス: 承認待ち（Issue #37のCompose・文書実装）
+- 背景: 開発・検証・本番でMySQLの起動定義が分散し、テスト用tmpfsと外部接続設定が混在していた。
+  同じコンテナやvolumeを環境間で共有すると、databaseの混在、誤停止、破壊的migrationの波及が起きる。
+- 決定: 固定digestのMySQL image、healthcheck、データmountを`compose.mysql.yaml`へ集約する。開発と
+  ネットワーク検証は同じCompose projectとMySQL data volumeを共有し、初期化scriptで検証databaseと
+  userを追加する。runtimeはdatabaseごとの資格情報で`mysql:3306`へ接続する。本番は異なるCompose
+  project、container、data volumeへ分離する。
+- 非採用: 開発・検証と本番でcontainerまたはvolumeを共有しない。既存volumeの削除・初期化・データ
+  移行をこの変更で行わない。`mysql-test`と評価用tmpfs MySQLは使い捨て検証用途として維持する。
+- 理由: 開発・検証の再現性と恒久化を共有しながら、本番の復旧単位と資格情報を分離し、誤操作の影響を
+  本番へ波及させないためです。

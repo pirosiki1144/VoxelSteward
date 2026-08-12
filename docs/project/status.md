@@ -73,7 +73,9 @@
 
 ## 現在のGitHub Issues
 
-検証環境への適用、MySQL運用ログ、時刻制御を現在の優先工程とします。
+検証環境への適用、MySQL運用ログ、時刻制御を現在の優先工程とします。MySQLは固定digestの
+共通Compose serviceを再利用し、開発・検証は同じCompose projectとデータvolume、本番は別projectと
+volumeで運用する方針をIssue #37で管理しています。databaseと資格情報は環境間で分離します。
 
 - [#4 検証環境向け通常runtime構成](https://github.com/pirosiki1144/VoxelSteward/issues/4)
 - [#5 MySQL運用ログと安全な照会](https://github.com/pirosiki1144/VoxelSteward/issues/5)
@@ -82,6 +84,7 @@
 - [#8 Fake Clock・Fake Minecraft・隔離MySQL統合検証](https://github.com/pirosiki1144/VoxelSteward/issues/8)
 - [#9 検証環境での実接続受入試験](https://github.com/pirosiki1144/VoxelSteward/issues/9)
 - [#32 WSL上の隔離Minecraft評価環境を構築し接続・ブロック操作を検証する](https://github.com/pirosiki1144/VoxelSteward/issues/32)
+- [#37 MySQL実行基盤を環境共通イメージ・環境分離volume構成へ統一する](https://github.com/pirosiki1144/VoxelSteward/issues/37)
 
 Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本とします。
 
