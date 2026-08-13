@@ -5,6 +5,83 @@ x-development-env-file: &development-env-file
     required: true
 
 services:
+  local-evaluation:
+    profiles: ["evaluation"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxelsteward-evaluation:local
+    command: ["node", "dist/src/evaluation/local-evaluation.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    network_mode: "none"
+    user: "node"
+    environment:
+      NODE_ENV: test
+      EVALUATION_MODE: local
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+
+  minecraft:
+    profiles: ["evaluation-minecraft"]
+    image: itzg/minecraft-bedrock-server@sha256:dc4a9e45522ea943166b4e0212b3a8b6e4d78e33b9baa18463ea04a491934a74
+    restart: "no"
+    environment:
+      EULA: "TRUE"
+      VERSION: ${MINECRAFT_BDS_VERSION:-1.26.40}
+      LEVEL_NAME: ${MINECRAFT_EVALUATION_LEVEL_NAME:-VoxelStewardLocal}
+      GAMEMODE: survival
+      DIFFICULTY: normal
+      HARDCORE: "false"
+      FORCE_WORLD_COPY: "false"
+      CUSTOM_SERVER_PROPERTIES: |
+        hardcore=false
+        showcoordinates=true
+    ports:
+      - "127.0.0.1:${MINECRAFT_EVALUATION_PORT:-19133}:19132/udp"
+    volumes:
+      - evaluation-world:/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "mc-monitor status-bedrock --host 127.0.0.1 --port 19132"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  runtime-evaluation:
+    profiles: ["evaluation-minecraft"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxelsteward-evaluation-runtime:local
+    command: ["node", "dist/src/runtime.js"]
+    init: true
+    restart: "no"
+    read_only: true
+    user: "node"
+    depends_on:
+      minecraft:
+        condition: service_healthy
+    environment:
+      MINECRAFT_HOST: minecraft
+      MINECRAFT_PORT: "19132"
+      MINECRAFT_VERSION: ${MINECRAFT_VERSION:-1.26.40}
+      BOT_ACCOUNT_ID: evaluation
+      BOT_MODE: normal
+      AUTH_PROFILES_FOLDER: /auth/profiles
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUNTIME_MAX_RETRIES: "0"
+      RUNTIME_CONNECTION_TIMEOUT_MS: ${RUNTIME_CONNECTION_TIMEOUT_MS:-15000}
+      DISCORD_NOTIFICATIONS_ENABLED: "false"
+      MYSQL_PERSISTENCE_ENABLED: "false"
+    volumes:
+      - evaluation-auth-profiles:/auth/profiles
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
+
   scheduled-runtime:
     env_file: *development-env-file
     environment:
@@ -43,3 +120,7 @@ volumes:
     name: voxel-steward-dev-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
   mysql-data:
     name: voxelsteward-dev-mysql-data
+  evaluation-world:
+    name: voxelsteward-evaluation-world-${VOXEL_EVALUATION_ID:-default}
+  evaluation-auth-profiles:
+    name: voxelsteward-evaluation-auth-${VOXEL_EVALUATION_ID:-default}

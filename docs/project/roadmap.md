@@ -59,6 +59,10 @@ Phase 1の検証環境運用が安定した後に着手します。
 WSL上の評価ハーネスはIssue #32で追加しました。実BDS接続は、専用イメージ、version、認証境界、
 rollback区域を確定した別受入工程で行い、現行の外部接続なしgateを維持します。
 
+Issue #49では`evaluation-minecraft` profileに専用BDSを追加しました。既存worldを上書きせず、
+worldがない場合だけsurvival・normal・hardcore無効のworldを作成します。座標表示は起動後の
+gamerule確認を含む受入試験が完了するまで、実接続の完了条件とは扱いません。
+
 ## Phase 3: 簡単なMinecraft内作業
 
 移動機能の受入後、世界変更の小さい作業から段階的に追加します。

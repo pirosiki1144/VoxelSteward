@@ -244,7 +244,7 @@ offlineで検査します。専用のblock placement acceptance serviceも追加
 
 ```bash
 npm run verify:evaluation-compose
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null \
   --profile evaluation run --rm local-evaluation
 ```
 

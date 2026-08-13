@@ -55,6 +55,7 @@
 - 単一dirt配置の型、観測port、安全coordinator、永続phase
 - block配置protocolのevidence matrixとfail-closed capability評価
 - WSL向け外部接続なし評価ハーネスとnetwork無効Compose検証（Issue #32）
+- `evaluation-minecraft` profileの専用BDS・評価world/auth volume・読み取り専用runtime Compose境界（Issue #49）
 
 ## 現在の制約
 
@@ -64,7 +65,7 @@
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
 - scheduler runtimeの実Minecraft server受入は未実施
-- WSL評価環境の実BDS接続は、イメージ・version・認証境界未確定のため未実施
+- Issue #49の実BDS接続とworld設定（既存world再利用または新規survival/normal/hardcore無効/showcoordinates有効）の実機確認は未実施
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装

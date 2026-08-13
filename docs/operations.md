@@ -53,9 +53,9 @@ npm run verify:environment-compose
 
 ```bash
 npm run verify:evaluation-compose
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null \
   --profile evaluation build local-evaluation
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null \
   --profile evaluation run --rm local-evaluation
 ```
 
