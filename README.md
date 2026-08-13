@@ -34,19 +34,20 @@ npm run build
 ## 開発環境と本番環境の分離
 
 開発用と本番用は、環境変数ファイル、Composeプロジェクト、認証volumeを分離します。
-実値入りの`.env.development`と`.env.production`はGitへ追加せず、必要な変数名は
+実値入りの`.env.dev`、`.env.stg`、`.env.prod`はGitへ追加せず、必要な変数名は
 `.env.example`を参照してください。起動時には使用する環境ファイルとCompose overlayを必ず明示します。
 
 ```bash
-cp .env.example .env.development
-cp .env.example .env.production
+cp .env.example .env.dev
+cp .env.example .env.stg
+cp .env.example .env.prod
 
 # 開発環境
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml up -d
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d
 
 # 本番環境
-docker compose -p voxelsteward-prod --env-file .env.production \
+docker compose -p voxelsteward-prod --env-file .env.prod \
   -f compose.yaml -f compose.prod.yaml up -d
 ```
 
@@ -102,19 +103,19 @@ cp .env.example .env
 次の起動は実Minecraft serverへ接続するため、実行前に承認が必要です。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml build runtime
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml up runtime
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml build runtime
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up runtime
 ```
 
 停止は前面実行中のCtrl+C、または別端末から次を実行します。
 
 ```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml stop runtime
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml logs -f runtime
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml stop runtime
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml logs -f runtime
 ```
 
 一時切断は`RUNTIME_MAX_RETRIES`回まで再試行します。待機は
@@ -165,13 +166,13 @@ revision順に保存します。保存対象はruntime run、最新snapshot、�
 [状態管理](docs/state-management.md)を参照してください。MySQL有効時はoutbox配送workerが
 有限leaseと再試行でat-least-once配送し、MySQL無効時はprocess内best effortです。
 
-検証環境では`compose.verification.yaml`を重ねることで、通常runtimeを`normal`かつ
+検証環境では`compose.mysql.yaml`と`compose.stg.yaml`を重ねることで、通常runtimeを`normal`かつ
 `MYSQL_PERSISTENCE_ENABLED=true`へ固定できます。構成だけを非秘密な空環境で検査するには
 次を実行します。この検査とimage buildはMinecraftへ接続しません。
 
 ```bash
 npm run verify:runtime-compose
-docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml build runtime
 ```
 
 実際の起動・停止方法と承認境界は[運用手順](docs/operations.md)を参照してください。

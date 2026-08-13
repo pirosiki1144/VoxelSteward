@@ -1,7 +1,7 @@
 # Development environment overlay. Use with -p voxelsteward-dev and
-# --env-file .env.development; never point this overlay at production values.
+# --env-file .env.dev; never point this overlay at staging or production values.
 x-development-env-file: &development-env-file
-  - path: ${VOXEL_ENV_FILE:-.env.development}
+  - path: ${VOXEL_ENV_FILE:-.env.dev}
     required: true
 
 services:
@@ -9,10 +9,16 @@ services:
     env_file: *development-env-file
     environment:
       VOXEL_ENV: development
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
   runtime:
     env_file: *development-env-file
     environment:
       VOXEL_ENV: development
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
   smoke:
     env_file: *development-env-file
     environment:
@@ -21,10 +27,16 @@ services:
     env_file: *development-env-file
     environment:
       VOXEL_ENV: development
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
   operator-log:
     env_file: *development-env-file
     environment:
       VOXEL_ENV: development
+      MYSQL_PERSISTENCE_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
 
 volumes:
   auth-profiles:

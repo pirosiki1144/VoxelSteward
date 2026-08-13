@@ -9,7 +9,8 @@ const temporaryDirectory = mkdtempSync(
   join(tmpdir(), "voxel-steward-compose-"),
 );
 
-const runConfiguration = (project, overlay, envFile) => {
+const runConfiguration = (project, overlays, envFile) => {
+  const files = overlays.flatMap((overlay) => ["-f", overlay]);
   const result = spawnSync(
     "docker",
     [
@@ -20,8 +21,7 @@ const runConfiguration = (project, overlay, envFile) => {
       envFile,
       "-f",
       "compose.yaml",
-      "-f",
-      overlay,
+      ...files,
       "config",
       "--format",
       "json",
@@ -51,41 +51,55 @@ try {
     join(root, "compose.prod.yaml"),
     "utf8",
   );
+  const stagingOverlay = readFileSync(join(root, "compose.stg.yaml"), "utf8");
   if (
     !developmentOverlay.includes("VOXEL_ENV_FILE") ||
     !productionOverlay.includes("VOXEL_ENV_FILE") ||
     !developmentOverlay.includes("required: true") ||
-    !productionOverlay.includes("required: true")
+    !productionOverlay.includes("required: true") ||
+    !stagingOverlay.includes(".env.stg")
   ) {
     throw new Error("environment overlays must require explicit env files");
   }
 
   const developmentEnv = join(temporaryDirectory, "development.env");
   const productionEnv = join(temporaryDirectory, "production.env");
+  const stagingEnv = join(temporaryDirectory, "staging.env");
   const values = (path) =>
     [
       "MINECRAFT_HOST=compose-check.invalid",
       "MINECRAFT_PORT=19132",
       "BOT_ACCOUNT_ID=compose-check",
       "MYSQL_PERSISTENCE_ENABLED=false",
+      "MYSQL_DATABASE=voxel_steward_check",
+      "MYSQL_USER=voxel_check",
+      "MYSQL_PASSWORD=voxel_check_password",
+      "MYSQL_ROOT_PASSWORD=voxel_root_check_password",
       "DISCORD_NOTIFICATIONS_ENABLED=false",
       `VOXEL_ENV_FILE=${path}`,
     ].join("\n");
   writeFileSync(developmentEnv, `${values(developmentEnv)}\n`);
   writeFileSync(productionEnv, `${values(productionEnv)}\n`);
+  writeFileSync(stagingEnv, `${values(stagingEnv)}\n`);
 
   const development = runConfiguration(
     "voxelsteward-dev-check",
-    "compose.dev.yaml",
+    ["compose.mysql.yaml", "compose.dev.yaml"],
     developmentEnv,
   );
   const production = runConfiguration(
     "voxelsteward-prod-check",
-    "compose.prod.yaml",
+    ["compose.mysql.yaml", "compose.prod.yaml"],
     productionEnv,
+  );
+  const staging = runConfiguration(
+    "voxelsteward-stg-check",
+    ["compose.mysql.yaml", "compose.stg.yaml"],
+    stagingEnv,
   );
   const developmentRuntime = development.services?.runtime;
   const productionRuntime = production.services?.runtime;
+  const stagingRuntime = staging.services?.runtime;
   const developmentVolume = development.volumes?.["auth-profiles"];
   const productionVolume = production.volumes?.["auth-profiles"];
   const checks = [
@@ -96,6 +110,10 @@ try {
     [
       productionRuntime?.environment?.VOXEL_ENV === "production",
       "production identity missing",
+    ],
+    [
+      stagingRuntime?.environment?.VOXEL_ENV === "staging",
+      "staging identity missing",
     ],
     [
       developmentVolume?.name !== productionVolume?.name,

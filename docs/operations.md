@@ -20,23 +20,24 @@ npm start
 
 ### 開発環境と本番環境の分離
 
-開発用と本番用は、`.env.development`／`.env.production`、Compose project name、network、
+開発・staging・本番は、`.env.dev`／`.env.stg`／`.env.prod`、Compose project name、network、
 container、認証volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
 `.env.example`をコピーして作成し、接続先、Discord通知、MySQL設定をそれぞれの環境用に設定します。
 環境ファイルの内容はログやチャットへ表示しません。
 
 ```bash
-cp .env.example .env.development
-cp .env.example .env.production
+cp .env.example .env.dev
+cp .env.example .env.stg
+cp .env.example .env.prod
 
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.dev.yaml up -d
-docker compose -p voxelsteward-prod --env-file .env.production \
+docker compose -p voxelsteward-dev --env-file .env.dev \
+  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d
+docker compose -p voxelsteward-prod --env-file .env.prod \
   -f compose.yaml -f compose.prod.yaml up -d
 ```
 
 開発環境の停止・状態確認は`voxelsteward-dev`へ、本番環境は`voxelsteward-prod`へ同じ
-`--env-file`とoverlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
+`--env-file`と`compose.mysql.yaml`、環境overlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
 本番volumeの削除、`down -v`、所有者不明volumeの整理は禁止です。実サービスを起動しない分離検証は
 次で実行します。
 
@@ -119,7 +120,7 @@ operator確認までmanual reviewとします。終端済みtaskは
 
 ### 検証環境向け通常runtime
 
-`compose.verification.yaml`は通常`runtime`へ重ねる検証環境専用overrideです。`BOT_MODE=normal`、
+`compose.mysql.yaml`と`compose.stg.yaml`は通常`runtime`へ重ねる検証環境専用overlayです。`BOT_MODE=normal`、
 `MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`を固定し、基底serviceのread-only filesystem、
 非root user、認証volume、MySQL・通知設定境界をそのまま継承します。認証volumeを初期化・再作成
 せず、`smoke`や他のMinecraft接続serviceを依存関係として起動しません。
@@ -136,18 +137,18 @@ operator確認までmanual reviewとします。終端済みtaskは
 
 ```bash
 npm run verify:runtime-compose
-docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml config --quiet
-docker compose --env-file /dev/null -f compose.yaml -f compose.verification.yaml build runtime
+docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml config --quiet
+docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml build runtime
 ```
 
 実接続は専用test serverへの接続承認後だけ、設定済み`.env`を使ってruntime 1 serviceを明示します。
 `--no-deps`により不要serviceを起動しません。
 
 ```bash
-docker compose -f compose.yaml -f compose.verification.yaml up -d --no-deps runtime
-docker compose -f compose.yaml -f compose.verification.yaml logs --no-log-prefix runtime
-docker compose -f compose.yaml -f compose.verification.yaml stop runtime
-docker compose -f compose.yaml -f compose.verification.yaml ps runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml up -d --no-deps runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml logs --no-log-prefix runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml stop runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml ps runtime
 ```
 
 logではevent名、reason、outcome、exitCode、revision、件数だけを確認し、環境変数、接続先、

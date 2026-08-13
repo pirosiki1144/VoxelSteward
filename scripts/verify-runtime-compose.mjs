@@ -10,7 +10,7 @@ const compose = spawnSync(
     "-f",
     "compose.yaml",
     "-f",
-    "compose.verification.yaml",
+    "compose.stg.yaml",
     "--profile",
     "scheduled",
     "config",

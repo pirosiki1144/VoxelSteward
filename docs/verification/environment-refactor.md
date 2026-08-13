@@ -16,7 +16,7 @@
 
 - 環境分離の方針と、既存volumeを削除・初期化・renameせず再利用する条件をIssueへ追記済みです。
 - 開発・staging・本番の命名整合は未完了です。
-- `compose.evaluation.yaml`と`compose.verification.yaml`は作業ツリー上で削除扱いです。
+- 旧`compose.evaluation.yaml`と`compose.verification.yaml`は削除済みです。評価用Composeは別工程で再導入します。
 - `compose.stg.yaml`はstaging overlayとして追加済みですが、Issue #44の全受入条件を満たしたとは判定していません。
 
 ## Pull Request #45
