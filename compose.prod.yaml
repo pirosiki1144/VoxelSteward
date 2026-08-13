@@ -29,3 +29,5 @@ services:
 volumes:
   auth-profiles:
     name: voxel-steward-prod-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
+  mysql-data:
+    name: voxelsteward-prod-mysql-data

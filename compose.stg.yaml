@@ -47,3 +47,7 @@ services:
       MYSQL_PERSISTENCE_ENABLED: "true"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
+
+volumes:
+  mysql-data:
+    name: voxelsteward-stg-mysql-data

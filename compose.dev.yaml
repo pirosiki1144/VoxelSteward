@@ -41,3 +41,5 @@ services:
 volumes:
   auth-profiles:
     name: voxel-steward-dev-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
+  mysql-data:
+    name: voxelsteward-dev-mysql-data
