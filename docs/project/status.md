@@ -70,6 +70,10 @@
 - runtime用readiness endpointは未実装
 - `1.26.40`の接続定義は固定した上流`bedrock-protocol`コミットと`minecraft-data` 3.113.0で対応済み。
   movement・block操作などのoffline schemaは引き続き1.26.30限定で、runtimeへ接続しない。
+- 環境分離リファクタリング（Issue #44、PR #45、Issue #46）は未完了です。正式名称は`VoxelSteward`
+  に固定しますが、envファイル名、Compose overlay、既存認証volumeの参照方法に不整合が残っています。
+- Issue #46の開発環境runtimeは永続化初期化エラー（`PERSISTENCE_FATAL`）でMinecraft接続前に終了しました。
+  実Minecraft接続の受入は未実施です。詳細は[環境分離リファクタリング受入状況](../verification/environment-refactor.md)を参照してください。
 
 ## 現在のGitHub Issues
 
