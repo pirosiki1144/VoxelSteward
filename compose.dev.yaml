@@ -5,6 +5,10 @@ x-development-env-file: &development-env-file
     required: true
 
 services:
+  mysql:
+    environment:
+      VOXEL_ENV: development
+
   local-evaluation:
     profiles: ["evaluation"]
     build:

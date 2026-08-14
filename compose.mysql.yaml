@@ -10,8 +10,12 @@ services:
       MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_VERIFICATION_DATABASE: ${MYSQL_VERIFICATION_DATABASE:-}
+      MYSQL_VERIFICATION_USER: ${MYSQL_VERIFICATION_USER:-}
+      MYSQL_VERIFICATION_PASSWORD: ${MYSQL_VERIFICATION_PASSWORD:-}
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [
@@ -41,4 +45,5 @@ services:
         condition: service_healthy
 
 volumes:
+  # Do not set a global name: Compose project names isolate environments.
   mysql-data: {}

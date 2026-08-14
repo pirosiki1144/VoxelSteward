@@ -85,7 +85,7 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
 - 実Minecraft接続前に、WSL2上の外部接続なし評価ハーネスで接続準備、spawn、telemetry、他player検知、危険状態を再現できること。
 - 評価サービスはnetworkを無効化し、認証volumeと永続アプリケーションvolumeをmountしないこと。
 - protocol capabilityが`unsupported`の間はblock配置の送信を0件とし、推測や自動再試行を行わないこと。
-- 実BDSのversion、image、license、認証境界が固定されるまで、実BDS serviceを標準Composeへ追加しないこと。
+- 実BDSのversion、image digest、license、認証境界をevaluation profileへ隔離し、標準Compose起動で有効化しないこと。
 
 上記の単発接続要件はsmokeに適用します。通常運転は設定された上限回数だけ、一時的な
 切断または構造化された一時ネットワークエラーから再接続します。他プレイヤー検知、
@@ -114,6 +114,16 @@ MySQL保存を段階的に追加します。道路作成、道路修繕、探索
   新しいMinecraftバージョンを受け入れないこと。
 - Microsoftのdevice code認証キャッシュをBOTアカウント単位の名前付きDocker volumeへ
   保存できること。
+
+### MySQL実行環境
+
+- 開発、ネットワーク検証、本番は固定digestの同一MySQLイメージと共通Compose service定義を
+  使用できること。
+- 開発・検証は同じCompose project、MySQL container、データvolumeを共有し、database名、ユーザー、
+  パスワードを分離すること。本番は別Compose project、container、データvolumeへ分離すること。
+- runtimeは環境内の`mysql:3306`へ接続し、database名、ユーザー、パスワード、rootパスワードは
+  秘密管理設定から注入すること。
+- 既存volumeの削除・初期化・自動移行を行わず、migrationは対象環境のDBへ明示的に適用すること。
 - ログイン完了とスポーン完了を区別して検知できること。
 - BOT名、ディメンション、座標、体力、空腹度、プレイヤー一覧について、受信済みの値
   だけを記録すること。

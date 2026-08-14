@@ -39,6 +39,10 @@
 → 承認済み専用test serverでの受入
 ```
 
+MySQL実行基盤はIssue #37で管理します。開発・ネットワーク検証は同じ固定digestの共通service、
+Compose project、データvolumeを使い、databaseと資格情報を分離します。本番は別project、container、
+volumeへ分離します。既存本番データの移行は行わず、各環境のdatabaseと資格情報を明示的に設定します。
+
 運用時間は平日09:00～17:00（JST）とし、午前runを11:59に安全切断、12:00に午後runを
 新規開始、17:00に安全切断します。旧runの切断完了前に次runを開始しません。他player検知または
 operator停止後は、時刻到達だけを理由に自動再開しません。
