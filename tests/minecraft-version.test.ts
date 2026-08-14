@@ -27,10 +27,10 @@ describe("Minecraft version configuration", () => {
     expect(resolveMinecraftVersion(undefined)).toEqual({ source: "auto" });
   });
 
-  it("短縮表記を正規化してサポート済みバージョンを選択する", () => {
-    expect(resolveMinecraftVersion("26.30")).toEqual({
-      version: "1.26.30",
-      configuredVersion: "1.26.30",
+  it("短縮表記を正規化して1.26.40を選択する", () => {
+    expect(resolveMinecraftVersion("26.40")).toEqual({
+      version: "1.26.40",
+      configuredVersion: "1.26.40",
       source: "environment",
     });
   });
@@ -43,22 +43,30 @@ describe("Minecraft version configuration", () => {
     });
   });
 
+  it("旧接続対象の1.26.30を拒否する", () => {
+    const error = captureError(() => resolveMinecraftVersion("1.26.30"));
+    expect(error).toBeInstanceOf(MinecraftVersionConfigError);
+    if (error instanceof MinecraftVersionConfigError) {
+      expect(error.code).toBe("UNSUPPORTED_MINECRAFT_VERSION");
+    }
+  });
+
   it("runtimeとsmokeが同じバージョン解決を使用する", () => {
     const runtime = loadRuntimeConfig({
       ...environment,
-      MINECRAFT_VERSION: "1.26.30",
+      MINECRAFT_VERSION: "1.26.40",
     });
     const smoke = loadSmokeConfig({
       ...environment,
-      MINECRAFT_VERSION: "1.26.30",
+      MINECRAFT_VERSION: "1.26.40",
     });
-    expect(runtime.version).toBe("1.26.30");
+    expect(runtime.version).toBe("1.26.40");
     expect(runtime.versionSource).toBe("environment");
     expect(smoke.version).toBe(runtime.version);
     expect(smoke.versionSource).toBe(runtime.versionSource);
   });
 
-  for (const value of ["v1.26.30", "1.26.30.1", "1.abc.30"]) {
+  for (const value of ["v1.26.40", "1.26.40.1", "1.abc.40"]) {
     it(`不正な形式${value}を拒否する`, () => {
       const error = captureError(() => resolveMinecraftVersion(value));
       expect(error).toBeInstanceOf(MinecraftVersionConfigError);

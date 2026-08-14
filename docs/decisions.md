@@ -562,7 +562,7 @@
 - 背景: runtimeとsmokeが別々にバージョン文字列を解釈すると、接続前検証やログの意味がずれます。また、
   プロトコルライブラリが未対応の新バージョンを設定だけで強制すると、接続失敗や安全でない推測につながります。
 - 決定: `src/smoke/minecraft-version.ts`の共通resolverで、未指定はライブラリ自動判定、指定値は正規化して
-  allow-list（現在は`1.26.30`、`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
+  allow-list（現行接続対象は`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
   `UNSUPPORTED_MINECRAFT_VERSION`として、InstanceLock・Minecraft client生成・接続より前に停止します。
   runtimeとsmokeは同じselectionと、`configuredVersion`・`resolvedVersion`・`versionSource`の安全なログ項目を使います。
 - 制約: resolverの対応値は依存ライブラリの実装根拠なしに拡張しません。`1.26.40`は上流固定コミット

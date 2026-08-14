@@ -20,7 +20,7 @@
 
 - immutableな状態snapshot、revision、状態変更event
 - runtime、Minecraft接続、telemetry、task、停止理由の状態連携
-- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現在の対応値は`1.26.30`、`1.26.40`）
+- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現行接続対象は`1.26.40`）
 - 外部service非依存の通知port、mapper、順序付きsubscriber
 - Discord Incoming Webhook adapterと有限timeout・retry・rate-limit処理
 - MySQL Repository、version管理migration、transaction rollback
@@ -70,7 +70,7 @@
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装
 - `1.26.40`の接続定義は固定した上流`bedrock-protocol`コミットと`minecraft-data` 3.113.0で対応済み。
-  movement・block操作などのoffline schemaは引き続き1.26.30限定で、runtimeへ接続しない。
+  movement・block操作などのoffline schemaは取得済み証拠のある1.26.30限定で、runtimeへ接続しない。
 - 環境分離リファクタリング（Issue #44、PR #45、Issue #46）は未完了です。正式名称は`VoxelSteward`
   に固定しますが、envファイル名、Compose overlay、既存認証volumeの参照方法に不整合が残っています。
 - Issue #46の開発環境runtimeは永続化初期化エラー（`PERSISTENCE_FATAL`）でMinecraft接続前に終了しました。

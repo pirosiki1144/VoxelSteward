@@ -1,4 +1,5 @@
-export const SUPPORTED_MINECRAFT_VERSIONS = ["1.26.30", "1.26.40"] as const;
+/** Active connection/runtime target. Offline 1.26.30 schemas remain gated separately. */
+export const SUPPORTED_MINECRAFT_VERSIONS = ["1.26.40"] as const;
 
 export type MinecraftVersion = (typeof SUPPORTED_MINECRAFT_VERSIONS)[number];
 export type MinecraftVersionSource = "environment" | "auto";
