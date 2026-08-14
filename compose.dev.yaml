@@ -33,17 +33,18 @@ services:
     restart: "no"
     environment:
       EULA: "TRUE"
-      VERSION: ${MINECRAFT_BDS_VERSION:-1.26.40}
+      VERSION: ${MINECRAFT_BDS_VERSION:-1.26.43.1}
       LEVEL_NAME: ${MINECRAFT_EVALUATION_LEVEL_NAME:-VoxelStewardLocal}
       GAMEMODE: survival
       DIFFICULTY: normal
       HARDCORE: "false"
+      ALLOW_LIST: "false"
       FORCE_WORLD_COPY: "false"
       CUSTOM_SERVER_PROPERTIES: |
         hardcore=false
         showcoordinates=true
     ports:
-      - "127.0.0.1:${MINECRAFT_EVALUATION_PORT:-19133}:19132/udp"
+      - "${MINECRAFT_EVALUATION_BIND_ADDRESS:-0.0.0.0}:${MINECRAFT_EVALUATION_PORT:-19133}:19132/udp"
     volumes:
       - evaluation-world:/data
     healthcheck:

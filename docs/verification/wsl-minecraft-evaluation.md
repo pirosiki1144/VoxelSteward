@@ -13,6 +13,7 @@ WSL2上で状況判断と安全gateを再現し、実BDS接続やゲーム内操
 - `evaluation-minecraft` profileにはdigest固定のBDS、評価専用world volume、評価専用認証volume、読み取り専用runtimeを定義します。通常Composeではprofileが無効です。
 - BDSは`FORCE_WORLD_COPY=false`で既存worldを上書きせず、worldがない場合だけ`LEVEL_NAME=VoxelStewardLocal`で新規作成します。
 - 新規worldの指定はsurvival、normal、hardcore無効です。座標表示は`showcoordinates=true`を初期設定へ渡し、起動後に実gameruleを確認します。
+- WSL内Docker EngineをWindows側から利用する場合、UDP公開は既定でWSLの全インターフェースへbindし、Windows MinecraftクライアントからはWSLのIPと`19133`を指定します。`127.0.0.1`はWSL内部のloopbackであり、Windows側localhost転送を前提にしません。
 
 ## 実行方法
 
@@ -47,11 +48,21 @@ docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null --profil
 
 ## 実BDS起動試験の結果（2026-08-13）
 
-評価用BDSを単体で起動し、runtimeと実機クライアントは起動しませんでした。`1.26.40`を
-指定した試験では公式配布URLが404となり、続けて固定候補の`1.26.30`でも同じ結果となりました。
+評価用BDSを単体で起動し、runtimeと実機クライアントは起動しませんでした。従来の`1.26.40`を
+指定した試験では公式配布URLが404となり、公式配布ファイル名に合わせて現在の開発BDS既定値は`1.26.43.1`へ更新しています。
+`bedrock-protocol`側の接続対応値は別管理のため、runtimeはこのBDSへ接続せず、互換性確認を保留します。
 そのため、BDSコンテナはworld初期化前に停止し、login、spawn、gamerule、読み取り専用runtimeの
 受入条件は未判定です。評価用world volumeは削除せず保持しています。
 
-公式ダウンロードページは利用可能なlive/preview版を都度提示する方式のため、配布が確認できない
-バージョンをComposeへ固定する変更は行いません。次回は公式ページで取得可能なBDS版と、固定した
-client protocolの互換性を確認してから、明示的にバージョンを更新し再試験します。
+公式ダウンロードページは利用可能なlive/preview版を都度提示する方式のため、`1.26.43.1`の
+実イメージ取得可否はコンテナ起動時に確認します。BDS単体の到達性確認と、固定したclient
+protocolとの互換性確認は分離し、互換性が確認できるまでruntimeは起動しません。
+
+## WSLホストからの接続確認（2026-08-14）
+
+開発用BDSを`1.26.43.1`で起動し、Windows 11のMinecraftクライアントから
+WSLの`eth0`アドレスとUDPポート`19133`を指定して接続できることを確認しました。
+`127.0.0.1`ではWSL内Docker Engineのloopback bindにより到達できなかったため、
+評価BDSの公開先をWSL全インターフェースへ変更しました。接続性確認時は評価用allow-listを
+無効化し、runtime、smoke、認証volumeは起動・使用していません。MySQLは開発volumeを再利用して
+起動しましたが、Minecraft runtimeの履歴保存試験は実施していません。
