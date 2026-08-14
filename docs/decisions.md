@@ -492,7 +492,7 @@
 - ステータス: 承認済み（構成・offline検証）
 - 背景: 通常runtimeの汎用既定値を変更せず、検証環境ではnormal modeとMySQL永続化を再現可能に
   固定する必要があります。別serviceへ実装を複製すると、安全設定や認証volumeの差異が生じます。
-- 決定: `compose.verification.yaml`を`compose.yaml`へ重ね、既存`runtime`の`BOT_MODE=normal`、
+- 決定: `compose.mysql.yaml`と`compose.stg.yaml`を`compose.yaml`へ重ね、既存`runtime`の`BOT_MODE=normal`、
   `MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`だけを固定します。image、read-only filesystem、
   非root user、InstanceLock、account別認証volume、有限再接続、通知・MySQL設定境界は基底serviceから
   継承します。
@@ -562,7 +562,7 @@
 - 背景: runtimeとsmokeが別々にバージョン文字列を解釈すると、接続前検証やログの意味がずれます。また、
   プロトコルライブラリが未対応の新バージョンを設定だけで強制すると、接続失敗や安全でない推測につながります。
 - 決定: `src/smoke/minecraft-version.ts`の共通resolverで、未指定はライブラリ自動判定、指定値は正規化して
-  allow-list（現在は`1.26.30`、`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
+  allow-list（現行接続対象は`1.26.40`）と照合します。不正形式は`INVALID_MINECRAFT_VERSION`、未対応値は
   `UNSUPPORTED_MINECRAFT_VERSION`として、InstanceLock・Minecraft client生成・接続より前に停止します。
   runtimeとsmokeは同じselectionと、`configuredVersion`・`resolvedVersion`・`versionSource`の安全なログ項目を使います。
 - 制約: resolverの対応値は依存ライブラリの実装根拠なしに拡張しません。`1.26.40`は上流固定コミット
@@ -577,7 +577,7 @@
   Webhook、MySQLへ誤接続する可能性があります。また、Composeの既定projectや固定volume名の共有は
   停止・削除対象の取り違えにつながります。
 - 決定: 基底`compose.yaml`から固定`.env`の`env_file`を除去し、`compose.dev.yaml`と`compose.prod.yaml`が
-  それぞれ必須の`.env.development`／`.env.production`を明示します。起動コマンドは`-p`でprojectを
+  それぞれ必須の`.env.dev`／`.env.stg`／`.env.prod`を明示します。起動コマンドは`-p`でprojectを
   分け、認証volumeは`voxel-steward-dev-auth-*`／`voxel-steward-prod-auth-*`へ分離します。固定
   `container_name`は使用しません。
 - 安全境界: 実値入りenv fileは`.gitignore`で除外し、overlayなしの起動や必須env file欠落は安全に失敗
@@ -588,22 +588,8 @@
 ## ADR-039: WSL評価は外部接続なしハーネスを先行する
 
 - ステータス: 承認待ち（Issue #32の実装・offline検証）
-- 背景: WSL上でMinecraftの状況判断とblock操作を評価するには、実BDS接続前に安全条件を再現できる隔離環境が必要です。実BDSを通常Composeへ混ぜると、実サーバーや既存認証volumeへ誤接続する危険があります。
-- 決定: `compose.evaluation.yaml`の`local-evaluation`をnetwork無効、read-only、restartなし、認証・永続volumeなしで提供し、allow-list済みfixtureによる接続準備、spawn、telemetry、他player、安全状態を検証します。`evaluation-minecraft` profileにはdigest固定BDS、tmpfs MySQL、専用runtimeを分離して定義します。block配置は既存capability gateを通し、`unsupported`の間は送信0件で終了します。
-- 実BDS境界: BDS serviceは評価world、rollback区域、評価専用認証volume、開発MySQL、停止条件を通常runtime・smoke・captureから分離します。実行は構成検証後、1回だけ承認を得て行います。
+- 背景: WSL上でMinecraftの状況判断とblock操作を評価するには、実BDS接続前に安全条件を再現できる隔離環境が必要です。一方、BDS image、version、license、認証境界が未確定のままComposeへ追加すると、実サーバーや認証volumeへ誤接続する危険があります。
+- 決定: 開発専用`compose.dev.yaml`の`local-evaluation`をnetwork無効、read-only、restartなし、認証・永続volumeなしで提供し、allow-list済みfixtureによる接続準備、spawn、telemetry、他player、安全状態を検証します。block配置は既存capability gateを通し、`unsupported`の間は送信0件で終了します。
+- 実BDS境界: 実BDS serviceはimage、version、license、WSL network、評価world、rollback区域、認証境界を固定し、試験コマンドと停止条件をレビューした別工程で追加します。通常runtime、smoke、captureとは分離します。
 - 安全性: 評価結果にplayer名、BOT情報、server endpoint、認証情報、raw packetを含めません。実Minecraft接続とgame内操作は自動検証の成功後も明示承認を必要とします。
-- 理由: offlineの決定論的な安全gateを先に固定し、BDSの認証・world・networkを専用profileへ閉じ込めてmainの通常起動経路へ持ち込まないためです。
-
-## ADR-040: MySQLは開発・検証共有と本番分離のvolumeを使う
-
-- ステータス: 承認待ち（Issue #37のCompose・文書実装）
-- 背景: 開発・検証・本番でMySQLの起動定義が分散し、テスト用tmpfsと外部接続設定が混在していた。
-  同じコンテナやvolumeを環境間で共有すると、databaseの混在、誤停止、破壊的migrationの波及が起きる。
-- 決定: 固定digestのMySQL image、healthcheck、データmountを`compose.mysql.yaml`へ集約する。開発と
-  ネットワーク検証は同じCompose projectとMySQL data volumeを共有し、初期化scriptで検証databaseと
-  userを追加する。runtimeはdatabaseごとの資格情報で`mysql:3306`へ接続する。本番は異なるCompose
-  project、container、data volumeへ分離する。
-- 非採用: 開発・検証と本番でcontainerまたはvolumeを共有しない。既存volumeの削除・初期化・データ
-  移行をこの変更で行わない。`mysql-test`と評価用tmpfs MySQLは使い捨て検証用途として維持する。
-- 理由: 開発・検証の再現性と恒久化を共有しながら、本番の復旧単位と資格情報を分離し、誤操作の影響を
-  本番へ波及させないためです。
+- 理由: offlineの決定論的な安全gateを先に固定し、実BDSの不確定な配布・認証・network条件をmainの通常起動経路へ持ち込まないためです。

@@ -13,6 +13,7 @@ data/
 auth/
 auth-cache/
 checkpoints/
+DL/
 
 .DS_Store
 .idea/

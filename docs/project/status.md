@@ -20,7 +20,7 @@
 
 - immutableな状態snapshot、revision、状態変更event
 - runtime、Minecraft接続、telemetry、task、停止理由の状態連携
-- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現在の対応値は`1.26.30`、`1.26.40`）
+- `MINECRAFT_VERSION`のruntime・smoke共通設定と接続前検証（現行接続対象は`1.26.40`）
 - 外部service非依存の通知port、mapper、順序付きsubscriber
 - Discord Incoming Webhook adapterと有限timeout・retry・rate-limit処理
 - MySQL Repository、version管理migration、transaction rollback
@@ -55,6 +55,7 @@
 - 単一dirt配置の型、観測port、安全coordinator、永続phase
 - block配置protocolのevidence matrixとfail-closed capability評価
 - WSL向け外部接続なし評価ハーネスとnetwork無効Compose検証（Issue #32）
+- `evaluation-minecraft` profileの専用BDS・評価world/auth volume・読み取り専用runtime Compose境界（Issue #49）
 
 ## 現在の制約
 
@@ -64,18 +65,20 @@
 - Capture関連実装はmainへ含めず、`spike/golden-capture-investigation`に保管している
 - Minecraftへ作用するexecutor、外部network指示入力、祝日判定は未実装
 - scheduler runtimeの実Minecraft server受入は未実施
-- WSL評価環境の実BDS接続は未実施。BDSはevaluation profileへ隔離し、version・専用認証境界・停止条件の確認後に起動する
+- Issue #49の実BDS接続とworld設定（既存world再利用または新規survival/normal/hardcore無効/showcoordinates有効）の実機確認は未実施
 - 体力・空腹度低下時の食事・退避などのgame内回復操作は未実装
 - MySQL outboxはat-least-onceで、配送成功後・結果更新前の停止時には重複し得る
 - runtime用readiness endpointは未実装
 - `1.26.40`の接続定義は固定した上流`bedrock-protocol`コミットと`minecraft-data` 3.113.0で対応済み。
-  movement・block操作などのoffline schemaは引き続き1.26.30限定で、runtimeへ接続しない。
+  movement・block操作などのoffline schemaは取得済み証拠のある1.26.30限定で、runtimeへ接続しない。
+- 環境分離リファクタリング（Issue #44、PR #45、Issue #46）は未完了です。正式名称は`VoxelSteward`
+  に固定しますが、envファイル名、Compose overlay、既存認証volumeの参照方法に不整合が残っています。
+- Issue #46の開発環境runtimeは永続化初期化エラー（`PERSISTENCE_FATAL`）でMinecraft接続前に終了しました。
+  実Minecraft接続の受入は未実施です。詳細は[環境分離リファクタリング受入状況](../verification/environment-refactor.md)を参照してください。
 
 ## 現在のGitHub Issues
 
-検証環境への適用、MySQL運用ログ、時刻制御を現在の優先工程とします。MySQLは固定digestの
-共通Compose serviceを再利用し、開発・検証は同じCompose projectとデータvolume、本番は別projectと
-volumeで運用する方針をIssue #37で管理しています。databaseと資格情報は環境間で分離します。
+検証環境への適用、MySQL運用ログ、時刻制御を現在の優先工程とします。
 
 - [#4 検証環境向け通常runtime構成](https://github.com/pirosiki1144/VoxelSteward/issues/4)
 - [#5 MySQL運用ログと安全な照会](https://github.com/pirosiki1144/VoxelSteward/issues/5)
@@ -84,7 +87,6 @@ volumeで運用する方針をIssue #37で管理しています。databaseと資
 - [#8 Fake Clock・Fake Minecraft・隔離MySQL統合検証](https://github.com/pirosiki1144/VoxelSteward/issues/8)
 - [#9 検証環境での実接続受入試験](https://github.com/pirosiki1144/VoxelSteward/issues/9)
 - [#32 WSL上の隔離Minecraft評価環境を構築し接続・ブロック操作を検証する](https://github.com/pirosiki1144/VoxelSteward/issues/32)
-- [#37 MySQL実行基盤を環境共通イメージ・環境分離volume構成へ統一する](https://github.com/pirosiki1144/VoxelSteward/issues/37)
 
 Issueのstate、本文、comment、linked Pull Requestを現在進捗の正本とします。
 

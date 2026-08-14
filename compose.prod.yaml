@@ -1,7 +1,7 @@
 # Production environment overlay. Use with -p voxelsteward-prod and
-# --env-file .env.production; never point this overlay at development values.
+# --env-file .env.prod; never point this overlay at development or staging values.
 x-production-env-file: &production-env-file
-  - path: ${VOXEL_ENV_FILE:-.env.production}
+  - path: ${VOXEL_ENV_FILE:-.env.prod}
     required: true
 
 services:
@@ -44,3 +44,5 @@ services:
 volumes:
   auth-profiles:
     name: voxel-steward-prod-auth-${BOT_ACCOUNT_ID:?BOT_ACCOUNT_ID is required}
+  mysql-data:
+    name: voxelsteward-prod-mysql-data

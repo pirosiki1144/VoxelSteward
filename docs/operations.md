@@ -20,43 +20,24 @@ npm start
 
 ### 開発環境と本番環境の分離
 
-開発・検証用と本番用は、`.env.development`／`.env.production`、Compose project name、network、
-container、認証volume、MySQL data volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
+開発・staging・本番は、`.env.dev`／`.env.stg`／`.env.prod`、Compose project name、network、
+container、認証volumeを分離します。実値入りの環境ファイルはGit管理対象外です。新しい環境ファイルは
 `.env.example`をコピーして作成し、接続先、Discord通知、MySQL設定をそれぞれの環境用に設定します。
 環境ファイルの内容はログやチャットへ表示しません。
 
 ```bash
-cp .env.example .env.development
-cp .env.example .env.production
+cp .env.example .env.dev
+cp .env.example .env.stg
+cp .env.example .env.prod
 
-docker compose -p voxelsteward-dev --env-file .env.development \
+docker compose -p voxelsteward-dev --env-file .env.dev \
   -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml up -d
-docker compose -p voxelsteward-prod --env-file .env.production \
-  -f compose.yaml -f compose.mysql.yaml -f compose.prod.yaml up -d
+docker compose -p voxelsteward-prod --env-file .env.prod \
+  -f compose.yaml -f compose.prod.yaml up -d
 ```
-
-`compose.mysql.yaml`は固定digestの同じMySQLイメージ、healthcheck、migration前提のserviceを
-提供します。開発とネットワーク検証は同じ`voxelsteward-dev` project、MySQL container、data
-volumeを共有しますが、MySQL内のdatabase・user・passwordは分離します。本番は`voxelsteward-prod`
-projectと専用container・volumeへ分離します。各runtimeは内部service名`mysql:3306`へ接続し、
-`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`は秘密管理設定から
-注入します。開発envには`MYSQL_VERIFICATION_DATABASE`、`MYSQL_VERIFICATION_USER`、
-`MYSQL_VERIFICATION_PASSWORD`も設定し、初期化時に検証databaseとuserを作成します。本番では
-検証用3変数を空にします。MySQLの初期化は空のvolumeでのみ行い、既存volumeを初期化しません。
-
-検証runtimeは開発projectを共有して次のように起動します。
-
-```bash
-docker compose -p voxelsteward-dev --env-file .env.development \
-  -f compose.yaml -f compose.mysql.yaml -f compose.dev.yaml \
-  -f compose.verification.yaml up -d --no-deps runtime
-```
-
-検証runtimeは`MYSQL_VERIFICATION_*`で指定したdatabase・userへ接続します。開発runtimeと同時に
-起動する場合は、BOTのInstanceLockと接続先Minecraftが別であることを確認してください。
 
 開発環境の停止・状態確認は`voxelsteward-dev`へ、本番環境は`voxelsteward-prod`へ同じ
-`--env-file`とoverlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
+`--env-file`と`compose.mysql.yaml`、環境overlayを指定して実行します。環境をまたいだ`down`、`stop`、volume操作を行いません。
 本番volumeの削除、`down -v`、所有者不明volumeの整理は禁止です。実サービスを起動しない分離検証は
 次で実行します。
 
@@ -72,24 +53,13 @@ npm run verify:environment-compose
 
 ```bash
 npm run verify:evaluation-compose
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null \
   --profile evaluation build local-evaluation
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
+docker compose -f compose.yaml -f compose.dev.yaml --env-file /dev/null \
   --profile evaluation run --rm local-evaluation
 ```
 
-実BDS・開発MySQL・runtimeのserviceは`evaluation-minecraft` profileへ隔離しています。構成確認は次で行います。
-
-```bash
-docker compose -f compose.yaml -f compose.evaluation.yaml --env-file /dev/null \
-  --profile evaluation-minecraft config --quiet
-```
-
-実接続は専用world、評価専用認証volume、BDS versionを確認した後に1回だけ行います。実行前に、使用service、timeout、
-保存項目、安全停止条件をレビューします。通常runtime、smoke、既存認証volumeは使用しません。
-
-Minecraftを起動しない開発MySQLの保存確認は、`mysql-evaluation`だけを起動して
-`npm run verify:evaluation-mysql`を実行します。終了後は同じCompose projectの対象serviceだけを停止し、volumeを削除しません。
+実BDS用serviceは、イメージ・version・license・認証境界の確定と受入承認が完了するまで追加しません。
 
 基底`compose.yaml`は固定の`.env`を参照せず、環境別overlayが必須env-fileと環境別認証volumeを
 追加します。`-p`によってnetworkとcontainer名を分離し、固定`container_name`は使用しません。
@@ -150,7 +120,7 @@ operator確認までmanual reviewとします。終端済みtaskは
 
 ### 検証環境向け通常runtime
 
-`compose.mysql.yaml`と`compose.verification.yaml`は通常`runtime`へ重ねる検証環境専用overlayです。`BOT_MODE=normal`、
+`compose.mysql.yaml`と`compose.stg.yaml`は通常`runtime`へ重ねる検証環境専用overlayです。`BOT_MODE=normal`、
 `MYSQL_PERSISTENCE_ENABLED=true`、`restart: "no"`を固定し、基底serviceのread-only filesystem、
 非root user、認証volume、MySQL・通知設定境界をそのまま継承します。認証volumeを初期化・再作成
 せず、`smoke`や他のMinecraft接続serviceを依存関係として起動しません。
@@ -158,7 +128,7 @@ operator確認までmanual reviewとします。終端済みtaskは
 #### Minecraftクライアントバージョン
 
 `MINECRAFT_VERSION`はruntimeとsmokeで共通に読み込みます。未設定または空欄はプロトコルライブラリの
-自動判定、明示値は現在`1.26.30`または`1.26.40`（短縮表記も可）です。ライブラリ未対応の値は
+自動判定、明示値は現在`1.26.40`（短縮表記も可）です。ライブラリ未対応の値は
 `UNSUPPORTED_MINECRAFT_VERSION`で接続前に停止します。変更後はイメージを再ビルドし、サービスを再起動
 してください。`runtime.starting`または`smoke.started`には`configuredVersion`、`resolvedVersion`、
 `versionSource`が出力されますが、接続先や認証情報は出力しません。
@@ -167,21 +137,18 @@ operator確認までmanual reviewとします。終端済みtaskは
 
 ```bash
 npm run verify:runtime-compose
-npm run verify:environment-compose
-MYSQL_DATABASE=compose_check MYSQL_USER=compose_check MYSQL_PASSWORD=compose_check_password \
-MYSQL_ROOT_PASSWORD=compose_root_check_password \
-docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml \
-  -f compose.verification.yaml build runtime
+docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml config --quiet
+docker compose --env-file /dev/null -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml build runtime
 ```
 
 実接続は専用test serverへの接続承認後だけ、設定済み`.env`を使ってruntime 1 serviceを明示します。
 `--no-deps`により不要serviceを起動しません。
 
 ```bash
-docker compose -f compose.yaml -f compose.mysql.yaml -f compose.verification.yaml up -d --no-deps runtime
-docker compose -f compose.yaml -f compose.mysql.yaml -f compose.verification.yaml logs --no-log-prefix runtime
-docker compose -f compose.yaml -f compose.mysql.yaml -f compose.verification.yaml stop runtime
-docker compose -f compose.yaml -f compose.mysql.yaml -f compose.verification.yaml ps runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml up -d --no-deps runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml logs --no-log-prefix runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml stop runtime
+docker compose -f compose.yaml -f compose.mysql.yaml -f compose.stg.yaml ps runtime
 ```
 
 logではevent名、reason、outcome、exitCode、revision、件数だけを確認し、環境変数、接続先、

@@ -1,5 +1,6 @@
-# Shared MySQL service definition. Combine this file with one environment
-# overlay; the Compose project keeps the data volume isolated.
+# Shared MySQL service definition. Combine with exactly one environment
+# overlay. The project-scoped mysql-data volume preserves each environment's
+# current data volume name and is never initialized or renamed by this file.
 services:
   mysql:
     image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
@@ -30,17 +31,14 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-
   scheduled-runtime:
     depends_on:
       mysql:
         condition: service_healthy
-
   operator-task:
     depends_on:
       mysql:
         condition: service_healthy
-
   operator-log:
     depends_on:
       mysql:

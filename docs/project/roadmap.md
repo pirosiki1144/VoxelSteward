@@ -16,6 +16,16 @@
 
 詳細は[プロジェクト状況](status.md)を参照してください。
 
+## 環境分離リファクタリング（Issue #44〜#46）
+
+この工程は、開発・staging・本番の設定を分離しつつ、既存の認証volumeとMySQL data volumeを
+削除・初期化・renameせず現在の名称で再利用することを目的とします。正式なプロジェクト名称は
+`VoxelSteward`に固定し、`voxel-steward`や`voxel_steward`などの別表記は使用しません。
+
+現時点では未完了です。Compose構成検証と開発MySQL healthcheckは完了していますが、既存volumeの
+参照整合性と開発runtimeの永続化接続、専用test serverへの実Minecraft接続が未達です。未実施項目と
+失敗理由は[環境分離リファクタリング受入状況](../verification/environment-refactor.md)に記録しています。
+
 ## Phase 1: 検証環境での定時運用
 
 現在の最優先工程です。GitHub Issues #4～#9で管理します。
@@ -52,6 +62,10 @@ Phase 1の検証環境運用が安定した後に着手します。
 
 WSL上の評価ハーネスはIssue #32で追加しました。実BDS接続は、専用イメージ、version、認証境界、
 rollback区域を確定した別受入工程で行い、現行の外部接続なしgateを維持します。
+
+Issue #49では`evaluation-minecraft` profileに専用BDSを追加しました。既存worldを上書きせず、
+worldがない場合だけsurvival・normal・hardcore無効のworldを作成します。座標表示は起動後の
+gamerule確認を含む受入試験が完了するまで、実接続の完了条件とは扱いません。
 
 ## Phase 3: 簡単なMinecraft内作業
 

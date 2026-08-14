@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward:local
+    image: voxelsteward:local
     command: ["node", "dist/src/scheduled-runtime.js"]
     init: true
     restart: "no"
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward:local
+    image: voxelsteward:local
     init: true
     restart: "no"
     read_only: true
@@ -78,7 +78,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward-smoke:local
+    image: voxelsteward-smoke:local
     command: ["node", "dist/src/smoke.js"]
     init: true
     restart: "no"
@@ -104,7 +104,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward:local
+    image: voxelsteward:local
     entrypoint: ["node", "dist/src/operator-task.js"]
     command: []
     init: true
@@ -127,7 +127,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward:local
+    image: voxelsteward:local
     entrypoint: ["node", "dist/src/operator-log.js"]
     command: []
     init: true
@@ -150,7 +150,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voxel-steward-block-placement-acceptance:local
+    image: voxelsteward-block-placement-acceptance:local
     command: ["node", "dist/src/block-placement-acceptance.js"]
     init: true
     restart: "no"

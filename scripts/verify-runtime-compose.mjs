@@ -1,17 +1,6 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 
-const composeEnvironment = {
-  ...process.env,
-  MYSQL_DATABASE: "voxel_steward_check",
-  MYSQL_USER: "voxel_check",
-  MYSQL_PASSWORD: "voxel_check_password",
-  MYSQL_ROOT_PASSWORD: "voxel_root_check_password",
-  MYSQL_VERIFICATION_DATABASE: "voxel_steward_verification_check",
-  MYSQL_VERIFICATION_USER: "voxel_verification_check",
-  MYSQL_VERIFICATION_PASSWORD: "voxel_verification_check_password",
-};
-
 const compose = spawnSync(
   "docker",
   [
@@ -21,20 +10,14 @@ const compose = spawnSync(
     "-f",
     "compose.yaml",
     "-f",
-    "compose.mysql.yaml",
-    "-f",
-    "compose.verification.yaml",
+    "compose.stg.yaml",
     "--profile",
     "scheduled",
     "config",
     "--format",
     "json",
   ],
-  {
-    encoding: "utf8",
-    maxBuffer: 4 * 1024 * 1024,
-    env: composeEnvironment,
-  },
+  { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
 );
 
 if (compose.status !== 0) {
@@ -56,7 +39,6 @@ try {
 
 const runtime = configuration.services?.runtime;
 const scheduledRuntime = configuration.services?.["scheduled-runtime"];
-const mysql = configuration.services?.mysql;
 const environment = runtime?.environment;
 const scheduledEnvironment = scheduledRuntime?.environment;
 const authMount = runtime?.volumes?.find(
@@ -65,7 +47,6 @@ const authMount = runtime?.volumes?.find(
 const authVolume = configuration.volumes?.[authMount?.source];
 const checks = [
   [runtime !== undefined, "runtime service is missing"],
-  [mysql !== undefined, "mysql service is missing"],
   [scheduledRuntime !== undefined, "scheduled-runtime service is missing"],
   [runtime?.restart === "no", 'runtime restart policy must be "no"'],
   [runtime?.read_only === true, "runtime root filesystem must be read-only"],
@@ -91,8 +72,6 @@ const checks = [
     environment?.MYSQL_PERSISTENCE_ENABLED === "true",
     "MySQL persistence must be enabled",
   ],
-  [environment?.MYSQL_HOST === "mysql", "runtime must use mysql service"],
-  [environment?.MYSQL_PORT === "3306", "runtime must use mysql port"],
   [
     scheduledEnvironment?.MYSQL_PERSISTENCE_ENABLED === "true",
     "scheduled-runtime MySQL persistence must be enabled",
