@@ -89,7 +89,7 @@ if (minecraftService === undefined || evaluationRuntime === undefined) {
 }
 if (
   !minecraftService.image.startsWith("itzg/minecraft-bedrock-server@sha256:") ||
-  minecraftService.environment?.VERSION !== "1.26.40" ||
+  minecraftService.environment?.VERSION !== "1.26.43.1" ||
   minecraftService.environment?.LEVEL_NAME !== "VoxelStewardLocal" ||
   minecraftService.environment?.GAMEMODE !== "survival" ||
   minecraftService.environment?.DIFFICULTY !== "normal" ||
