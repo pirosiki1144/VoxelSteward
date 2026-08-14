@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-const composeFiles = ["-f", "compose.yaml", "-f", "compose.dev.yaml"];
+const composeFiles = [
+  "-f",
+  "compose.yaml",
+  "-f",
+  "compose.mysql.yaml",
+  "-f",
+  "compose.dev.yaml",
+];
 const productionOverlay = readFileSync("compose.prod.yaml", "utf8");
 if (
   productionOverlay.includes("evaluation-minecraft") ||
@@ -19,7 +26,7 @@ const temporaryDirectory = mkdtempSync(join(tmpdir(), "voxelsteward-eval-"));
 const environmentFile = join(temporaryDirectory, "check.env");
 writeFileSync(
   environmentFile,
-  "BOT_ACCOUNT_ID=compose-check\nVOXEL_EVALUATION_ID=default\n",
+  "BOT_ACCOUNT_ID=compose-check\nVOXEL_EVALUATION_ID=default\nMYSQL_DATABASE=compose_check\nMYSQL_USER=compose_check\nMYSQL_PASSWORD=compose_check\nMYSQL_ROOT_PASSWORD=compose_check\n",
 );
 
 const render = (profile) =>

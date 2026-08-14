@@ -63,8 +63,8 @@ authority are in:
   update `.env.example` in the same task with the variable name, a safe empty
   value or non-secret default, and a concise human-readable comment.
 - Never place real passwords, tokens, webhook URLs, endpoints, account data, or
-  other secrets in `.env.example`. Keep `.env`, `.env.development`,
-  `.env.production`, and authentication caches outside Git.
+  other secrets in `.env.example`. Keep `.env`, `.env.dev`, `.env.stg`,
+  `.env.prod`, and authentication caches outside Git.
 - Treat `.env.example`, Compose overlays, runtime configuration parsers, and
   verification scripts as one configuration contract. Update all affected
   references together; do not leave a new setting documented only in source.
